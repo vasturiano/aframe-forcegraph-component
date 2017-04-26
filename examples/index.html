@@ -1,0 +1,41 @@
+<script src="//cdnjs.cloudflare.com/ajax/libs/aframe/0.5.0/aframe.min.js"></script>
+<script src="//unpkg.com/aframe-line-component/dist/aframe-line-component.min.js"></script>
+<script src="../dist/aframe-forcegraph-component.js"></script>
+
+<script src="//cdnjs.cloudflare.com/ajax/libs/qwest/4.4.5/qwest.min.js"></script>
+
+<a-scene>
+    <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E"></a-sphere>
+
+    <a-entity id="my-graph"></a-entity>
+</a-scene>
+
+
+<script>
+    // Color brewer paired set
+    const colors = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928'];
+
+    qwest.get('miserables.json').then((_, data) => {
+        // add color
+        data.nodes.forEach(node => {
+            node.color = parseInt(colors[node.group % colors.length].slice(1), 16);
+        });
+
+        document.getElementById('my-graph')
+                .setAttribute('forcegraph', [
+                    'cool-down-ticks: 200',
+                    'name-field: "id"',
+                    'nodes: ' + JSON.stringify(data.nodes),
+                    'links: ' + JSON.stringify(data.links.map(link => [link.source, link.target]))
+                ].join(', ')
+        );
+
+        console.log([
+                'cool-down-ticks: 200',
+                'name-field: "id"',
+                'nodes: ' + JSON.stringify(data.nodes),
+                'links: ' + JSON.stringify(data.links.map(link => [link.source, link.target]))
+            ].join(', ')
+        );
+    });
+</script>
