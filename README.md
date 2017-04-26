@@ -3,27 +3,34 @@
 [![Version](http://img.shields.io/npm/v/aframe-forcegraph-component.svg?style=flat-square)](https://npmjs.org/package/aframe-forcegraph-component)
 [![License](http://img.shields.io/npm/l/aframe-forcegraph-component.svg?style=flat-square)](https://npmjs.org/package/aframe-forcegraph-component)
 
-A 3D Force-Directed Graph component for A-Frame.
+A 3D Force-Directed Graph component for [A-Frame](https://aframe.io).
 
-For [A-Frame](https://aframe.io).
+<p align="center">
+     <img width="80%" src="http://gist.github.com/vasturiano/972ca4f3e8e074dacf14d7071aad8ef9/raw/preview.png"></a>
+</p>
+
+An A-Frame entity component to represent a graph data structure in a VR environment using a force-directed iterative layout.
+Uses [d3-force-3d](https://github.com/vasturiano/d3-force-3d) for the layout physics engine.
+
+See also the [standalone VR component version](https://github.com/vasturiano/3d-force-graph-vr).
 
 ### API
 
-| Property | Description | Default Value |
-| -------- | ----------- | ------------- |
-| json-url           |             |               |
-| node-rel-size      |             | 4              |
-| line-opacity       |             | 0.2              |
-| auto-color-by      |             | name              |
-| id-field           |             | id              |
-| val-field          |             | val              |
-| name-field         |             | name              |
-| color-field        |             | color              |
-| link-source-field  |             | source              |
-| link-target-field  |             | target              |
-| warmup-ticks       |             | 0              |
-| cooldown-ticks     |             | Infinity              |
-| cooldown-time      |             | 15000              |
+| Property           | Description                                                                                                                | Default Value |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| json-url           | URL of JSON file containing graph data. Should contain an object with two list properties: *nodes* and *links*             | -             |
+| node-rel-size      | Node sphere volume per val unit                                                                                            | 4             |
+| line-opacity       | Opacity of links                                                                                                           | 0.2           |
+| auto-color-by      | Node field to automatically group colors by (if the node doesn't already have a color property set)                        | name          |
+| id-field           | Node object field name referring to unique node id (used in link objects source/target)                                    | id            |
+| val-field          | Node object field name referring to node value (affects sphere volume)                                                     | val           |
+| name-field         | Node object field name referring to node name (shown in label)                                                             | name          |
+| color-field        | Node object field name referring to node value (affects sphere color)                                                      | color         |
+| link-source-field  | Link object field name referring to id of source node                                                                      | source        |
+| link-target-field  | Link object field name referring to id of target node                                                                      | target        |
+| warmup-ticks       | How many times to tick the force simulation engine at ignition before starting to render                                   | 0             |
+| cooldown-ticks     | How many times to tick the force simulation engine after rendering begins before stopping and freezing the engine          | Infinity      |
+| cooldown-time      | How much time (ms) to tick the force simulation engine for after rendering begins before stopping and freezing the engine  | 15000         |
 
 ### Installation
 
