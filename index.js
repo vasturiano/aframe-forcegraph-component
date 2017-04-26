@@ -6,6 +6,8 @@ if (typeof AFRAME === 'undefined') {
 
 // Extend d3 with force-3d functionality
 const d3 = require('lodash').assign(require('d3'), require('d3-force-3d'));
+
+// Include line-component
 require('aframe-line-component');
 
 /**
@@ -59,7 +61,7 @@ AFRAME.registerComponent('forcegraph', {
         elData = this.data,
         diff = AFRAME.utils.diff(elData, oldData);
 
-    if ('jsonUrl' in diff) {
+    if ('jsonUrl' in diff || 'colorField' in diff || 'autoColorBy' in diff || 'linkSourceField' in diff || 'linkTargetField' in diff) {
       // (Re-)load data
       d3.json(elData.jsonUrl, json => {
         // Color brewer paired set
