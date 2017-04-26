@@ -26,6 +26,15 @@ AFRAME.registerComponent('forcegraph', {
     },
 
     init() {
+        // Setup tooltip (attached to camera)
+        this.data.tooltipElem = d3.select('a-entity[camera], a-camera').append('a-text')
+            .attr('position', '0 -0.7 -1') // Aligned to canvas bottom
+            .attr('width', 2)
+            .attr('align', 'center')
+            .attr('color', 'lavender')
+            .attr('value', '');
+
+        // Add force-directed layout
         this.data.forceLayout = d3.forceSimulation()
             .numDimensions(3)
             .force('link', d3.forceLink().id(d => d.id))
@@ -82,12 +91,10 @@ AFRAME.registerComponent('forcegraph', {
                 .attr('color', d => '#' + (d.color || 0xffffaa).toString(16))
                 .attr('opacity', 0.75)
                 .on('mouseenter', d => {
-                    console.log('in', d);
-                    //elData.tooltipElem.attr('value', elData.nameAccessor(d) || '');
+                    elData.tooltipElem.attr('value', d[elData.nameField] || '');
                 })
                 .on('mouseleave', () => {
-                    console.log('out', d);
-                    //elData.tooltipElem.attr('value', '');
+                    elData.tooltipElem.attr('value', '');
                 })
         );
 
