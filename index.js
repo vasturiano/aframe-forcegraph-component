@@ -133,7 +133,7 @@ AFRAME.registerComponent('forcegraph', {
 
     let cntTicks = 0;
     const startTickTime = new Date();
-    elData.forceLayout.on("tick", layoutTick).restart();
+    elData.forceLayout.on('tick', layoutTick).restart();
 
     //
 
