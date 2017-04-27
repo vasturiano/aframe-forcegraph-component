@@ -18,10 +18,10 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 
 | Property           | Description                                                                                                                | Default Value |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| json-url           | URL of JSON file containing graph data. Should contain an object with two list properties: *nodes* and *links*             | -             |
+| json-url           | URL of JSON file containing graph data. Should contain an object with two list properties: *nodes* and *links*             |               |
 | node-rel-size      | Node sphere volume per val unit                                                                                            | 4             |
 | line-opacity       | Opacity of links                                                                                                           | 0.2           |
-| auto-color-by      | Node field to automatically group colors by (if the node doesn't already have a color property set)                        | name          |
+| auto-color-by      | Node field to automatically group colors by (if the node doesn't already have a color property set)                        |               |
 | id-field           | Node object field name referring to unique node id (used in link objects source/target)                                    | id            |
 | val-field          | Node object field name referring to node value (affects sphere volume)                                                     | val           |
 | name-field         | Node object field name referring to node name (shown in label)                                                             | name          |

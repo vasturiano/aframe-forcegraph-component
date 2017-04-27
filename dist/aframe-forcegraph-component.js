@@ -64,7 +64,7 @@
 	    jsonUrl: {type: 'string'},
 	    nodeRelSize: {type: 'number', default: 4}, // volume per val unit
 	    lineOpacity: {type: 'number', default: 0.2},
-	    autoColorBy: {type: 'string', default: 'name'}, // color nodes with the same field equally
+	    autoColorBy: {type: 'string', default: ''}, // color nodes with the same field equally
 	    idField: {type: 'string', default: 'id'},
 	    valField: {type: 'string', default: 'val'},
 	    nameField: {type: 'string', default: 'name'},
@@ -110,17 +110,27 @@
 	    if ('jsonUrl' in diff || 'colorField' in diff || 'autoColorBy' in diff || 'linkSourceField' in diff || 'linkTargetField' in diff) {
 	      // (Re-)load data
 	      d3.json(elData.jsonUrl, function(json) {
-	        // Color brewer paired set
-	        var colors = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928'];
 
-	        // add color
-	        json.nodes
-	            .filter(function(node) { return !node[elData.colorField] })
-	            .forEach(function(node) {
-	              node[elData.colorField] = parseInt(colors[node[elData.autoColorBy] % colors.length].slice(1), 16);
-	            });
+	        // auto add color
+	        if (elData.autoColorBy) {
+	            // Color brewer paired set
+	            var colors = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928'];
 
-	        // add links id
+	            var nodeGroups = {};
+	            json.nodes
+	                .filter(function(node) { return !node[elData.colorField]})
+	                .map(function(node) { return node[elData.autoColorBy] })
+	                .forEach(function(group) { nodeGroups[group] = null });
+	            Object.keys(nodeGroups).forEach(function(group, idx) { nodeGroups[group] = idx });
+
+	            json.nodes
+	              .filter(function(node) { return !node[elData.colorField] })
+	              .forEach(function(node) {
+	                node[elData.colorField] = parseInt(colors[nodeGroups[node[elData.autoColorBy]] % colors.length].slice(1), 16);
+	              });
+	        }
+
+	        // parse links
 	        json.links.forEach(function(link) {
 	          link.source = link[elData.linkSourceField];
 	          link.target = link[elData.linkTargetField];
