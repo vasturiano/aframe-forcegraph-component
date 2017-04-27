@@ -26,27 +26,22 @@
 
 	<a-forcegraph 
 		jsonUrl="#sampledata"
-		width="3"
+		width="8"
 		valField="value"
 		nodeRelSize="1"
-		nodeMaxSize="0.5"
+		showLabels="true"
 		varyLineOpacity="true";
-		nodeColor="#f5e"
+		nodeColor="rgb(100,22,184)"
 		nodeOpacity="0.75"
 		lineColor="#fff"
-		defaultNodeColor="rgb(255,128,0)"
-		labelColor="rgb(0,100,0)"
+		nodeMaxSize="0.5"
+		labelColor="#555"
 		></a-forcegraph>
-
-		<!--
-				nodeSpriteSrc="disc.png"
--->
-
-	<a-box color="tomato" depth="1" height="1" width="1" wireframe="true" position="0.5 0.5 0.5" ></a-box>
+		
+		<!--nodeSpriteSrc="disc.png" -->
 		
 	
-	<a-entity id="camera1" camera="" look-controls wasd-controls="fly:true" touch-controls position="0 2  6" >
-	</a-entity>
+	<a-entity id="camera1" camera="" look-controls wasd-controls="fly:true" touch-controls position="0 2  6" ></a-entity>
 
 	
 </a-scene>
