@@ -53,27 +53,51 @@
 	// Extend d3 with force-3d functionality
 	var d3 = __webpack_require__(1).assign(__webpack_require__(3), __webpack_require__(4));
 
-	// Include line-component
+	// Include sprite and line-components
 	__webpack_require__(11);
+	__webpack_require__(12);
 
 	/**
 	 * 3D Force-Directed Graph component for A-Frame.
 	 */
 	AFRAME.registerComponent('forcegraph', {
 	  schema: {
-	    jsonUrl: {type: 'string'},
-	    nodeRelSize: {type: 'number', default: 4}, // volume per val unit
-	    lineOpacity: {type: 'number', default: 0.2},
-	    autoColorBy: {type: 'string', default: ''}, // color nodes with the same field equally
+		// Basic data
+	    jsonUrl: {type: 'asset'},
+		width: 			{ type: 'number', default: 1 },
+		height:			{ type: 'number', default: null }, // Auto-set to the same as width, if user does not specify otherwise
+		depth:			{ type: 'number', default: null },
+		
+		// Network structure
 	    idField: {type: 'string', default: 'id'},
 	    valField: {type: 'string', default: 'val'},
 	    nameField: {type: 'string', default: 'name'},
-	    colorField: {type: 'string', default: 'color'},
 	    linkSourceField: {type: 'string', default: 'source'},
 	    linkTargetField: {type: 'string', default: 'target'},
-	    warmupTicks: {type: 'int', default: 0}, // how many times to tick the force engine at init before starting to render
+		
+		// Node rendering
+	    nodeRelSize: {type: 'number', default: 4}, // volume per val unit
+		nodeMinSize: 	{ type: 'number', default: 0.1 },
+		nodeMaxSize: 	{ type: 'number', default: 1 },
+	    autoColorBy: {type: 'string', default: ''}, // color nodes with the same field equally
+	    colorField: {type: 'string', default: 'color'},
+		nodeColor: { type:'color', default: '#ffffaa' },
+		nodeOpacity: { type:'number', default: 0.75 },
+		nodeSpriteSrc: { type:'asset', default: null },
+		nodeSpriteResize: { type:'vec3', default: [1,1,1] },
+		
+		labelColor: { type:'color', default: '#ffffaa' },
+		labelScaleFactor: { type:'number', default: 0.5 },
+		
+		// Link rendering
+	    lineOpacity: {type: 'number', default: null}, // Default is actually 0.2 (see below where the links are actually drawn) but we set to null here so we can detect if the user has specified a value
+		varyLineOpacity: {type: 'boolean',default:false},
+		lineColor: {type: 'color', default:'#f0f0f0'},
+		
+		// Force layout control
+	    warmupTicks: {type: 'int', default: 5}, // how many times to tick the force engine at init before starting to render
 	    cooldownTicks: {type: 'int', default: Infinity},
-	    cooldownTime: {type: 'int', default: 15000} // ms
+	    cooldownTime: {type: 'int', default: (AFRAME.utils.device.isMobile() ?  2500 : 15000)} // ms
 	  },
 
 	  init: function () {
@@ -93,6 +117,9 @@
 	        .force('center', d3.forceCenter())
 	        .stop();
 
+		this.data.height = this.data.height || this.data.width;
+		this.data.depth = this.data.depth || this.data.width;
+		
 	    this.data.nodes = [];
 	    this.data.links = [];
 	  },
@@ -142,31 +169,75 @@
 
 	        comp.update(elData);  // Force re-update
 	      });
-	    }
+	    } // Parsed the JSON 
 
+
+	    // Feed data to force-directed layout
+		// We need to do this early so we can get initial x/y/z coords for the nodes
+	    elData.forceLayout
+	        .stop()
+	        .alpha(1)// re-heat the simulation
+	        .nodes(elData.nodes)
+	        .force('link')
+	            .id(function(d) { return d[elData.idField] })
+	            .links(elData.links);
+				
+		// Calc min/max stats and prepare scaling functions to scale graph coordinates into AFrame world
+		var stats = calcStats(elData);
+
+		
 	    // Add children entities
 	    var d3El = d3.select(this.el);
-	    var d3Nodes = d3El.selectAll('a-sphere.node')
+		
+		var useSprite = elData.nodeSpriteSrc;
+		
+	    var d3Nodes = d3El.selectAll(useSprite ?'a-sprite.node' : 'a-sphere.node')
 	        .data(elData.nodes, function(d) { return d[elData.idField] });
-
 	    d3Nodes.exit().remove();
 
-	    d3Nodes = d3Nodes.merge(
-	        d3Nodes.enter()
-	            .append('a-sphere')
-	            .classed('node', true)
-	            .attr('segments-width', 8)	// Lower geometry resolution to improve perf
-	            .attr('segments-height', 8)
-	            .attr('radius', function(d) { return Math.cbrt(d[elData.valField] || 1) * elData.nodeRelSize })
-	            .attr('color', function(d) {return '#' + (d[elData.colorField] || 0xffffaa).toString(16) })
-	            .attr('opacity', 0.75)
-	            .on('mouseenter', function(d) {
-	              elData.tooltipEl.attr('value', d[elData.nameField] || '');
-	            })
-	            .on('mouseleave', function() {
-	              elData.tooltipEl.attr('value', '');
-	            })
-	    );
+		if (useSprite) {
+			d3Nodes = d3Nodes.merge(
+				d3Nodes.enter()
+					.append('a-entity')
+					.classed('node', true)
+					.attr('sprite', function(d){ return 'src: ' + elData.nodeSpriteSrc + '; resize: ' + 
+					AFRAME.utils.coordinates.stringify({x: elData.nodeSpriteResize.x * stats.scaleNodeValue(d[elData.valField]),
+					y: elData.nodeSpriteResize.x * stats.scaleNodeValue(d[elData.valField]),
+					z: elData.nodeSpriteResize.x})})
+					
+			);
+			
+		} else { // Use sphere 
+			d3Nodes = d3Nodes.merge(
+				d3Nodes.enter()
+					.append('a-sphere')
+					.classed('node', true)
+					.attr('segments-width', AFRAME.utils.device.isMobile () ? 3 : 8)	// Lower geometry resolution to improve perf
+					.attr('segments-height', AFRAME.utils.device.isMobile () ? 3 : 8)
+					.attr('radius', function(d) {return stats.scaleNodeValue(d[elData.valField])})
+					.attr('color', function(d) {return d[elData.colorField] ? ('#' + d[elData.colorField]).toString(16) : elData.nodeColor })
+					.attr('opacity', elData.nodeOpacity)
+					.on('mouseenter', function(d) {
+					  elData.tooltipEl.attr('value', d[elData.nameField] || '');
+					})
+					.on('mouseleave', function() {
+					  elData.tooltipEl.attr('value', '');
+					})
+			);
+		} // render nodes as sprite or sphere
+		
+		// Shall we construct node labels?
+		var d3Nodelabels = null;
+		if (elData.nodes[0] && elData.nodes[0][elData.nameField]) {
+			d3Nodelabels = d3El.selectAll('a-entity.nodelabel').data(elData.nodes, function(d) {"label_" +d[elData.idField]});
+			d3Nodelabels.exit().remove();
+			d3Nodelabels = d3Nodelabels.merge(
+				d3Nodelabels.enter()
+					.append('a-entity')
+					.classed('nodelabel', true)
+
+			);
+		}
 
 	    var d3Links = d3El.selectAll('a-entity.link')
 	        .data(elData.links, function(d) { return d.id });
@@ -177,39 +248,162 @@
 	        d3Links.enter()
 	            .append('a-entity')
 	            .classed('link', true)
-	            .attr('line', 'color: #f0f0f0; opacity: ' + elData.lineOpacity)
+
 	    );
 
-	    // Feed data to force-directed layout
-	    elData.forceLayout
-	        .stop()
-	        .alpha(1)// re-heat the simulation
-	        .nodes(elData.nodes)
-	        .force('link')
-	            .id(function(d) { return d[elData.idField] })
-	            .links(elData.links);
 
-	    for (var i=0; i<elData.warmupTicks; i++) { elData.forceLayout.tick(); } // Initial ticks before starting to render
+		// Initial ticks before starting to render
+	    for (var i=0; i<elData.warmupTicks; i++) { elData.forceLayout.tick(); } 
+		
+		// Refresh min/max values after the warmup ticks. Now the nodes are closer to their final resting position, so it is good to recalculate scaling here.
+		stats = calcStats(elData);
 
+		
 	    var cntTicks = 0;
 	    var startTickTime = new Date();
+		
+		// Run the simulation
 	    elData.forceLayout.on('tick', layoutTick).restart();
 
-	    //
 
 	    function layoutTick() {
-	      if (cntTicks++ > elData.cooldownTicks || (new Date()) - startTickTime > elData.cooldownTime) {
-	        elData.forceLayout.stop(); // Stop ticking graph
-	      }
+			
+			if (cntTicks++ > elData.cooldownTicks || (new Date()) - startTickTime > elData.cooldownTime) {
+			elData.forceLayout.stop(); // Stop ticking graph
+			}
 
-	      // Update nodes position
-	      d3Nodes.attr('position', function(d) { return [d.x, d.y || 0, d.z || 0].join(' ') });
+			// Update nodes position
+			d3Nodes.attr('position', function(d) { return [stats.scaleX(d.x), stats.scaleY(d.y) || 0, stats.scaleZ(d.z) || 0].join(' ') });
+		  
+			if (d3Nodelabels) {
+				var yOffsetFactor = useSprite? 0.8 : 1.45; 
+				d3Nodelabels.attr('text', function(d) { "value:" + d[elData.nameField] + "; side:double; color:" + elData.labelColor +" ; align:center"})
+						.attr('position', function(d) { [stats.scaleX(d.x), (stats.scaleY(d.y)-yOffsetFactor*stats.scaleNodeValue(d[elData.valField]) ) || 0, stats.scaleZ(d.z) || 0].join(" ")}) // Move the label down 150% of the radius away from the center of the sphere
+						.attr('scale', function (d) { [elData.width * elData.labelScaleFactor + (3*(stats.scaleNodeV01(d[elData.valField]))) , elData.height * elData.labelScaleFactor +(3*(stats.scaleNodeV01(d[elData.valField]))) , 1].join(" ")})
+			}	  
 
-	      //Update links position
-	      d3Links.attr('line', function(d) { return ['start:', d.source.x, d.source.y || 0, d.source.z || 0, ';', 'end:', d.target.x, d.target.y || 0, d.target.z || 0].join(' ') });
+			//Update links position
+			d3Links.attr('line', function(d) { 
+				var opa = (elData.varyLineOpacity ? 
+								(elData.lineOpacity  || (((AFRAME.utils.device.isMobile()?0.05:0) + stats.scaleLinkValue(d[elData.valField])) || 0.2))
+								:
+								(elData.lineOpacity || 0.2)) ;
+				var st = [stats.scaleX(d.source.x), stats.scaleY(d.source.y || 0), stats.scaleZ(d.source.z || 0)].join(' ');
+				var en = [stats.scaleX(d.target.x), stats.scaleY(d.target.y || 0), stats.scaleZ(d.target.z || 0)].join(' ');
+				return 'opacity:' + opa + '; color:' + elData.lineColor + '; start:' + st + '; end:' + en;
+			});
 	    }
 	  }
 	});
+
+
+
+	function calcStats(data){
+		// Find min and max values for all axes
+		var stats = {};
+
+		// It seems this function is called once, somehow, one time while data.links.length==0. Then gets called again a moment later when data.links.length>0
+		if (!data || !data.links || !data.nodes || data.links.length==0 || data.nodes.length==0){
+			//console.warn("No links/nodes defined?!");
+			return null;
+		}
+		
+		stats.minX = d3.min(data.nodes, function (d) { d.x });
+		stats.minY = d3.min(data.nodes, function (d) { d.y });
+		stats.minZ = d3.min(data.nodes, function (d) { d.z });
+		stats.maxX = d3.max(data.nodes, function (d) { d.x });
+		stats.maxY = d3.max(data.nodes, function (d) { d.y });
+		stats.maxZ = d3.max(data.nodes, function (d) { d.z });
+		
+		
+		if (data.links[0][data.valField]) {
+			stats.linkMinVal  = d3.min(data.links, function(d){ d[data.valField]});
+			stats.linkMaxVal  = d3.max(data.links, function(d){ d[data.valField]});
+			stats.scaleLinkValue = d3.scaleLinear().domain([stats.linkMinVal, stats.linkMaxVal]).range([0.05, 1]);
+			
+		} else {
+			stats.linkMinVal  = 0
+			stats.linkMaxVal  = 1;
+			stats.scaleLinkValue = function() {null};
+		}
+		
+		if (data.nodes[0][data.valField]) {
+			stats.minV = d3.min(data.nodes, function(d){ d[data.valField]});
+			stats.maxV = d3.max(data.nodes, function(d){ d[data.valField]});
+			
+			var maxSize = data.nodeMaxSize || stats.maxX * data.nodeRelSize;
+			var minSize = Math.min(maxSize, data.nodeMinSize || (stats.minX * data.nodeRelSize));
+			
+			stats.scaleNodeValueD3 = d3.scaleLinear().domain([stats.minV, stats.maxV]).range([minSize, maxSize]);
+			stats.scaleNodeValue = function(v){ return  isFinite(v) ? stats.scaleNodeValueD3(v) : minSize; };
+			stats.scaleNodeV01D3 = d3.scaleLinear().domain([stats.minV, stats.maxV]).range([0,1])
+			stats.scaleNodeV01 = function(v){ return  isFinite(v) ? stats.scaleNodeV01D3(v) : 1; };
+		} else {
+		
+			stats.scaleNodeValueD3 = function() { data.width / 2 / 20 * data.nodeRelSize }; // Default = 0.25
+			stats.scaleNodeValue = function() { data.width / 2 / 20 * data.nodeRelSize}; // Default = 0.25
+			stats.scaleNodeV01 = function() { 1 };
+		}
+		
+		// Functions to re-scale d3 chart coordinates into the AFrame object bounding box, centered at the entity position
+		stats.scaleX = d3.scaleLinear().domain([stats.minX, stats.maxX]).range([-data.width/2, data.width/2])
+		stats.scaleY = d3.scaleLinear().domain([stats.minY, stats.maxY]).range([-data.height/2, data.height/2])
+		stats.scaleZ = d3.scaleLinear().domain([stats.minZ, stats.maxZ]).range([-data.depth/2, data.depth/2])
+
+		return stats;
+	} // end calcStats()
+
+
+
+	/*
+	 This just let users write a a nice <a-forcegraph src="mydata.json"></a-forcegraph>" AFrame component. They can also use the classic <a-entity forcegraph="src:mydata.json"></a-entity>" style.
+	 */
+	AFRAME.registerPrimitive('a-forcegraph', {
+		defaultComponents: {
+			forcegraph: {}
+		},
+		mappings: {
+			// Basic data
+			jsonurl: 		'forcegraph.jsonUrl',
+			width: 			'forcegraph.width',
+			height: 		'forcegraph.height',
+			depth: 			'forcegraph.depth',
+			
+			// Link rendering
+			lineopacity:	'forcegraph.lineOpacity',
+			varylineopacity:'forcegraph.varyLineOpacity',
+			linecolor:		'forcegraph.lineColor',
+			
+			// Network structure
+			idfield:	 	'forcegraph.idField',
+			valfield:	 	'forcegraph.valField',
+			namefield: 		'forcegraph.nameField',
+			linksourcefield: 	'forcegraph.linkSourceField',
+			linktargetfield: 	'forcegraph.linkTargetField',
+			
+			// Node rendering
+			noderelsize:	'forcegraph.nodeRelSize',
+			nodeminsize:	'forcegraph.nodeMinSize',
+			nodemaxsize:	'forcegraph.nodeMaxSize',
+			nodespritesrc:	'forcegraph.nodeSpriteSrc',
+			nodespriteresize:'forcegraph.nodeSpriteResize',
+			colorfield: 	'forcegraph.colorField',
+			autocolorby: 	'forcegraph.autoColorBy',
+			nodecolor:      'forcegraph.nodeColor',
+			nodeopacity:      'forcegraph.nodeOpacity',
+			
+			labelcolor:		'forcegraph.labelColor',
+			labelscalefactor:'forcegraph.labelScaleFactor',
+			
+			// Force layout control
+			warmupticks: 	'forcegraph.warmUpTicks',
+			cooldownticks:	'forcegraph.cooldownTicks',
+			cooldowntime: 	'forcegraph.cooldownTime'
+			
+			
+		}
+	})
+
 
 
 /***/ }),
@@ -36564,6 +36758,65 @@
 
 /***/ }),
 /* 11 */
+/***/ (function(module, exports) {
+
+	AFRAME.registerComponent('sprite', {
+	    
+	    schema: {
+	        src: {
+	            default: ''
+	        },
+	        resize:{
+	            default: '1 1 1'
+	        }
+	    },
+
+
+	    init: function()
+	    {
+	        this.textureLoader = new THREE.TextureLoader();
+	    },
+
+
+	    play: function()
+	    {
+	        console.log( this.data.src );
+
+	        this.map = this.textureLoader.load(this.data.src);
+
+	        this.material = new THREE.SpriteMaterial({
+	            map: this.map
+	        });
+
+	        this.sprite = new THREE.Sprite(this.material);
+
+	        resizeData = this.data.resize.split(' ');
+	        this.sprite.scale.set( resizeData[0], resizeData[1], resizeData[2] );
+
+	        this.el.setObject3D('mesh', this.sprite);
+	    },
+
+
+	    remove: function() {
+	        console.log('remove sprite');
+	        if (this.mesh) this.el.removeObject3D('mesh');
+	    }
+
+	});
+
+	AFRAME.registerPrimitive('a-sprite', {
+	    defaultComponents: {
+	        sprite: {}
+	    },
+	    mappings: {
+	        src: 'sprite.src',
+	        resize: 'sprite.resize'
+	    }
+	});
+
+
+/***/ }),
+/* 12 */
 /***/ (function(module, exports) {
 
 	/* global AFRAME */

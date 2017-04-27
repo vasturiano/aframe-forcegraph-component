@@ -154,10 +154,10 @@ AFRAME.registerComponent('forcegraph', {
 			d3Nodes.enter()
 				.append('a-entity')
 				.classed('node', true)
-				.attr('sprite', d => 'src: ' + elData.nodeSpriteSrc + '; resize: ' + 
+				.attr('sprite', function(d){ return 'src: ' + elData.nodeSpriteSrc + '; resize: ' + 
 				AFRAME.utils.coordinates.stringify({x: elData.nodeSpriteResize.x * stats.scaleNodeValue(d[elData.valField]),
 				y: elData.nodeSpriteResize.x * stats.scaleNodeValue(d[elData.valField]),
-				z: elData.nodeSpriteResize.x}))
+				z: elData.nodeSpriteResize.x})})
 				
 		);
 		
@@ -168,7 +168,7 @@ AFRAME.registerComponent('forcegraph', {
 				.classed('node', true)
 				.attr('segments-width', AFRAME.utils.device.isMobile () ? 3 : 8)	// Lower geometry resolution to improve perf
 				.attr('segments-height', AFRAME.utils.device.isMobile () ? 3 : 8)
-				.attr('radius', d => stats.scaleNodeValue(d[elData.valField]))
+				.attr('radius', function(d) {return stats.scaleNodeValue(d[elData.valField])})
 				.attr('color', function(d) {return d[elData.colorField] ? ('#' + d[elData.colorField]).toString(16) : elData.nodeColor })
 				.attr('opacity', elData.nodeOpacity)
 				.on('mouseenter', function(d) {
@@ -183,7 +183,7 @@ AFRAME.registerComponent('forcegraph', {
 	// Shall we construct node labels?
 	var d3Nodelabels = null;
 	if (elData.nodes[0] && elData.nodes[0][elData.nameField]) {
-		d3Nodelabels = d3El.selectAll('a-entity.nodelabel').data(elData.nodes, d=> {"label_" +d[elData.idField]});
+		d3Nodelabels = d3El.selectAll('a-entity.nodelabel').data(elData.nodes, function(d) {"label_" +d[elData.idField]});
 		d3Nodelabels.exit().remove();
 		d3Nodelabels = d3Nodelabels.merge(
 			d3Nodelabels.enter()
@@ -202,7 +202,6 @@ AFRAME.registerComponent('forcegraph', {
         d3Links.enter()
             .append('a-entity')
             .classed('link', true)
-			//.attr('line',  d => "color:#f0f0f0; " )
 
     );
 
@@ -232,9 +231,9 @@ AFRAME.registerComponent('forcegraph', {
 	  
 		if (d3Nodelabels) {
 			var yOffsetFactor = useSprite? 0.8 : 1.45; 
-			d3Nodelabels.attr('text', d => "value:" + d[elData.nameField] + "; side:double; color:" + elData.labelColor +" ; align:center")
-					.attr('position', d => [stats.scaleX(d.x), (stats.scaleY(d.y)-yOffsetFactor*stats.scaleNodeValue(d[elData.valField]) ) || 0, stats.scaleZ(d.z) || 0].join(" ")) // Move the label down 150% of the radius away from the center of the sphere
-					.attr('scale', d => [elData.width * elData.labelScaleFactor + (3*(stats.scaleNodeV01(d[elData.valField]))) , elData.height * elData.labelScaleFactor +(3*(stats.scaleNodeV01(d[elData.valField]))) , 1].join(" "))
+			d3Nodelabels.attr('text', function(d) { "value:" + d[elData.nameField] + "; side:double; color:" + elData.labelColor +" ; align:center"})
+					.attr('position', function(d) { [stats.scaleX(d.x), (stats.scaleY(d.y)-yOffsetFactor*stats.scaleNodeValue(d[elData.valField]) ) || 0, stats.scaleZ(d.z) || 0].join(" ")}) // Move the label down 150% of the radius away from the center of the sphere
+					.attr('scale', function (d) { [elData.width * elData.labelScaleFactor + (3*(stats.scaleNodeV01(d[elData.valField]))) , elData.height * elData.labelScaleFactor +(3*(stats.scaleNodeV01(d[elData.valField]))) , 1].join(" ")})
 		}	  
 
 		//Update links position
@@ -245,7 +244,7 @@ AFRAME.registerComponent('forcegraph', {
 							(elData.lineOpacity || 0.2)) ;
 			var st = [stats.scaleX(d.source.x), stats.scaleY(d.source.y || 0), stats.scaleZ(d.source.z || 0)].join(' ');
 			var en = [stats.scaleX(d.target.x), stats.scaleY(d.target.y || 0), stats.scaleZ(d.target.z || 0)].join(' ');
-			return `opacity:${opa}; color:${elData.lineColor}; start:${st}; end:${en}`;
+			return 'opacity:' + opa + '; color:' + elData.lineColor + '; start:' + st + '; end:' + en;
 		});
     }
   }
@@ -263,28 +262,28 @@ function calcStats(data){
 		return null;
 	}
 	
-	stats.minX = d3.min(data.nodes, d => d.x);
-	stats.minY = d3.min(data.nodes, d => d.y);
-	stats.minZ = d3.min(data.nodes, d => d.z);
-	stats.maxX = d3.max(data.nodes, d => d.x);
-	stats.maxY = d3.max(data.nodes, d => d.y);
-	stats.maxZ = d3.max(data.nodes, d => d.z);
+	stats.minX = d3.min(data.nodes, function (d) { d.x });
+	stats.minY = d3.min(data.nodes, function (d) { d.y });
+	stats.minZ = d3.min(data.nodes, function (d) { d.z });
+	stats.maxX = d3.max(data.nodes, function (d) { d.x });
+	stats.maxY = d3.max(data.nodes, function (d) { d.y });
+	stats.maxZ = d3.max(data.nodes, function (d) { d.z });
 	
 	
 	if (data.links[0][data.valField]) {
-		stats.linkMinVal  = d3.min(data.links, d => d[data.valField]);
-		stats.linkMaxVal  = d3.max(data.links, d => d[data.valField]);
+		stats.linkMinVal  = d3.min(data.links, function(d){ d[data.valField]});
+		stats.linkMaxVal  = d3.max(data.links, function(d){ d[data.valField]});
 		stats.scaleLinkValue = d3.scaleLinear().domain([stats.linkMinVal, stats.linkMaxVal]).range([0.05, 1]);
 		
 	} else {
 		stats.linkMinVal  = 0
 		stats.linkMaxVal  = 1;
-		stats.scaleLinkValue = xxx =>  null;
+		stats.scaleLinkValue = function() {null};
 	}
 	
 	if (data.nodes[0][data.valField]) {
-		stats.minV = d3.min(data.nodes, d => d[data.valField]);
-		stats.maxV = d3.max(data.nodes, d => d[data.valField]);
+		stats.minV = d3.min(data.nodes, function(d){ d[data.valField]});
+		stats.maxV = d3.max(data.nodes, function(d){ d[data.valField]});
 		
 		var maxSize = data.nodeMaxSize || stats.maxX * data.nodeRelSize;
 		var minSize = Math.min(maxSize, data.nodeMinSize || (stats.minX * data.nodeRelSize));
@@ -295,9 +294,9 @@ function calcStats(data){
 		stats.scaleNodeV01 = function(v){ return  isFinite(v) ? stats.scaleNodeV01D3(v) : 1; };
 	} else {
 	
-		stats.scaleNodeValueD3 = xxx =>  data.width / 2 / 20 * data.nodeRelSize; // Default = 0.25
-		stats.scaleNodeValue = xxx =>  data.width / 2 / 20 * data.nodeRelSize; // Default = 0.25
-		stats.scaleNodeV01 = xxx => 1;
+		stats.scaleNodeValueD3 = function() { data.width / 2 / 20 * data.nodeRelSize }; // Default = 0.25
+		stats.scaleNodeValue = function() { data.width / 2 / 20 * data.nodeRelSize}; // Default = 0.25
+		stats.scaleNodeV01 = function() { 1 };
 	}
 	
 	// Functions to re-scale d3 chart coordinates into the AFrame object bounding box, centered at the entity position

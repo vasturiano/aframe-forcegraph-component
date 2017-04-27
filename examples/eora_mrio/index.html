@@ -1,0 +1,55 @@
+
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>My A-Frame Scene</title>
+  <script src="//aframe.io/releases/0.5.0/aframe.min.js"></script> 
+  <script src="//cdn.rawgit.com/donmccurdy/aframe-extras/v3.7.0/dist/aframe-extras.controls.min.js"></script>  <script src="//d3js.org/d3.v4.min.js"></script>
+
+  
+ <script src="https://raw.githubusercontent.com/morandd/aframe-forcegraph-component/master/dist/aframe-forcegraph-component.min.js"></script>
+ 
+  
+
+</head>
+ 
+<body>
+<a-scene >
+
+
+      <a-assets>
+		<a-asset-item id="sampledata" src="mrio2.json"></a-asset-item>
+	  </a-assets>
+
+	<a-sky color="rgb(155,155,155)"></a-sky>
+
+
+	<a-forcegraph 
+		jsonUrl="#sampledata"
+		width="3"
+		valField="value"
+		nodeRelSize="1"
+		nodeMaxSize="0.5"
+		varyLineOpacity="true";
+		nodeColor="#f5e"
+		nodeOpacity="0.75"
+		lineColor="#fff"
+		defaultNodeColor="rgb(255,128,0)"
+		labelColor="rgb(0,100,0)"
+		></a-forcegraph>
+
+		<!--
+				nodeSpriteSrc="disc.png"
+-->
+
+	<a-box color="tomato" depth="1" height="1" width="1" wireframe="true" position="0.5 0.5 0.5" ></a-box>
+		
+	
+	<a-entity id="camera1" camera="" look-controls wasd-controls="fly:true" touch-controls position="0 2  6" >
+	</a-entity>
+
+	
+</a-scene>
+
+</html>
+
