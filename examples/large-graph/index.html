@@ -1,64 +1,19 @@
 <html>
   <head>
-    <title>A-Frame 3D Force-Directed Graph Component</title>
-    <meta name="description" content="A 3D Force-Directed Graph component for A-Frame."></meta>
-    <style>
-      html {
-        background: #33425B;
-        color: #FAFAFA;
-        font-family: monospace;
-        font-size: 20px;
-        padding: 10px 20px;
-      }
-      h1 {
-        font-weight: 300;
-      }
-      a {
-        color: #FAFAFA;
-        display: block;
-        padding: 15px 0;
-      }
-      img {
-        max-width: 320px;
-      }
-      ul {
-        display: flex;
-        list-style: none;
-        flex-wrap: wrap;
-        padding: 5px 0 0;
-      }
-      ul li {
-        margin-right: 30px;
-        padding: 5px 0 30px;
-      }
-      ul a {
-        background-size: cover;
-        display: block;
-        padding: 0;
-        height: 320px;
-        width: 320px;
-      }
-      ul h3,
-      ul p {
-        max-width: 320px;
-      }
-    </style>
+    <title>A-Frame 3D Force-Directed Graph Component - Large graph</title>
+    <meta name="description" content="Large graph example for 3D Force-Directed Graph component."></meta>
+    <script src="https://aframe.io/releases/0.5.0/aframe.min.js"></script>
+    <script src="../../dist/aframe-forcegraph-component.js"></script>
   </head>
   <body>
-    <h1>A-Frame 3D Force-Directed Graph Component</h1>
+    <a-scene stats>
+      <a-camera>
+        <a-cursor color="lavender" opacity="0.5"></a-cursor>
+      </a-camera>
+      <a-sky color="#002"></a-sky>
 
-    <ul>
-      <li>
-        <a href="examples/basic/" style="background-image: url(examples/basic/preview.png)"></a>
-        <h3>Basic</h3>
-        <p>This is a basic example.</p>
-      </li>
-      <li>
-        <a href="examples/large-graph/" style="background-image: url(examples/large-graph/preview.png)"></a>
-        <h3>Larger graph</h3>
-        <p>This shows a larger graph.</p>
-      </li>
-    </ul>
+      <a-entity forcegraph="json-url: blocks.json; name-field: description; auto-color-by: user"></a-entity>
+    </a-scene>
 
     <!-- GitHub Corner. -->
     <a href="https://github.com/vasturiano/aframe-forcegraph-component" class="github-corner">
@@ -67,6 +22,6 @@
       </svg>
     </a>
     <style>.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out}@keyframes octocat-wave{0%,100%{transform:rotate(0)}20%,60%{transform:rotate(-25deg)}40%,80%{transform:rotate(10deg)}}@media (max-width:500px){.github-corner:hover .octo-arm{animation:none}.github-corner .octo-arm{animation:octocat-wave 560ms ease-in-out}}
-    </style>
+    <!-- End GitHub Corner. -->
   </body>
 </html>
