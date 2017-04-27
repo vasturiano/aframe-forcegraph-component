@@ -5,7 +5,7 @@ if (typeof AFRAME === 'undefined') {
 }
 
 // Extend d3 with force-3d functionality
-const d3 = require('lodash').assign(require('d3'), require('d3-force-3d'));
+var d3 = require('lodash').assign(require('d3'), require('d3-force-3d'));
 
 // Include line-component
 require('aframe-line-component');
@@ -57,23 +57,25 @@ AFRAME.registerComponent('forcegraph', {
   },
 
   update: function (oldData) {
-    const comp = this,
+    var comp = this,
         elData = this.data,
         diff = AFRAME.utils.diff(elData, oldData);
 
     if ('jsonUrl' in diff || 'colorField' in diff || 'autoColorBy' in diff || 'linkSourceField' in diff || 'linkTargetField' in diff) {
       // (Re-)load data
-      d3.json(elData.jsonUrl, json => {
+      d3.json(elData.jsonUrl, function(json) {
         // Color brewer paired set
-        const colors = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928'];
+        var colors = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928'];
 
         // add color
-        json.nodes.filter(node => !node[elData.colorField]).forEach(node => {
-          node[elData.colorField] = parseInt(colors[node[elData.autoColorBy] % colors.length].slice(1), 16);
-        });
+        json.nodes
+            .filter(function(node) { return !node[elData.colorField] })
+            .forEach(function(node) {
+              node[elData.colorField] = parseInt(colors[node[elData.autoColorBy] % colors.length].slice(1), 16);
+            });
 
         // add links id
-        json.links.forEach(link => {
+        json.links.forEach(function(link) {
           link.source = link[elData.linkSourceField];
           link.target = link[elData.linkTargetField];
           link.id = [link.source, link.target].join(' > ');
@@ -87,9 +89,9 @@ AFRAME.registerComponent('forcegraph', {
     }
 
     // Add children entities
-    const d3El = d3.select(this.el);
-    let d3Nodes = d3El.selectAll('a-sphere.node')
-        .data(elData.nodes, d => d[elData.idField]);
+    var d3El = d3.select(this.el);
+    var d3Nodes = d3El.selectAll('a-sphere.node')
+        .data(elData.nodes, function(d) { return d[elData.idField] });
 
     d3Nodes.exit().remove();
 
@@ -99,19 +101,19 @@ AFRAME.registerComponent('forcegraph', {
             .classed('node', true)
             .attr('segments-width', 8)	// Lower geometry resolution to improve perf
             .attr('segments-height', 8)
-            .attr('radius', d => Math.cbrt(d[elData.valField] || 1) * elData.nodeRelSize)
-            .attr('color', d => '#' + (d[elData.colorField] || 0xffffaa).toString(16))
+            .attr('radius', function(d) { return Math.cbrt(d[elData.valField] || 1) * elData.nodeRelSize })
+            .attr('color', function(d) {return '#' + (d[elData.colorField] || 0xffffaa).toString(16) })
             .attr('opacity', 0.75)
-            .on('mouseenter', d => {
+            .on('mouseenter', function(d) {
               elData.tooltipEl.attr('value', d[elData.nameField] || '');
             })
-            .on('mouseleave', () => {
+            .on('mouseleave', function() {
               elData.tooltipEl.attr('value', '');
             })
     );
 
-    let d3Links = d3El.selectAll('a-entity.link')
-        .data(elData.links, d => d.id);
+    var d3Links = d3El.selectAll('a-entity.link')
+        .data(elData.links, function(d) { return d.id });
 
     d3Links.exit().remove();
 
@@ -119,7 +121,7 @@ AFRAME.registerComponent('forcegraph', {
         d3Links.enter()
             .append('a-entity')
             .classed('link', true)
-            .attr('line', `color: #f0f0f0; opacity: ${elData.lineOpacity}`)
+            .attr('line', 'color: #f0f0f0; opacity: ' + elData.lineOpacity)
     );
 
     // Feed data to force-directed layout
@@ -128,13 +130,13 @@ AFRAME.registerComponent('forcegraph', {
         .alpha(1)// re-heat the simulation
         .nodes(elData.nodes)
         .force('link')
-            .id(d => d[elData.idField])
+            .id(function(d) { return d[elData.idField] })
             .links(elData.links);
 
-    for (let i=0; i<elData.warmupTicks; i++) { elData.forceLayout.tick(); } // Initial ticks before starting to render
+    for (var i=0; i<elData.warmupTicks; i++) { elData.forceLayout.tick(); } // Initial ticks before starting to render
 
-    let cntTicks = 0;
-    const startTickTime = new Date();
+    var cntTicks = 0;
+    var startTickTime = new Date();
     elData.forceLayout.on('tick', layoutTick).restart();
 
     //
@@ -145,10 +147,10 @@ AFRAME.registerComponent('forcegraph', {
       }
 
       // Update nodes position
-      d3Nodes.attr('position', d => `${d.x} ${d.y || 0} ${d.z || 0}`);
+      d3Nodes.attr('position', function(d) { return [d.x, d.y || 0, d.z || 0].join(' ') });
 
       //Update links position
-      d3Links.attr('line', d => `start: ${d.source.x} ${d.source.y || 0} ${d.source.z || 0};  end: ${d.target.x} ${d.target.y || 0} ${d.target.z || 0}`);
+      d3Links.attr('line', function(d) { return ['start:', d.source.x, d.source.y || 0, d.source.z || 0, ';', 'end:', d.target.x, d.target.y || 0, d.target.z || 0].join(' ') });
     }
   }
 });
