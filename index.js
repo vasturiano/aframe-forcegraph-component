@@ -38,8 +38,9 @@ AFRAME.registerComponent('forcegraph', {
 	nodeColor: { type:'color', default: '#ffffaa' },
 	nodeOpacity: { type:'number', default: 0.75 },
 	nodeSpriteSrc: { type:'asset', default: null },
-	nodeSpriteResize: { type:'vec3', default: [1,1,1] },
+	nodeSpriteResize: { type:'vec3', default: {x:1, y:1, z:1} },
 	
+	showLabels: { type: 'boolean', default: false },
 	labelColor: { type:'color', default: '#ffffaa' },
 	labelScaleFactor: { type:'number', default: 0.5 },
 	
@@ -182,8 +183,8 @@ AFRAME.registerComponent('forcegraph', {
 	
 	// Shall we construct node labels?
 	var d3Nodelabels = null;
-	if (elData.nodes[0] && elData.nodes[0][elData.nameField]) {
-		d3Nodelabels = d3El.selectAll('a-entity.nodelabel').data(elData.nodes, function(d) {"label_" +d[elData.idField]});
+	if (elData.showLabels) {
+		d3Nodelabels = d3El.selectAll('a-entity.nodelabel').data(elData.nodes, function(d) {return "label_" +d[elData.idField]});
 		d3Nodelabels.exit().remove();
 		d3Nodelabels = d3Nodelabels.merge(
 			d3Nodelabels.enter()
@@ -228,18 +229,20 @@ AFRAME.registerComponent('forcegraph', {
 
 		// Update nodes position
 		d3Nodes.attr('position', function(d) { return [stats.scaleX(d.x), stats.scaleY(d.y) || 0, stats.scaleZ(d.z) || 0].join(' ') });
-	  
+		
+		// Update node label positions
 		if (d3Nodelabels) {
 			var yOffsetFactor = useSprite? 0.8 : 1.45; 
-			d3Nodelabels.attr('text', function(d) { "value:" + d[elData.nameField] + "; side:double; color:" + elData.labelColor +" ; align:center"})
-					.attr('position', function(d) { [stats.scaleX(d.x), (stats.scaleY(d.y)-yOffsetFactor*stats.scaleNodeValue(d[elData.valField]) ) || 0, stats.scaleZ(d.z) || 0].join(" ")}) // Move the label down 150% of the radius away from the center of the sphere
-					.attr('scale', function (d) { [elData.width * elData.labelScaleFactor + (3*(stats.scaleNodeV01(d[elData.valField]))) , elData.height * elData.labelScaleFactor +(3*(stats.scaleNodeV01(d[elData.valField]))) , 1].join(" ")})
+			d3Nodelabels.attr('text', function(d) { return "value:" + (d[elData.nameField] || d[elData.idField])  + "; side:double; color:" + elData.labelColor +" ; align:center"})
+					// Move the label down 150% of the radius away from the center of the sphere
+					.attr('position', function(d) { return [stats.scaleX(d.x), (stats.scaleY(d.y)-yOffsetFactor*stats.scaleNodeValue(d[elData.valField]) ) || 0, stats.scaleZ(d.z) || 0].join(" ")}) 
+					.attr('scale', function (d) {  return [elData.width * elData.labelScaleFactor + (3*(stats.scaleNodeV01(d[elData.valField]))) , elData.height * elData.labelScaleFactor +(3*(stats.scaleNodeV01(d[elData.valField]))) , 1].join(" ")})
 		}	  
-
+		
 		//Update links position
 		d3Links.attr('line', function(d) { 
 			var opa = (elData.varyLineOpacity ? 
-							(elData.lineOpacity  || (((AFRAME.utils.device.isMobile()?0.05:0) + stats.scaleLinkValue(d[elData.valField])) || 0.2))
+							(elData.lineOpacity  || (((AFRAME.utils.device.isMobile()?0.05:0.05) + stats.scaleLinkValue(d[elData.valField])) || 0.2))
 							:
 							(elData.lineOpacity || 0.2)) ;
 			var st = [stats.scaleX(d.source.x), stats.scaleY(d.source.y || 0), stats.scaleZ(d.source.z || 0)].join(' ');
@@ -262,28 +265,28 @@ function calcStats(data){
 		return null;
 	}
 	
-	stats.minX = d3.min(data.nodes, function (d) { d.x });
-	stats.minY = d3.min(data.nodes, function (d) { d.y });
-	stats.minZ = d3.min(data.nodes, function (d) { d.z });
-	stats.maxX = d3.max(data.nodes, function (d) { d.x });
-	stats.maxY = d3.max(data.nodes, function (d) { d.y });
-	stats.maxZ = d3.max(data.nodes, function (d) { d.z });
+	stats.minX = d3.min(data.nodes, function (d) { return d.x });
+	stats.minY = d3.min(data.nodes, function (d) { return d.y });
+	stats.minZ = d3.min(data.nodes, function (d) { return d.z });
+	stats.maxX = d3.max(data.nodes, function (d) { return d.x });
+	stats.maxY = d3.max(data.nodes, function (d) { return d.y });
+	stats.maxZ = d3.max(data.nodes, function (d) { return d.z });
 	
 	
 	if (data.links[0][data.valField]) {
-		stats.linkMinVal  = d3.min(data.links, function(d){ d[data.valField]});
-		stats.linkMaxVal  = d3.max(data.links, function(d){ d[data.valField]});
+		stats.linkMinVal  = d3.min(data.links, function(d){ return d[data.valField]});
+		stats.linkMaxVal  = d3.max(data.links, function(d){ return d[data.valField]});
 		stats.scaleLinkValue = d3.scaleLinear().domain([stats.linkMinVal, stats.linkMaxVal]).range([0.05, 1]);
 		
 	} else {
 		stats.linkMinVal  = 0
 		stats.linkMaxVal  = 1;
-		stats.scaleLinkValue = function() {null};
+		stats.scaleLinkValue = function() {return null};
 	}
 	
 	if (data.nodes[0][data.valField]) {
-		stats.minV = d3.min(data.nodes, function(d){ d[data.valField]});
-		stats.maxV = d3.max(data.nodes, function(d){ d[data.valField]});
+		stats.minV = d3.min(data.nodes, function(d){ return d[data.valField]});
+		stats.maxV = d3.max(data.nodes, function(d){ return d[data.valField]});
 		
 		var maxSize = data.nodeMaxSize || stats.maxX * data.nodeRelSize;
 		var minSize = Math.min(maxSize, data.nodeMinSize || (stats.minX * data.nodeRelSize));
@@ -294,9 +297,9 @@ function calcStats(data){
 		stats.scaleNodeV01 = function(v){ return  isFinite(v) ? stats.scaleNodeV01D3(v) : 1; };
 	} else {
 	
-		stats.scaleNodeValueD3 = function() { data.width / 2 / 20 * data.nodeRelSize }; // Default = 0.25
-		stats.scaleNodeValue = function() { data.width / 2 / 20 * data.nodeRelSize}; // Default = 0.25
-		stats.scaleNodeV01 = function() { 1 };
+		stats.scaleNodeValueD3 = function() { return data.width / 2 / 20 * data.nodeRelSize }; // Default = 0.25
+		stats.scaleNodeValue = function() { return data.width / 2 / 20 * data.nodeRelSize}; // Default = 0.25
+		stats.scaleNodeV01 = function() { return 1 };
 	}
 	
 	// Functions to re-scale d3 chart coordinates into the AFrame object bounding box, centered at the entity position
@@ -345,7 +348,8 @@ AFRAME.registerPrimitive('a-forcegraph', {
 		autocolorby: 	'forcegraph.autoColorBy',
 		nodecolor:      'forcegraph.nodeColor',
 		nodeopacity:      'forcegraph.nodeOpacity',
-		
+
+		showlabels:     'forcegraph.showLabels',
 		labelcolor:		'forcegraph.labelColor',
 		labelscalefactor:'forcegraph.labelScaleFactor',
 		

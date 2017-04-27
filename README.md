@@ -49,7 +49,9 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 
 A note about the size of the object in AFrame space. Because the bounding box of the graph changes we do not know at the outset how to scale the node coordinates such that they will fit into a width x heigth x depth cube after the force layout is complete. You may have to play with the width and depth a bit to get the correct sizing. Or set warmup-ticks to 5 or 10 or so, so that the scaling is set up closer to the final resting layout.
 
-Uses tizzle's [aframe-sprite-component](https://github.com/tizzle/aframe-sprite-component)
+Uses tizzle's [aframe-sprite-component](https://github.com/tizzle/aframe-sprite-component).
+
+Text is rendered using "a-text". This gives high quality text, but creates lots of polygons. A future improvement could be to investigate text-as-texture intead (ie. render text to canvas)
 
 
 ### Installation
