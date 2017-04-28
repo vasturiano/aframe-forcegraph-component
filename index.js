@@ -33,21 +33,23 @@ AFRAME.registerComponent('forcegraph', {
   },
 
   init: function () {
+    this.state = {}; // Internal state
+
     // Setup tooltip (attached to camera)
-    this.data.tooltipEl = document.createElement('a-text');
-    document.querySelector('a-entity[camera], a-camera').appendChild(this.data.tooltipEl);
-    this.data.tooltipEl.setAttribute('position', '0 -0.7 -1'); // Aligned to canvas bottom
-    this.data.tooltipEl.setAttribute('width', 2);
-    this.data.tooltipEl.setAttribute('align', 'center');
-    this.data.tooltipEl.setAttribute('color', 'lavender');
-    this.data.tooltipEl.setAttribute('value', '');
+    this.state.tooltipEl = document.createElement('a-text');
+    document.querySelector('a-entity[camera], a-camera').appendChild(this.state.tooltipEl);
+    this.state.tooltipEl.setAttribute('position', '0 -0.7 -1'); // Aligned to canvas bottom
+    this.state.tooltipEl.setAttribute('width', 2);
+    this.state.tooltipEl.setAttribute('align', 'center');
+    this.state.tooltipEl.setAttribute('color', 'lavender');
+    this.state.tooltipEl.setAttribute('value', '');
 
     // Keep reference to Three camera object
     this.cameraObj = document.querySelector('[camera], a-camera').object3D.children
         .filter(function(child) { return child.type === 'PerspectiveCamera' })[0];
 
     // Add force-directed layout
-    this.data.forceLayout = d3.forceSimulation()
+    this.state.forceLayout = d3.forceSimulation()
         .force('link', d3.forceLink())
         .force('charge', d3.forceManyBody())
         .force('center', d3.forceCenter())
@@ -56,7 +58,7 @@ AFRAME.registerComponent('forcegraph', {
 
   remove: function () {
     // Clean-up tooltip elem
-    this.data.tooltipEl.remove();
+    this.state.tooltipEl.remove();
   },
 
   update: function (oldData) {
@@ -113,7 +115,7 @@ AFRAME.registerComponent('forcegraph', {
     });
 
     // Feed data to force-directed layout
-    elData.forceLayout
+    comp.state.forceLayout
         .stop()
         .alpha(1)// re-heat the simulation
         .alphaDecay(elData.alphaDecay)
@@ -124,17 +126,17 @@ AFRAME.registerComponent('forcegraph', {
             .id(function(d) { return d[elData.idField] })
             .links(elData.links);
 
-    for (var i=0; i<elData.warmupTicks; i++) { elData.forceLayout.tick(); } // Initial ticks before starting to render
+    for (var i=0; i<elData.warmupTicks; i++) { comp.state.forceLayout.tick(); } // Initial ticks before starting to render
 
     var cntTicks = 0;
     var startTickTime = new Date();
-    elData.forceLayout.on('tick', layoutTick).restart();
+    comp.state.forceLayout.on('tick', layoutTick).restart();
 
     //
 
     function layoutTick() {
       if (cntTicks++ > elData.cooldownTicks || (new Date()) - startTickTime > elData.cooldownTime) {
-        elData.forceLayout.stop(); // Stop ticking graph
+        comp.state.forceLayout.stop(); // Stop ticking graph
       }
 
       // Update nodes position
@@ -191,6 +193,6 @@ AFRAME.registerComponent('forcegraph', {
     var intersects = centerRaycaster.intersectObjects(this.el.object3D.children)
         .filter(function(o) { return o.object.name }); // Check only objects with labels
 
-    this.data.tooltipEl.setAttribute('value', intersects.length ? intersects[0].object.name : '' );
+    this.state.tooltipEl.setAttribute('value', intersects.length ? intersects[0].object.name : '' );
   }
 });
