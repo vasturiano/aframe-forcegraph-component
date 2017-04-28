@@ -50,7 +50,7 @@ AFRAME.registerComponent('forcegraph', {
 	lineColor: {type: 'color', default:'#f0f0f0'},
 	
 	// Force layout control
-    warmupTicks: {type: 'int', default: 5}, // how many times to tick the force engine at init before starting to render
+    warmupTicks: {type: 'int', default: 5}, // how many times to tick the force engine at init before starting to render. 5 ticks as default lets the stats.scaleX/Y/Z functions work more accurately.
     cooldownTicks: {type: 'int', default: Infinity},
     cooldownTime: {type: 'int', default: (AFRAME.utils.device.isMobile() ?  2500 : 15000)} // ms
   },
