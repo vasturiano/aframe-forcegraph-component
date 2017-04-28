@@ -19,6 +19,7 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | Property           | Description                                                                                                                | Default Value |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------- |
 | json-url           | URL of JSON file containing graph data. Should contain an object with two list properties: *nodes* and *links*             |               |
+| num-dimensions     | Number of dimensions to run the force simulation on (1, 2 or 3)                                                            | 3             |
 | node-rel-size      | Node sphere volume per val unit                                                                                            | 4             |
 | line-opacity       | Opacity of links                                                                                                           | 0.2           |
 | auto-color-by      | Node field to automatically group colors by (if the node doesn't already have a color property set)                        |               |

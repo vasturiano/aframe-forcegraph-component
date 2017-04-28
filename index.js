@@ -13,6 +13,7 @@ var d3 = require('d3-force-3d'),
 AFRAME.registerComponent('forcegraph', {
   schema: {
     jsonUrl: {type: 'string'},
+    numDimensions: {type: 'number', default: 3},
     nodeRelSize: {type: 'number', default: 4}, // volume per val unit
     lineOpacity: {type: 'number', default: 0.2},
     autoColorBy: {type: 'string', default: ''}, // color nodes with the same field equally
@@ -43,7 +44,6 @@ AFRAME.registerComponent('forcegraph', {
 
     // Add force-directed layout
     this.data.forceLayout = d3.forceSimulation()
-        .numDimensions(3)
         .force('link', d3.forceLink())
         .force('charge', d3.forceManyBody())
         .force('center', d3.forceCenter())
@@ -132,6 +132,7 @@ AFRAME.registerComponent('forcegraph', {
     elData.forceLayout
         .stop()
         .alpha(1)// re-heat the simulation
+        .numDimensions(elData.numDimensions)
         .nodes(elData.nodes)
         .force('link')
             .id(function(d) { return d[elData.idField] })
