@@ -221,6 +221,25 @@
 	        line.geometry.computeBoundingSphere();
 	      });
 	    }
+	  },
+
+	  tick: function(t, td) {
+	    // Update tooltip
+	    var raycaster = new THREE.Raycaster();
+	    var mousePos = new THREE.Vector2();
+
+	    mousePos.x = 0;
+	    mousePos.y = 0;
+
+	    raycaster.setFromCamera(mousePos, d3.select('a-entity[camera], a-camera').node);
+	    var intersects = raycaster.intersectObjects(this.el.object3D.children)
+	        .filter(function(o) { o.object.type === 'Sphere' }); // Check only nodes/spheres
+
+	    elData.tooltipEl.attr('value',
+	        intersects.length
+	            ? intersects[0].object.__data[this.data.nameField] || ''
+	            : ''
+	    );
 	  }
 	});
 

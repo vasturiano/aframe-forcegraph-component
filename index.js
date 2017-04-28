@@ -39,6 +39,10 @@ AFRAME.registerComponent('forcegraph', {
         .attr('color', 'lavender')
         .attr('value', '');
 
+    // Keep reference to Three camera object
+    this.cameraObj = document.querySelector('[camera], a-camera').object3D.children
+        .filter(function(child) { return child.type === 'PerspectiveCamera' })[0];
+
     // Add force-directed layout
     this.data.forceLayout = d3.forceSimulation()
         .numDimensions(3)
@@ -111,11 +115,9 @@ AFRAME.registerComponent('forcegraph', {
           nodeMaterial
       );
 
-      // Cross-link data object
-      sphere.__data = node;
-      node.__sphere = sphere;
+      sphere.name = node[elData.nameField]; // Add label
 
-      el3d.add(sphere);
+      el3d.add(node.__sphere = sphere);
     });
 
     var lineMaterial = new THREE.MeshBasicMaterial({ color: 0xf0f0f0, transparent: true });
@@ -125,11 +127,7 @@ AFRAME.registerComponent('forcegraph', {
       var line = new THREE.Line(new THREE.Geometry(), lineMaterial);
       line.geometry.vertices=[new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)];
 
-      // Cross-link data object
-      line.__data = link;
-      link.__line = line;
-
-      el3d.add(line);
+      el3d.add(link.__line = line);
     });
 
     // Feed data to force-directed layout
@@ -175,5 +173,22 @@ AFRAME.registerComponent('forcegraph', {
         line.geometry.computeBoundingSphere();
       });
     }
+  },
+
+
+  tick: function(t, td) {
+    // Update tooltip
+    var centerRaycaster = new THREE.Raycaster();
+    centerRaycaster.setFromCamera(
+        new THREE.Vector2(0, 0), // Canvas center
+        this.cameraObj
+    );
+
+    var intersects = centerRaycaster.intersectObjects(this.el.object3D.children)
+        .filter(function(o) { return o.object.name }); // Check only objects with labels
+
+    this.data.tooltipEl.attr('value',
+        intersects.length ? intersects[0].object.name : ''
+    );
   }
 });
