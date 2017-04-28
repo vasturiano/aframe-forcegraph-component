@@ -18,7 +18,9 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 
 | Property           | Description                                                                                                                | Default Value |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| json-url           | URL of JSON file containing graph data. Should contain an object with two list properties: *nodes* and *links*             |               |
+| json-url           | URL of JSON file to load graph data directly from. Will override content of the *nodes* and *links* component properties so either use one or the other. JSON should contain an object with two list properties: *nodes* and *links*  |               |
+| nodes              | List of node objects. *Example*: [{"id": 1, "name": "first"}, {"id": 2, "name": "second"}]                                 | []            |
+| links              | List of link objects. *Example*: [{"source": 1, "target": 2}]                                                              | []            |
 | num-dimensions     | Number of dimensions to run the force simulation on (1, 2 or 3)                                                            | 3             |
 | node-rel-size      | Node sphere volume per val unit                                                                                            | 4             |
 | line-opacity       | Opacity of links                                                                                                           | 0.2           |

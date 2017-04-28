@@ -13,10 +13,12 @@ var d3 = require('d3-force-3d'),
 AFRAME.registerComponent('forcegraph', {
   schema: {
     jsonUrl: {type: 'string'},
+    nodes: {parse: JSON.parse, default: '[]'},
+    links: {parse: JSON.parse, default: '[]'},
     numDimensions: {type: 'number', default: 3},
     nodeRelSize: {type: 'number', default: 4}, // volume per val unit
     lineOpacity: {type: 'number', default: 0.2},
-    autoColorBy: {type: 'string', default: ''}, // color nodes with the same field equally
+    autoColorBy: {type: 'string'}, // color nodes with the same field equally
     idField: {type: 'string', default: 'id'},
     valField: {type: 'string', default: 'val'},
     nameField: {type: 'string', default: 'name'},
@@ -48,9 +50,6 @@ AFRAME.registerComponent('forcegraph', {
         .force('charge', d3.forceManyBody())
         .force('center', d3.forceCenter())
         .stop();
-
-    this.data.nodes = [];
-    this.data.links = [];
   },
 
   remove: function () {
@@ -63,42 +62,25 @@ AFRAME.registerComponent('forcegraph', {
         elData = this.data,
         diff = AFRAME.utils.diff(elData, oldData);
 
-    if ('jsonUrl' in diff || 'colorField' in diff || 'autoColorBy' in diff || 'linkSourceField' in diff || 'linkTargetField' in diff) {
+    if ('jsonUrl' in diff && elData.jsonUrl) {
       // (Re-)load data
       qwest.get(elData.jsonUrl).then(function(_, json) {
-
-        // auto add color
-        if (elData.autoColorBy) {
-            // Color brewer paired set
-            var colors = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928'];
-
-            var nodeGroups = {};
-            json.nodes
-                .filter(function(node) { return !node[elData.colorField]})
-                .map(function(node) { return node[elData.autoColorBy] })
-                .forEach(function(group) { nodeGroups[group] = null });
-            Object.keys(nodeGroups).forEach(function(group, idx) { nodeGroups[group] = idx });
-
-            json.nodes
-              .filter(function(node) { return !node[elData.colorField] })
-              .forEach(function(node) {
-                node[elData.colorField] = parseInt(colors[nodeGroups[node[elData.autoColorBy]] % colors.length].slice(1), 16);
-              });
-        }
-
-        // parse links
-        json.links.forEach(function(link) {
-          link.source = link[elData.linkSourceField];
-          link.target = link[elData.linkTargetField];
-          link.id = [link.source, link.target].join(' > ');
-        });
-
         elData.nodes = json.nodes;
         elData.links = json.links;
 
         comp.update(elData);  // Force re-update
       });
     }
+
+    // Auto add color to uncolored nodes
+    autoColorNodes(elData.nodes, elData.autoColorBy, elData.colorField);
+
+    // parse links
+    elData.links.forEach(function(link) {
+      link.source = link[elData.linkSourceField];
+      link.target = link[elData.linkTargetField];
+      link.id = [link.source, link.target].join(' > ');
+    });
 
     // Add children entities
     var el3d = this.el.object3D;
@@ -170,6 +152,25 @@ AFRAME.registerComponent('forcegraph', {
 
         line.geometry.verticesNeedUpdate = true;
         line.geometry.computeBoundingSphere();
+      });
+    }
+
+    //
+
+    function autoColorNodes(nodes, colorBy, colorField) {
+      if (!colorBy) return;
+
+      // Color brewer paired set
+      var colors = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928'];
+
+      var uncoloredNodes = nodes.filter(function(node) { return !node[colorField]}),
+          nodeGroups = {};
+
+      uncoloredNodes.forEach(function(node) { nodeGroups[node[colorBy]] = null });
+      Object.keys(nodeGroups).forEach(function(group, idx) { nodeGroups[group] = idx });
+
+      uncoloredNodes.forEach(function(node) {
+        node[colorField] = parseInt(colors[nodeGroups[node[colorBy]] % colors.length].slice(1), 16);
       });
     }
   },
