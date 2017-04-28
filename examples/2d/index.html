@@ -1,9 +1,9 @@
 <html>
   <head>
-    <title>A-Frame 3D Force-Directed Graph Component - Large graph</title>
-    <meta name="description" content="Large graph example for 3D Force-Directed Graph component."></meta>
+    <title>A-Frame 3D Force-Directed Graph Component - Basic</title>
+    <meta name="description" content="Two-dimensional example for 3D Force-Directed Graph component."></meta>
     <script src="https://aframe.io/releases/0.5.0/aframe.min.js"></script>
-    <script src="../../dist/aframe-forcegraph-component.js"></script>
+    <script src="../../dist/aframe-forcegraph-component.min.js"></script>
   </head>
   <body>
     <a-scene stats>
@@ -12,7 +12,7 @@
       </a-camera>
       <a-sky color="#002"></a-sky>
 
-      <a-entity forcegraph="json-url: blocks.json; name-field: description; auto-color-by: user"></a-entity>
+      <a-entity forcegraph="json-url: miserables.json; num-dimensions: 2; name-field: id; auto-color-by: group"></a-entity>
     </a-scene>
 
     <!-- GitHub Corner. -->
