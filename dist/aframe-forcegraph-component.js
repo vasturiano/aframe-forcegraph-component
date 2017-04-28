@@ -131,7 +131,7 @@
 
 	    // Add children entities
 	    var el3d = this.el.object3D;
-	    el3d.children.forEach(el3d.remove); // Clear the place
+	    while(el3d.children.length){ el3d.remove(el3d.children[0]) } // Clear the place
 
 	    elData.nodes.forEach(function(node) {
 	      var nodeMaterial = new THREE.MeshLambertMaterial({ color: node[elData.colorField] || 0xffffaa, transparent: true });
