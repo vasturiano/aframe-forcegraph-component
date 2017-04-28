@@ -4,11 +4,8 @@ if (typeof AFRAME === 'undefined') {
   throw new Error('Component attempted to register before AFRAME was available.');
 }
 
-// Extend d3 with force-3d functionality
-var d3 = require('lodash').assign(require('d3'), require('d3-force-3d'));
-
-// Include line-component
-require('aframe-line-component');
+var d3 = require('d3-force-3d'),
+    qwest = require('qwest');
 
 /**
  * 3D Force-Directed Graph component for A-Frame.
@@ -32,12 +29,17 @@ AFRAME.registerComponent('forcegraph', {
 
   init: function () {
     // Setup tooltip (attached to camera)
-    this.data.tooltipEl = d3.select('a-entity[camera], a-camera').append('a-text')
-        .attr('position', '0 -0.7 -1') // Aligned to canvas bottom
-        .attr('width', 2)
-        .attr('align', 'center')
-        .attr('color', 'lavender')
-        .attr('value', '');
+    this.data.tooltipEl = document.createElement('a-text');
+    document.querySelector('a-entity[camera], a-camera').appendChild(this.data.tooltipEl);
+    this.data.tooltipEl.setAttribute('position', '0 -0.7 -1'); // Aligned to canvas bottom
+    this.data.tooltipEl.setAttribute('width', 2);
+    this.data.tooltipEl.setAttribute('align', 'center');
+    this.data.tooltipEl.setAttribute('color', 'lavender');
+    this.data.tooltipEl.setAttribute('value', '');
+
+    // Keep reference to Three camera object
+    this.cameraObj = document.querySelector('[camera], a-camera').object3D.children
+        .filter(function(child) { return child.type === 'PerspectiveCamera' })[0];
 
     // Add force-directed layout
     this.data.forceLayout = d3.forceSimulation()
@@ -63,7 +65,7 @@ AFRAME.registerComponent('forcegraph', {
 
     if ('jsonUrl' in diff || 'colorField' in diff || 'autoColorBy' in diff || 'linkSourceField' in diff || 'linkTargetField' in diff) {
       // (Re-)load data
-      d3.json(elData.jsonUrl, function(json) {
+      qwest.get(elData.jsonUrl).then(function(_, json) {
 
         // auto add color
         if (elData.autoColorBy) {
@@ -99,40 +101,32 @@ AFRAME.registerComponent('forcegraph', {
     }
 
     // Add children entities
-    var d3El = d3.select(this.el);
-    var d3Nodes = d3El.selectAll('a-sphere.node')
-        .data(elData.nodes, function(d) { return d[elData.idField] });
+    var el3d = this.el.object3D;
+    el3d.children.forEach(el3d.remove); // Clear the place
 
-    d3Nodes.exit().remove();
+    elData.nodes.forEach(function(node) {
+      var nodeMaterial = new THREE.MeshLambertMaterial({ color: node[elData.colorField] || 0xffffaa, transparent: true });
+      nodeMaterial.opacity = 0.75;
 
-    d3Nodes = d3Nodes.merge(
-        d3Nodes.enter()
-            .append('a-sphere')
-            .classed('node', true)
-            .attr('segments-width', 8)	// Lower geometry resolution to improve perf
-            .attr('segments-height', 8)
-            .attr('radius', function(d) { return Math.cbrt(d[elData.valField] || 1) * elData.nodeRelSize })
-            .attr('color', function(d) {return '#' + (d[elData.colorField] || 0xffffaa).toString(16) })
-            .attr('opacity', 0.75)
-            .on('mouseenter', function(d) {
-              elData.tooltipEl.attr('value', d[elData.nameField] || '');
-            })
-            .on('mouseleave', function() {
-              elData.tooltipEl.attr('value', '');
-            })
-    );
+      var sphere = new THREE.Mesh(
+          new THREE.SphereGeometry(Math.cbrt(node[elData.valField] || 1) * elData.nodeRelSize, 8, 8),
+          nodeMaterial
+      );
 
-    var d3Links = d3El.selectAll('a-entity.link')
-        .data(elData.links, function(d) { return d.id });
+      sphere.name = node[elData.nameField]; // Add label
 
-    d3Links.exit().remove();
+      el3d.add(node.__sphere = sphere);
+    });
 
-    d3Links = d3Links.merge(
-        d3Links.enter()
-            .append('a-entity')
-            .classed('link', true)
-            .attr('line', 'color: #f0f0f0; opacity: ' + elData.lineOpacity)
-    );
+    var lineMaterial = new THREE.LineBasicMaterial({ color: 0xf0f0f0, transparent: true });
+    lineMaterial.opacity = elData.lineOpacity;
+
+    elData.links.forEach(function(link) {
+      var line = new THREE.Line(new THREE.Geometry(), lineMaterial);
+      line.geometry.vertices=[new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)];
+
+      el3d.add(link.__line = line);
+    });
 
     // Feed data to force-directed layout
     elData.forceLayout
@@ -157,10 +151,40 @@ AFRAME.registerComponent('forcegraph', {
       }
 
       // Update nodes position
-      d3Nodes.attr('position', function(d) { return [d.x, d.y || 0, d.z || 0].join(' ') });
+      elData.nodes.forEach(function(node) {
+        var sphere = node.__sphere;
+        sphere.position.x = node.x;
+        sphere.position.y = node.y || 0;
+        sphere.position.z = node.z || 0;
+      });
 
       //Update links position
-      d3Links.attr('line', function(d) { return ['start:', d.source.x, d.source.y || 0, d.source.z || 0, ';', 'end:', d.target.x, d.target.y || 0, d.target.z || 0].join(' ') });
+      elData.links.forEach(function(link) {
+        var line = link.__line;
+
+        line.geometry.vertices = [
+          new THREE.Vector3(link.source.x, link.source.y || 0, link.source.z || 0),
+          new THREE.Vector3(link.target.x, link.target.y || 0, link.target.z || 0)
+        ];
+
+        line.geometry.verticesNeedUpdate = true;
+        line.geometry.computeBoundingSphere();
+      });
     }
+  },
+
+
+  tick: function(t, td) {
+    // Update tooltip
+    var centerRaycaster = new THREE.Raycaster();
+    centerRaycaster.setFromCamera(
+        new THREE.Vector2(0, 0), // Canvas center
+        this.cameraObj
+    );
+
+    var intersects = centerRaycaster.intersectObjects(this.el.object3D.children)
+        .filter(function(o) { return o.object.name }); // Check only objects with labels
+
+    this.data.tooltipEl.setAttribute('value', intersects.length ? intersects[0].object.name : '' );
   }
 });
