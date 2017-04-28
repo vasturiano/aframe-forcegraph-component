@@ -6,7 +6,7 @@
 A 3D Force-Directed Graph component for [A-Frame](https://aframe.io).
 
 <p align="center">
-     <img width="80%" src="http://gist.github.com/vasturiano/972ca4f3e8e074dacf14d7071aad8ef9/raw/preview.png"></a>
+     <img width="80%" src="https://vasturiano.github.io/aframe-forcegraph-component/examples/large-graph/preview.png"></a>
 </p>
 
 An A-Frame entity component to represent a graph data structure in a VR environment using a force-directed iterative layout.
