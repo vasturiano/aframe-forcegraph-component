@@ -61,7 +61,7 @@ AFRAME.registerComponent('forcegraph', {
         elData = this.data,
         diff = AFRAME.utils.diff(elData, oldData);
 
-    this.state.onFrame = null; // Pause simulation
+    comp.state.onFrame = null; // Pause simulation
 
     if ('jsonUrl' in diff && elData.jsonUrl) {
       // (Re-)load data
@@ -121,13 +121,13 @@ AFRAME.registerComponent('forcegraph', {
 
     var cntTicks = 0;
     var startTickTime = new Date();
-    this.state.onFrame = layoutTick;
+    comp.state.onFrame = layoutTick;
 
     //
 
     function layoutTick() {
       if (cntTicks++ > elData.cooldownTicks || (new Date()) - startTickTime > elData.cooldownTime) {
-        this.state.onFrame = null; // Stop ticking graph
+        comp.state.onFrame = null; // Stop ticking graph
       }
 
       layout.step(); // Tick it
