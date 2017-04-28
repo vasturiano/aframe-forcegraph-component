@@ -6,7 +6,7 @@
 A 3D Force-Directed Graph component for [A-Frame](https://aframe.io).
 
 <p align="center">
-     <img width="80%" src="https://vasturiano.github.io/aframe-forcegraph-component/examples/large-graph/preview.png"></a>
+     <img width="80%" src="http://gist.github.com/vasturiano/972ca4f3e8e074dacf14d7071aad8ef9/raw/preview.png"></a>
 </p>
 
 An A-Frame entity component to represent a graph data structure in a VR environment using a force-directed iterative layout.
@@ -18,22 +18,41 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 
 | Property           | Description                                                                                                                | Default Value |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| json-url           | URL of JSON file to load graph data directly from. Will override content of the *nodes* and *links* component properties so either use one or the other. JSON should contain an object with two list properties: *nodes* and *links*  |               |
-| nodes              | List of node objects. *Example*: [{"id": 1, "name": "first"}, {"id": 2, "name": "second"}]                                 | []            |
-| links              | List of link objects. *Example*: [{"source": 1, "target": 2}]                                                              | []            |
-| num-dimensions     | Number of dimensions to run the force simulation on (1, 2 or 3)                                                            | 3             |
-| node-rel-size      | Node sphere volume per val unit                                                                                            | 4             |
+| json-url           | URL of JSON file containing graph data. Should contain an object with two list properties: *nodes* and *links*             |        	// Basic data
+| width              | Width (X-dimension) of object in AFrame units                                                                              | 3             |
+| height             | Height (Y-dimension) of object in AFrame units                                                                             | width         |
+| depth              | Width (Z-dimension) of object in AFrame units                                                                              | width         |
+| node-rel-size      | Node sphere volume per val unit, relative to 1/20th of [width]                                                             | 1             |
+| node-min-size      | Node sphere miniumum value. If node-max-size is specified, this value defaults to 10% of node-max-size                     | 0             |
+| node-max-size      | Node sphere maximum volume. If specified, node-rel-size is ignored and nodes are linearly scaled in [nodeMin, nodeMax]     | Infinity      |
+| node-color         | Node sphere color. Ignored if auto-color-by is specified                                                                   | #ffffaa       |
+| node-opacity       | Node sphere opacity                                                                                                        | 0.75          |
+| node-sprite-src    | Render nodes using this image sprite, instead of as a sphere                                                               | none          |
+| node-sprite-resize | Resize scaling for the node sprite                                                                                         | "0.1 0.1 0.1" |
+| color-field        | Node object field name referring to node value (affects sphere color)                                                      | color         |
 | line-opacity       | Opacity of links                                                                                                           | 0.2           |
+| line-color         | Color of links                                                                                                             | #f0f0f0       |
+| vary-line-opacity  | If true and links in the JSON have a val-field, line opacity will be linearly scaled according to val-field                | false         |
 | auto-color-by      | Node field to automatically group colors by (if the node doesn't already have a color property set)                        |               |
 | id-field           | Node object field name referring to unique node id (used in link objects source/target)                                    | id            |
 | val-field          | Node object field name referring to node value (affects sphere volume)                                                     | val           |
 | name-field         | Node object field name referring to node name (shown in label)                                                             | name          |
-| color-field        | Node object field name referring to node value (affects sphere color)                                                      | color         |
+| label-color        | Label color                                                                                                                | #ffffaa       |
+| label-scale-factor | Label scaling factor                                                                                                       | 0.5           |
 | link-source-field  | Link object field name referring to id of source node                                                                      | source        |
 | link-target-field  | Link object field name referring to id of target node                                                                      | target        |
 | warmup-ticks       | How many times to tick the force simulation engine at ignition before starting to render                                   | 0             |
 | cooldown-ticks     | How many times to tick the force simulation engine after rendering begins before stopping and freezing the engine          | Infinity      |
-| cooldown-time      | How much time (ms) to tick the force simulation engine for after rendering begins before stopping and freezing the engine  | 15000         |
+| cooldown-time      | Max time (ms) to run force simulation. Default=3000 on mobile, 15000 otherwise                                             | 15000         |
+
+
+
+A note about the size of the object in AFrame space. Because the bounding box of the graph changes we do not know at the outset how to scale the node coordinates such that they will fit into a width x heigth x depth cube after the force layout is complete. You may have to play with the width and depth a bit to get the correct sizing. Or set warmup-ticks to 5 or 10 or so, so that the scaling is set up closer to the final resting layout.
+
+Uses tizzle's [aframe-sprite-component](https://github.com/tizzle/aframe-sprite-component).
+
+Text is rendered using "a-text". This gives high quality text, but creates lots of polygons. A future improvement could be to investigate text-as-texture intead (ie. render text to canvas)
+
 
 ### Installation
 
@@ -51,6 +70,10 @@ Install and use by directly including the [browser files](dist):
 <body>
   <a-scene>
     <a-entity forcegraph="json-url: myGraphData.json"></a-entity>
+
+	<!-- Alternatively, you can use it as a primititve. In this case, ignore the hyphens from the API property -->
+    <a-forcegraph jsonUrl="myGraphData.json"></a-forcegraph>
+	
   </a-scene>
 </body>
 ```
