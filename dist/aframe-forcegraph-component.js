@@ -73,7 +73,9 @@
 	    linkTargetField: {type: 'string', default: 'target'},
 	    warmupTicks: {type: 'int', default: 0}, // how many times to tick the force engine at init before starting to render
 	    cooldownTicks: {type: 'int', default: Infinity},
-	    cooldownTime: {type: 'int', default: 15000} // ms
+	    cooldownTime: {type: 'int', default: 15000}, // ms
+	    alphaDecay: {type: 'number', default: 0.0228}, // cool-down curve
+	    velocityDecay: {type: 'number', default: 0.4} // atmospheric friction
 	  },
 
 	  init: function () {
@@ -160,6 +162,8 @@
 	    elData.forceLayout
 	        .stop()
 	        .alpha(1)// re-heat the simulation
+	        .alphaDecay(elData.alphaDecay)
+	        .velocityDecay(elData.velocityDecay)
 	        .numDimensions(elData.numDimensions)
 	        .nodes(elData.nodes)
 	        .force('link')
