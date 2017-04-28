@@ -35,14 +35,16 @@ AFRAME.registerComponent('forcegraph', {
   },
 
   init: function () {
+    this.state = {}; // Internal state
+
     // Setup tooltip (attached to camera)
-    this.data.tooltipEl = document.createElement('a-text');
-    document.querySelector('a-entity[camera], a-camera').appendChild(this.data.tooltipEl);
-    this.data.tooltipEl.setAttribute('position', '0 -0.7 -1'); // Aligned to canvas bottom
-    this.data.tooltipEl.setAttribute('width', 2);
-    this.data.tooltipEl.setAttribute('align', 'center');
-    this.data.tooltipEl.setAttribute('color', 'lavender');
-    this.data.tooltipEl.setAttribute('value', '');
+    this.state.tooltipEl = document.createElement('a-text');
+    document.querySelector('a-entity[camera], a-camera').appendChild(this.state.tooltipEl);
+    this.state.tooltipEl.setAttribute('position', '0 -0.5 -1'); // Aligned to canvas bottom
+    this.state.tooltipEl.setAttribute('width', 2);
+    this.state.tooltipEl.setAttribute('align', 'center');
+    this.state.tooltipEl.setAttribute('color', 'lavender');
+    this.state.tooltipEl.setAttribute('value', '');
 
     // Keep reference to Three camera object
     this.cameraObj = document.querySelector('[camera], a-camera').object3D.children
@@ -51,7 +53,7 @@ AFRAME.registerComponent('forcegraph', {
 
   remove: function () {
     // Clean-up tooltip elem
-    this.data.tooltipEl.remove();
+    this.state.tooltipEl.remove();
   },
 
   update: function (oldData) {
@@ -59,7 +61,7 @@ AFRAME.registerComponent('forcegraph', {
         elData = this.data,
         diff = AFRAME.utils.diff(elData, oldData);
 
-    this.onFrame = null; // Pause simulation
+    this.state.onFrame = null; // Pause simulation
 
     if ('jsonUrl' in diff && elData.jsonUrl) {
       // (Re-)load data
@@ -119,13 +121,13 @@ AFRAME.registerComponent('forcegraph', {
 
     var cntTicks = 0;
     var startTickTime = new Date();
-    this.onFrame = layoutTick;
+    this.state.onFrame = layoutTick;
 
     //
 
     function layoutTick() {
       if (cntTicks++ > elData.cooldownTicks || (new Date()) - startTickTime > elData.cooldownTime) {
-        this.onFrame = null; // Stop ticking graph
+        this.state.onFrame = null; // Stop ticking graph
       }
 
       layout.step(); // Tick it
@@ -186,9 +188,9 @@ AFRAME.registerComponent('forcegraph', {
     var intersects = centerRaycaster.intersectObjects(this.el.object3D.children)
         .filter(function(o) { return o.object.name }); // Check only objects with labels
 
-    this.data.tooltipEl.setAttribute('value', intersects.length ? intersects[0].object.name : '' );
+    this.state.tooltipEl.setAttribute('value', intersects.length ? intersects[0].object.name : '' );
 
     // Run onFrame ticker
-    if (this.onFrame) this.onFrame();
+    if (this.state.onFrame) this.state.onFrame();
   }
 });
