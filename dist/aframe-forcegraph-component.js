@@ -77,9 +77,7 @@
 	    linkTargetField: {type: 'string', default: 'target'},
 	    warmupTicks: {type: 'int', default: 0}, // how many times to tick the force engine at init before starting to render
 	    cooldownTicks: {type: 'int', default: Infinity},
-	    cooldownTime: {type: 'int', default: 15000}, // ms
-	    alphaDecay: {type: 'number', default: 0.0228}, // cool-down curve
-	    velocityDecay: {type: 'number', default: 0.4} // atmospheric friction
+	    cooldownTime: {type: 'int', default: 15000} // ms
 	  },
 
 	  init: function () {
