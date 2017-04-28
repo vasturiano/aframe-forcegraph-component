@@ -4,7 +4,11 @@ if (typeof AFRAME === 'undefined') {
   throw new Error('Component attempted to register before AFRAME was available.');
 }
 
-var d3 = require('d3-force-3d'),
+var ngraph = {
+      graph: require('ngraph.graph'),
+      forcelayout: require('ngraph.forcelayout'),
+      forcelayout3d: require('ngraph.forcelayout3d')
+    },
     qwest = require('qwest');
 
 /**
@@ -43,13 +47,6 @@ AFRAME.registerComponent('forcegraph', {
     // Keep reference to Three camera object
     this.cameraObj = document.querySelector('[camera], a-camera').object3D.children
         .filter(function(child) { return child.type === 'PerspectiveCamera' })[0];
-
-    // Add force-directed layout
-    this.data.forceLayout = d3.forceSimulation()
-        .force('link', d3.forceLink())
-        .force('charge', d3.forceManyBody())
-        .force('center', d3.forceCenter())
-        .stop();
   },
 
   remove: function () {
@@ -61,6 +58,8 @@ AFRAME.registerComponent('forcegraph', {
     var comp = this,
         elData = this.data,
         diff = AFRAME.utils.diff(elData, oldData);
+
+    this.onFrame = null; // Pause simulation
 
     if ('jsonUrl' in diff && elData.jsonUrl) {
       // (Re-)load data
@@ -110,44 +109,44 @@ AFRAME.registerComponent('forcegraph', {
       el3d.add(link.__line = line);
     });
 
-    // Feed data to force-directed layout
-    elData.forceLayout
-        .stop()
-        .alpha(1)// re-heat the simulation
-        .numDimensions(elData.numDimensions)
-        .nodes(elData.nodes)
-        .force('link')
-            .id(function(d) { return d[elData.idField] })
-            .links(elData.links);
+    // Add force-directed layout
+    var graph = ngraph.graph();
+    elData.nodes.forEach(function(node) { graph.addNode(node[elData.idField]); });
+    elData.links.forEach(function(link) { graph.addLink(link.source, link.target); });
+    var layout = ngraph['forcelayout' + (elData.numDimensions === 2 ? '' : '3d')](graph);
 
-    for (var i=0; i<elData.warmupTicks; i++) { elData.forceLayout.tick(); } // Initial ticks before starting to render
+    for (var i=0; i<elData.warmupTicks; i++) { layout.step(); } // Initial ticks before starting to render
 
     var cntTicks = 0;
     var startTickTime = new Date();
-    elData.forceLayout.on('tick', layoutTick).restart();
+    this.onFrame = layoutTick;
 
     //
 
     function layoutTick() {
       if (cntTicks++ > elData.cooldownTicks || (new Date()) - startTickTime > elData.cooldownTime) {
-        elData.forceLayout.stop(); // Stop ticking graph
+        this.onFrame = null; // Stop ticking graph
       }
+
+      layout.step(); // Tick it
 
       // Update nodes position
       elData.nodes.forEach(function(node) {
-        var sphere = node.__sphere;
-        sphere.position.x = node.x;
-        sphere.position.y = node.y || 0;
-        sphere.position.z = node.z || 0;
+        var sphere = node.__sphere,
+            pos = layout.getNodePosition(node[elData.idField]);
+        sphere.position.x = pos.x;
+        sphere.position.y = pos.y || 0;
+        sphere.position.z = pos.z || 0;
       });
 
       //Update links position
       elData.links.forEach(function(link) {
-        var line = link.__line;
+        var line = link.__line,
+          pos = layout.getLinkPosition(graph.getLink(link.source, link.target).id);
 
         line.geometry.vertices = [
-          new THREE.Vector3(link.source.x, link.source.y || 0, link.source.z || 0),
-          new THREE.Vector3(link.target.x, link.target.y || 0, link.target.z || 0)
+          new THREE.Vector3(pos.from.x, pos.from.y || 0, pos.from.z || 0),
+          new THREE.Vector3(pos.to.x, pos.to.y || 0, pos.to.z || 0)
         ];
 
         line.geometry.verticesNeedUpdate = true;
@@ -188,5 +187,8 @@ AFRAME.registerComponent('forcegraph', {
         .filter(function(o) { return o.object.name }); // Check only objects with labels
 
     this.data.tooltipEl.setAttribute('value', intersects.length ? intersects[0].object.name : '' );
+
+    // Run onFrame ticker
+    if (this.onFrame) this.onFrame();
   }
 });
