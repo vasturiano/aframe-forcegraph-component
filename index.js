@@ -105,7 +105,7 @@ AFRAME.registerComponent('forcegraph', {
     el3d.children.forEach(el3d.remove); // Clear the place
 
     elData.nodes.forEach(function(node) {
-      var nodeMaterial = new THREE.MeshBasicMaterial({ color: node[elData.colorField] || 0xffffaa, transparent: true });
+      var nodeMaterial = new THREE.MeshLambertMaterial({ color: node[elData.colorField] || 0xffffaa, transparent: true });
       nodeMaterial.opacity = 0.75;
 
       var sphere = new THREE.Mesh(
@@ -118,7 +118,7 @@ AFRAME.registerComponent('forcegraph', {
       el3d.add(node.__sphere = sphere);
     });
 
-    var lineMaterial = new THREE.MeshBasicMaterial({ color: 0xf0f0f0, transparent: true });
+    var lineMaterial = new THREE.LineBasicMaterial({ color: 0xf0f0f0, transparent: true });
     lineMaterial.opacity = elData.lineOpacity;
 
     elData.links.forEach(function(link) {
