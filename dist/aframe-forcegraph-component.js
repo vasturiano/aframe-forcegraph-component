@@ -84,7 +84,7 @@
 	    // Setup tooltip (attached to camera)
 	    this.state.tooltipEl = document.createElement('a-text');
 	    document.querySelector('a-entity[camera], a-camera').appendChild(this.state.tooltipEl);
-	    this.state.tooltipEl.setAttribute('position', '0 -0.7 -1'); // Aligned to canvas bottom
+	    this.state.tooltipEl.setAttribute('position', '0 -0.5 -1'); // Aligned to canvas bottom
 	    this.state.tooltipEl.setAttribute('width', 2);
 	    this.state.tooltipEl.setAttribute('align', 'center');
 	    this.state.tooltipEl.setAttribute('color', 'lavender');
