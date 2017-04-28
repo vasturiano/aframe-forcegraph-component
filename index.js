@@ -4,11 +4,8 @@ if (typeof AFRAME === 'undefined') {
   throw new Error('Component attempted to register before AFRAME was available.');
 }
 
-// Extend d3 with force-3d functionality
-var d3 = require('lodash').assign(require('d3'), require('d3-force-3d'));
-
-// Include line-component
-require('aframe-line-component');
+var d3 = require('d3-force-3d'),
+    qwest = require('qwest');
 
 /**
  * 3D Force-Directed Graph component for A-Frame.
@@ -32,12 +29,13 @@ AFRAME.registerComponent('forcegraph', {
 
   init: function () {
     // Setup tooltip (attached to camera)
-    this.data.tooltipEl = d3.select('a-entity[camera], a-camera').append('a-text')
-        .attr('position', '0 -0.7 -1') // Aligned to canvas bottom
-        .attr('width', 2)
-        .attr('align', 'center')
-        .attr('color', 'lavender')
-        .attr('value', '');
+    this.data.tooltipEl = document.createElement('a-text');
+    document.querySelector('a-entity[camera], a-camera').appendChild(this.data.tooltipEl);
+    this.data.tooltipEl.setAttribute('position', '0 -0.7 -1'); // Aligned to canvas bottom
+    this.data.tooltipEl.setAttribute('width', 2);
+    this.data.tooltipEl.setAttribute('align', 'center');
+    this.data.tooltipEl.setAttribute('color', 'lavender');
+    this.data.tooltipEl.setAttribute('value', '');
 
     // Keep reference to Three camera object
     this.cameraObj = document.querySelector('[camera], a-camera').object3D.children
@@ -67,7 +65,7 @@ AFRAME.registerComponent('forcegraph', {
 
     if ('jsonUrl' in diff || 'colorField' in diff || 'autoColorBy' in diff || 'linkSourceField' in diff || 'linkTargetField' in diff) {
       // (Re-)load data
-      d3.json(elData.jsonUrl, function(json) {
+      qwest.get(elData.jsonUrl).then(function(_, json) {
 
         // auto add color
         if (elData.autoColorBy) {
@@ -187,8 +185,6 @@ AFRAME.registerComponent('forcegraph', {
     var intersects = centerRaycaster.intersectObjects(this.el.object3D.children)
         .filter(function(o) { return o.object.name }); // Check only objects with labels
 
-    this.data.tooltipEl.attr('value',
-        intersects.length ? intersects[0].object.name : ''
-    );
+    this.data.tooltipEl.setAttribute('value', intersects.length ? intersects[0].object.name : '' );
   }
 });
