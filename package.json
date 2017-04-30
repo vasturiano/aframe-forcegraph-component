@@ -41,9 +41,6 @@
     "url": "https://github.com/vasturiano/aframe-forcegraph-component/issues"
   },
   "homepage": "https://github.com/vasturiano/aframe-forcegraph-component#readme",
-  "publishConfig": {
-    "tag": "ngraph"
-  },
   "dependencies": {
     "d3-binarytree": "^0.1",
     "d3-force-3d": "^1.0",
