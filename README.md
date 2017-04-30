@@ -19,8 +19,8 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | Property           | Description                                                                                                                | Default Value |
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------- |
 | json-url           | URL of JSON file to load graph data directly from. Will override content of the *nodes* and *links* component properties so either use one or the other. JSON should contain an object with two list properties: *nodes* and *links*  |               |
-| nodes              | List of node objects. *Example*: [{"id": 1, "name": "first"}, {"id": 2, "name": "second"}]                                 | []            |
-| links              | List of link objects. *Example*: [{"source": 1, "target": 2}]                                                              | []            |
+| nodes              | List of node objects. *Example*: ```[{"id": 1, "name": "first"}, {"id": 2, "name": "second"}]```                                 | []            |
+| links              | List of link objects. *Example*: ```[{"source": 1, "target": 2}]```                                                              | []            |
 | num-dimensions     | Number of dimensions to run the force simulation on (1, 2 or 3)                                                            | 3             |
 | node-rel-size      | Node sphere volume per val unit                                                                                            | 4             |
 | line-opacity       | Opacity of links                                                                                                           | 0.2           |
@@ -31,7 +31,7 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | color-field        | Node object field name referring to node value (affects sphere color)                                                      | color         |
 | link-source-field  | Link object field name referring to id of source node                                                                      | source        |
 | link-target-field  | Link object field name referring to id of target node                                                                      | target        |
-| force-engine       | Which force-simulation engine to use. Options: [*d3*](https://github.com/vasturiano/d3-force-3d) or [*ngraph*](https://github.com/anvaka/ngraph.forcelayout)  | d3             |
+| force-engine       | Which force-simulation engine to use ([*d3*](https://github.com/vasturiano/d3-force-3d) or [*ngraph*](https://github.com/anvaka/ngraph.forcelayout))  | d3             |
 | warmup-ticks       | How many times to tick the force simulation engine at ignition before starting to render                                   | 0             |
 | cooldown-ticks     | How many times to tick the force simulation engine after rendering begins before stopping and freezing the engine          | Infinity      |
 | cooldown-time      | How much time (ms) to tick the force simulation engine for after rendering begins before stopping and freezing the engine  | 15000         |
