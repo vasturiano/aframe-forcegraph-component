@@ -4,7 +4,8 @@ if (typeof AFRAME === 'undefined') {
   throw new Error('Component attempted to register before AFRAME was available.');
 }
 
-var ngraph = {
+var d3 = require('d3-force-3d'),
+    ngraph = {
       graph: require('ngraph.graph'),
       forcelayout: require('ngraph.forcelayout'),
       forcelayout3d: require('ngraph.forcelayout3d')
@@ -29,6 +30,7 @@ AFRAME.registerComponent('forcegraph', {
     colorField: {type: 'string', default: 'color'},
     linkSourceField: {type: 'string', default: 'source'},
     linkTargetField: {type: 'string', default: 'target'},
+    forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
     warmupTicks: {type: 'int', default: 0}, // how many times to tick the force engine at init before starting to render
     cooldownTicks: {type: 'int', default: Infinity},
     cooldownTime: {type: 'int', default: 15000} // ms
@@ -49,6 +51,13 @@ AFRAME.registerComponent('forcegraph', {
     // Keep reference to Three camera object
     this.cameraObj = document.querySelector('[camera], a-camera').object3D.children
         .filter(function(child) { return child.type === 'PerspectiveCamera' })[0];
+
+    // Add D3 force-directed layout
+    this.state.d3ForceLayout = d3.forceSimulation()
+        .force('link', d3.forceLink())
+        .force('charge', d3.forceManyBody())
+        .force('center', d3.forceCenter())
+        .stop();
   },
 
   remove: function () {
@@ -111,13 +120,34 @@ AFRAME.registerComponent('forcegraph', {
       el3d.add(link.__line = line);
     });
 
-    // Add force-directed layout
-    var graph = ngraph.graph();
-    elData.nodes.forEach(function(node) { graph.addNode(node[elData.idField]); });
-    elData.links.forEach(function(link) { graph.addLink(link.source, link.target); });
-    var layout = ngraph['forcelayout' + (elData.numDimensions === 2 ? '' : '3d')](graph);
+    // Feed data to force-directed layout
+    var isD3Sim = elData.forceEngine !== 'ngraph',
+      layout;
+    if (isD3Sim) {
+      // D3-force
+      (layout = comp.state.d3ForceLayout)
+          .stop()
+          .alpha(1)// re-heat the simulation
+          .numDimensions(elData.numDimensions)
+          .nodes(elData.nodes)
+          .force('link')
+            .id(function (d) {
+              return d[elData.idField]
+            })
+            .links(elData.links);
+    } else {
+      // ngraph
+      var ngraphGraph = ngraph.graph();
+      elData.nodes.forEach(function (node) {
+        ngraphGraph.addNode(node[elData.idField]);
+      });
+      elData.links.forEach(function (link) {
+        ngraphGraph.addLink(link.source, link.target);
+      });
+      layout = ngraph['forcelayout' + (elData.numDimensions === 2 ? '' : '3d')](ngraphGraph);
+    }
 
-    for (var i=0; i<elData.warmupTicks; i++) { layout.step(); } // Initial ticks before starting to render
+    for (var i=0; i<elData.warmupTicks; i++) { layout[isD3Sim?'tick':'step'](); } // Initial ticks before starting to render
 
     var cntTicks = 0;
     var startTickTime = new Date();
@@ -130,12 +160,15 @@ AFRAME.registerComponent('forcegraph', {
         comp.state.onFrame = null; // Stop ticking graph
       }
 
-      layout.step(); // Tick it
+      layout[isD3Sim?'tick':'step'](); // Tick it
 
       // Update nodes position
       elData.nodes.forEach(function(node) {
         var sphere = node.__sphere,
-            pos = layout.getNodePosition(node[elData.idField]);
+            pos = isD3Sim
+              ? node
+              : layout.getNodePosition(node[elData.idField]);
+
         sphere.position.x = pos.x;
         sphere.position.y = pos.y || 0;
         sphere.position.z = pos.z || 0;
@@ -143,13 +176,21 @@ AFRAME.registerComponent('forcegraph', {
 
       //Update links position
       elData.links.forEach(function(link) {
-        var line = link.__line,
-          pos = layout.getLinkPosition(graph.getLink(link.source, link.target).id);
+        var line = link.__line;
 
-        line.geometry.vertices = [
-          new THREE.Vector3(pos.from.x, pos.from.y || 0, pos.from.z || 0),
-          new THREE.Vector3(pos.to.x, pos.to.y || 0, pos.to.z || 0)
-        ];
+        if (isD3Sim) {
+          line.geometry.vertices = [
+            new THREE.Vector3(link.source.x, link.source.y || 0, link.source.z || 0),
+            new THREE.Vector3(link.target.x, link.target.y || 0, link.target.z || 0)
+          ];
+        } else { // ngraph
+          var pos = layout.getLinkPosition(ngraphGraph.getLink(link.source, link.target).id);
+
+          line.geometry.vertices = [
+            new THREE.Vector3(pos.from.x, pos.from.y || 0, pos.from.z || 0),
+            new THREE.Vector3(pos.to.x, pos.to.y || 0, pos.to.z || 0)
+          ];
+        }
 
         line.geometry.verticesNeedUpdate = true;
         line.geometry.computeBoundingSphere();
