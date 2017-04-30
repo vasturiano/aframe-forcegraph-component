@@ -39,9 +39,18 @@ AFRAME.registerComponent('forcegraph', {
   init: function () {
     this.state = {}; // Internal state
 
+    // Get camera dom element
+    var cameraEl = document.querySelector('a-entity[camera], a-camera');
+
+    // Add info msg
+    cameraEl.appendChild(this.state.infoEl = document.createElement('a-text'));
+    this.state.infoEl.setAttribute('position', '0 -0.1 -1'); // Canvas center
+    this.state.infoEl.setAttribute('width', 1);
+    this.state.infoEl.setAttribute('align', 'center');
+    this.state.infoEl.setAttribute('color', 'lavender');
+
     // Setup tooltip (attached to camera)
-    this.state.tooltipEl = document.createElement('a-text');
-    document.querySelector('a-entity[camera], a-camera').appendChild(this.state.tooltipEl);
+    cameraEl.appendChild(this.state.tooltipEl = document.createElement('a-text'));
     this.state.tooltipEl.setAttribute('position', '0 -0.5 -1'); // Aligned to canvas bottom
     this.state.tooltipEl.setAttribute('width', 2);
     this.state.tooltipEl.setAttribute('align', 'center');
@@ -49,7 +58,7 @@ AFRAME.registerComponent('forcegraph', {
     this.state.tooltipEl.setAttribute('value', '');
 
     // Keep reference to Three camera object
-    this.cameraObj = document.querySelector('[camera], a-camera').object3D.children
+    this.cameraObj = cameraEl.object3D.children
         .filter(function(child) { return child.type === 'PerspectiveCamera' })[0];
 
     // Add D3 force-directed layout
@@ -61,7 +70,8 @@ AFRAME.registerComponent('forcegraph', {
   },
 
   remove: function () {
-    // Clean-up tooltip elem
+    // Clean-up elems
+    this.state.infoEl.remove();
     this.state.tooltipEl.remove();
   },
 
@@ -71,6 +81,7 @@ AFRAME.registerComponent('forcegraph', {
         diff = AFRAME.utils.diff(elData, oldData);
 
     comp.state.onFrame = null; // Pause simulation
+    comp.state.infoEl.setAttribute('value', 'Loading...'); // Add loading msg
 
     if ('jsonUrl' in diff && elData.jsonUrl) {
       // (Re-)load data
@@ -152,6 +163,7 @@ AFRAME.registerComponent('forcegraph', {
     var cntTicks = 0;
     var startTickTime = new Date();
     comp.state.onFrame = layoutTick;
+    comp.state.infoEl.setAttribute('value', '');
 
     //
 
