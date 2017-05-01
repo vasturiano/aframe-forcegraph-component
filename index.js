@@ -30,7 +30,7 @@ AFRAME.registerComponent('forcegraph', {
     colorField: {type: 'string', default: 'color'},
     linkSourceField: {type: 'string', default: 'source'},
     linkTargetField: {type: 'string', default: 'target'},
-    forceEngine: {type: 'string', default: 'ngraph'}, // 'd3' or 'ngraph'
+    forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
     warmupTicks: {type: 'int', default: 0}, // how many times to tick the force engine at init before starting to render
     cooldownTicks: {type: 'int', default: Infinity},
     cooldownTime: {type: 'int', default: 15000} // ms
