@@ -30,7 +30,7 @@ AFRAME.registerComponent('forcegraph', {
     colorField: {type: 'string', default: 'color'},
     linkSourceField: {type: 'string', default: 'source'},
     linkTargetField: {type: 'string', default: 'target'},
-    forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
+    forceEngine: {type: 'string', default: 'ngraph'}, // 'd3' or 'ngraph'
     warmupTicks: {type: 'int', default: 0}, // how many times to tick the force engine at init before starting to render
     cooldownTicks: {type: 'int', default: Infinity},
     cooldownTime: {type: 'int', default: 15000} // ms
@@ -148,14 +148,15 @@ AFRAME.registerComponent('forcegraph', {
             .links(elData.links);
     } else {
       // ngraph
-      var ngraphGraph = ngraph.graph();
+      var graph = ngraph.graph();
       elData.nodes.forEach(function (node) {
-        ngraphGraph.addNode(node[elData.idField]);
+        graph.addNode(node[elData.idField]);
       });
       elData.links.forEach(function (link) {
-        ngraphGraph.addLink(link.source, link.target);
+        graph.addLink(link.source, link.target);
       });
-      layout = ngraph['forcelayout' + (elData.numDimensions === 2 ? '' : '3d')](ngraphGraph);
+      layout = ngraph['forcelayout' + (elData.numDimensions === 2 ? '' : '3d')](graph);
+      layout.graph = graph; // Attach graph reference to layout
     }
 
     for (var i=0; i<elData.warmupTicks; i++) { layout[isD3Sim?'tick':'step'](); } // Initial ticks before starting to render
@@ -196,7 +197,7 @@ AFRAME.registerComponent('forcegraph', {
             new THREE.Vector3(link.target.x, link.target.y || 0, link.target.z || 0)
           ];
         } else { // ngraph
-          var pos = layout.getLinkPosition(ngraphGraph.getLink(link.source, link.target).id);
+          var pos = layout.getLinkPosition(layout.graph.getLink(link.source, link.target).id);
 
           line.geometry.vertices = [
             new THREE.Vector3(pos.from.x, pos.from.y || 0, pos.from.z || 0),
