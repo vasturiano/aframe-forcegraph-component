@@ -153,12 +153,9 @@
 	    while(el3d.children.length){ el3d.remove(el3d.children[0]) } // Clear the place
 
 	    elData.nodes.forEach(function(node) {
-	      var nodeMaterial = new THREE.MeshLambertMaterial({ color: node[elData.colorField] || 0xffffaa, transparent: true });
-	      nodeMaterial.opacity = 0.75;
-
 	      var sphere = new THREE.Mesh(
 	          new THREE.SphereGeometry(Math.cbrt(node[elData.valField] || 1) * elData.nodeRelSize, 8, 8),
-	          nodeMaterial
+	          new THREE.MeshLambertMaterial({ color: node[elData.colorField] || 0xffffaa, transparent: true, opacity: 0.75 })
 	      );
 
 	      sphere.name = node[elData.nameField]; // Add label
@@ -166,9 +163,7 @@
 	      el3d.add(node.__sphere = sphere);
 	    });
 
-	    var lineMaterial = new THREE.LineBasicMaterial({ color: 0xf0f0f0, transparent: true });
-	    lineMaterial.opacity = elData.lineOpacity;
-
+	    var lineMaterial = new THREE.LineBasicMaterial({ color: 0xf0f0f0, transparent: true, opacity: elData.lineOpacity });
 	    elData.links.forEach(function(link) {
 	      var line = new THREE.Line(new THREE.Geometry(), lineMaterial);
 	      line.geometry.vertices=[new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)];
