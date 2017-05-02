@@ -146,7 +146,6 @@
 	    elData.links.forEach(function(link) {
 	      link.source = link[elData.linkSourceField];
 	      link.target = link[elData.linkTargetField];
-	      link.id = [link.source, link.target].join(' > ');
 	    });
 
 	    // Add children entities
