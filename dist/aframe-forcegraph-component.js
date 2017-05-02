@@ -165,10 +165,7 @@
 
 	    var lineMaterial = new THREE.LineBasicMaterial({ color: 0xf0f0f0, transparent: true, opacity: elData.lineOpacity });
 	    elData.links.forEach(function(link) {
-	      var line = new THREE.Line(new THREE.Geometry(), lineMaterial);
-	      line.geometry.vertices=[new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,0)];
-
-	      el3d.add(link.__line = line);
+	      el3d.add(link.__line = new THREE.Line(new THREE.Geometry(), lineMaterial));
 	    });
 
 	    // Feed data to force-directed layout
