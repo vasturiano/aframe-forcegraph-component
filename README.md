@@ -34,7 +34,7 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | force-engine       | Which force-simulation engine to use ([*d3*](https://github.com/vasturiano/d3-force-3d) or [*ngraph*](https://github.com/anvaka/ngraph.forcelayout))  | d3             |
 | warmup-ticks       | How many times to tick the force simulation engine at ignition before starting to render                                   | 0             |
 | cooldown-ticks     | How many times to tick the force simulation engine after rendering begins before stopping and freezing the engine          | Infinity      |
-| cooldown-time      | How much time (ms) to tick the force simulation engine for after rendering begins before stopping and freezing the engine  | 15000         |
+| cooldown-time      | How much time (ms) to tick the force simulation engine after rendering begins before stopping and freezing the engine  | 15000         |
 
 ### Installation
 
