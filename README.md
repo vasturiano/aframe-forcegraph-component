@@ -28,7 +28,7 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | id-field           | Node object field name referring to unique node id (used in link objects source/target)                                    | id            |
 | val-field          | Node object field name referring to node value (affects sphere volume)                                                     | val           |
 | name-field         | Node object field name referring to node name (shown in label)                                                             | name          |
-| color-field        | Node object field name referring to node value (affects sphere color)                                                      | color         |
+| color-field        | Node object field name referring to node color (affects sphere color)                                                      | color         |
 | link-source-field  | Link object field name referring to id of source node                                                                      | source        |
 | link-target-field  | Link object field name referring to id of target node                                                                      | target        |
 | force-engine       | Which force-simulation engine to use ([*d3*](https://github.com/vasturiano/d3-force-3d) or [*ngraph*](https://github.com/anvaka/ngraph.forcelayout))  | d3             |
