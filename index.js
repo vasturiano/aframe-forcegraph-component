@@ -17,13 +17,13 @@ var d3 = require('d3-force-3d'),
  */
 AFRAME.registerComponent('forcegraph', {
   schema: {
-    jsonUrl: {type: 'string'},
+    jsonUrl: {type: 'string', default: ''},
     nodes: {parse: JSON.parse, default: '[]'},
     links: {parse: JSON.parse, default: '[]'},
     numDimensions: {type: 'number', default: 3},
     nodeRelSize: {type: 'number', default: 4}, // volume per val unit
     lineOpacity: {type: 'number', default: 0.2},
-    autoColorBy: {type: 'string'}, // color nodes with the same field equally
+    autoColorBy: {type: 'string', default: ''}, // color nodes with the same field equally
     idField: {type: 'string', default: 'id'},
     valField: {type: 'string', default: 'val'},
     nameField: {type: 'string', default: 'name'},
