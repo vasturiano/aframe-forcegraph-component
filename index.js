@@ -15,10 +15,15 @@ var qwest = require('qwest'),
       forcelayout3d: require('ngraph.forcelayout3d')
     };
 
-var eval2 = eval; // Avoid using eval directly https://github.com/rollup/rollup/wiki/Troubleshooting#avoiding-eval
 var parseAccessor = function(prop) {
-  try { prop = eval2('(' + prop + ')'); }
-  catch (e) {} // Not a function
+  var geval = eval; // Avoid using eval directly https://github.com/rollup/rollup/wiki/Troubleshooting#avoiding-eval
+  try {
+    var evalled = geval('(' + prop + ')');
+    if (evalled instanceof Function) {
+      prop = evalled;
+    }
+  }
+  catch (e) {} // Can't eval, not a function
   return prop;
 };
 
