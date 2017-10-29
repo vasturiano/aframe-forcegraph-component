@@ -4,13 +4,22 @@ if (typeof AFRAME === 'undefined') {
   throw new Error('Component attempted to register before AFRAME was available.');
 }
 
-var d3 = require('d3-force-3d'),
+var qwest = require('qwest'),
+    accessorFn = require('accessor-fn'),
+    tinyColor = require('tinycolor2'),
+    d3Chromatic = require('d3-scale-chromatic'),
+    d3 = require('d3-force-3d'),
     ngraph = {
       graph: require('ngraph.graph'),
       forcelayout: require('ngraph.forcelayout'),
       forcelayout3d: require('ngraph.forcelayout3d')
-    },
-    qwest = require('qwest');
+    };
+
+var parseAccessor = function(prop) {
+  try { prop = eval('(' + prop + ')'); }
+  catch (e) {} // Not a function
+  return prop;
+};
 
 /**
  * 3D Force-Directed Graph component for A-Frame.
@@ -22,17 +31,19 @@ AFRAME.registerComponent('forcegraph', {
     links: {parse: JSON.parse, default: '[]'},
     numDimensions: {type: 'number', default: 3},
     nodeRelSize: {type: 'number', default: 4}, // volume per val unit
+    nodeResolution: {type: 'number', default: 8}, // how many slice segments in the sphere's circumference
     lineOpacity: {type: 'number', default: 0.2},
-    autoColorBy: {type: 'string', default: ''}, // color nodes with the same field equally
+    autoColorBy: {parse: parseAccessor, default: ''}, // color nodes with the same field equally
     idField: {type: 'string', default: 'id'},
-    valField: {type: 'string', default: 'val'},
-    nameField: {type: 'string', default: 'name'},
-    colorField: {type: 'string', default: 'color'},
+    valField: {parse: parseAccessor, default: 'val'},
+    nameField: {parse: parseAccessor, default: 'name'},
+    colorField: {parse: parseAccessor, default: 'color'},
     linkSourceField: {type: 'string', default: 'source'},
     linkTargetField: {type: 'string', default: 'target'},
+    linkColorField: {parse: parseAccessor, default: 'color'},
     forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
     warmupTicks: {type: 'int', default: 0}, // how many times to tick the force engine at init before starting to render
-    cooldownTicks: {type: 'int', default: Infinity},
+    cooldownTicks: {type: 'int', default: 1e18}, // Simulate infinity (int parser doesn't accept Infinity object)
     cooldownTime: {type: 'int', default: 15000} // ms
   },
 
@@ -93,8 +104,10 @@ AFRAME.registerComponent('forcegraph', {
       });
     }
 
-    // Auto add color to uncolored nodes
-    autoColorNodes(elData.nodes, elData.autoColorBy, elData.colorField);
+    if (elData.autoColorBy) {
+      // Auto add color to uncolored nodes
+      autoColorNodes(elData.nodes, accessorFn(elData.autoColorBy), elData.colorField);
+    }
 
     // parse links
     elData.links.forEach(function(link) {
@@ -106,23 +119,51 @@ AFRAME.registerComponent('forcegraph', {
     var el3d = this.el.object3D;
     while(el3d.children.length){ el3d.remove(el3d.children[0]) } // Clear the place
 
+    var nameAccessor = accessorFn(elData.nameField);
+    var valAccessor = accessorFn(elData.valField);
+    var colorAccessor = accessorFn(elData.colorField);
+    var sphereGeometries = {}; // indexed by node value
+    var sphereMaterials = {}; // indexed by color
     elData.nodes.forEach(function(node) {
-      var sphere = new THREE.Mesh(
-          new THREE.SphereGeometry(Math.cbrt(node[elData.valField] || 1) * elData.nodeRelSize, 8, 8),
-          new THREE.MeshLambertMaterial({ color: node[elData.colorField] || 0xffffaa, transparent: true, opacity: 0.75 })
-      );
+      var val = valAccessor(node) || 1;
+      if (!sphereGeometries.hasOwnProperty(val)) {
+        sphereGeometries[val] = new THREE.SphereGeometry(Math.cbrt(val) * elData.nodeRelSize, elData.nodeResolution, elData.nodeResolution);
+      }
 
-      sphere.name = node[elData.nameField]; // Add label
+      var color = colorAccessor(node);
+      if (!sphereMaterials.hasOwnProperty(color)) {
+        sphereMaterials[color] = new THREE.MeshLambertMaterial({
+          color: colorStr2Hex(color || '#ffffaa'),
+          transparent: true,
+          opacity: 0.75
+        });
+      }
+
+      var sphere = new THREE.Mesh(sphereGeometries[val], sphereMaterials[color]);
+
+      sphere.name = nameAccessor(node); // Add label
 
       el3d.add(node.__sphere = sphere);
     });
 
-    var lineMaterial = new THREE.LineBasicMaterial({ color: 0xf0f0f0, transparent: true, opacity: elData.lineOpacity });
+    var linkColorAccessor = accessorFn(elData.linkColorField);
+    var lineMaterials = {}; // indexed by color
     elData.links.forEach(function(link) {
+      var color = linkColorAccessor(link);
+      if (!lineMaterials.hasOwnProperty(color)) {
+        lineMaterials[color] = new THREE.LineBasicMaterial({
+          color: colorStr2Hex(color || '#f0f0f0'),
+          transparent: true,
+          opacity: elData.lineOpacity
+        });
+      }
+
       var geometry = new THREE.BufferGeometry();
       geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(2 * 3), 3));
+      var lineMaterial = lineMaterials[color];
+      var line = new THREE.Line(geometry, lineMaterial);
 
-      el3d.add(link.__line = new THREE.Line(geometry, lineMaterial));
+      el3d.add(link.__line = line);
     });
 
     // Feed data to force-directed layout
@@ -205,21 +246,24 @@ AFRAME.registerComponent('forcegraph', {
 
     //
 
-    function autoColorNodes(nodes, colorBy, colorField) {
-      if (!colorBy) return;
+    function autoColorNodes(nodes, colorByAccessor, colorField) {
+      if (!colorByAccessor || typeof colorField !== 'string') return;
 
-      // Color brewer paired set
-      var colors = ['#a6cee3','#1f78b4','#b2df8a','#33a02c','#fb9a99','#e31a1c','#fdbf6f','#ff7f00','#cab2d6','#6a3d9a','#ffff99','#b15928'];
+      var colors = d3Chromatic.schemePaired; // Paired color set from color brewer
 
-      var uncoloredNodes = nodes.filter(function(node) { return !node[colorField]}),
-          nodeGroups = {};
+      var uncoloredNodes = nodes.filter(function(node) { return !node[colorField] });
+      var nodeGroups = {};
 
-      uncoloredNodes.forEach(function(node) { nodeGroups[node[colorBy]] = null });
+      uncoloredNodes.forEach(function(node) { nodeGroups[colorByAccessor(node)] = null });
       Object.keys(nodeGroups).forEach(function(group, idx) { nodeGroups[group] = idx });
 
       uncoloredNodes.forEach(function(node) {
-        node[colorField] = parseInt(colors[nodeGroups[node[colorBy]] % colors.length].slice(1), 16);
+        node[colorField] = colors[nodeGroups[colorByAccessor(node)] % colors.length];
       });
+    }
+
+    function colorStr2Hex(str) {
+      return isNaN(str) ? parseInt(tinyColor(str).toHex(), 16) : str;
     }
   },
 
