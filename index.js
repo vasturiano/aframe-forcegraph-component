@@ -15,8 +15,9 @@ var qwest = require('qwest'),
       forcelayout3d: require('ngraph.forcelayout3d')
     };
 
+var eval2 = eval; // Avoid using eval directly https://github.com/rollup/rollup/wiki/Troubleshooting#avoiding-eval
 var parseAccessor = function(prop) {
-  try { prop = eval('(' + prop + ')'); }
+  try { prop = eval2('(' + prop + ')'); }
   catch (e) {} // Not a function
   return prop;
 };

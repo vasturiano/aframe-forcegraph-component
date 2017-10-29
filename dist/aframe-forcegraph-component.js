@@ -61,8 +61,9 @@
 	      forcelayout3d: __webpack_require__(37)
 	    };
 
+	var eval2 = eval; // Avoid using eval directly https://github.com/rollup/rollup/wiki/Troubleshooting#avoiding-eval
 	var parseAccessor = function(prop) {
-	  try { prop = eval('(' + prop + ')'); }
+	  try { prop = eval2('(' + prop + ')'); }
 	  catch (e) {} // Not a function
 	  return prop;
 	};
@@ -136,8 +137,6 @@
 	    var comp = this,
 	        elData = this.data,
 	        diff = AFRAME.utils.diff(elData, oldData);
-
-	    console.log(elData.cooldownTicks);
 
 	    comp.state.onFrame = null; // Pause simulation
 	    comp.state.infoEl.setAttribute('value', 'Loading...'); // Add loading msg
