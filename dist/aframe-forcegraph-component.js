@@ -112,16 +112,19 @@
 	    state.tooltipEl.setAttribute('color', 'lavender');
 	    state.tooltipEl.setAttribute('value', '');
 
-	    // On camera mount
+	    // Get camera dom element and attach fixed view elements to camera
+	    var cameraEl = document.querySelector('a-entity[camera], a-camera');
+	    cameraEl.appendChild(state.infoEl);
+	    cameraEl.appendChild(state.tooltipEl);
+
+	    // Keep reference to Three camera object
+	    state.cameraObj = cameraEl.object3D.children
+	        .filter(function(child) { return child.type === 'PerspectiveCamera' })[0];
+
+	    // On camera switch
 	    this.el.sceneEl.addEventListener('camera-set-active', function(evt) {
-	      const cameraEl = evt.detail.cameraEl;
-
-	      // Keep reference to Three camera object
-	      state.cameraObj = cameraEl.components.camera.camera;
-
-	      // Attach fixed view elements to camera
-	      cameraEl.appendChild(state.infoEl);
-	      cameraEl.appendChild(state.tooltipEl);
+	      // Switch camera reference
+	      state.cameraObj = evt.detail.cameraEl.components.camera.camera;
 	    });
 
 	    // Add D3 force-directed layout
@@ -332,7 +335,6 @@
 	        .filter(function(o) { return o.object.name }); // Check only objects with labels
 
 	    this.state.tooltipEl.setAttribute('value', intersects.length ? intersects[0].object.name : '' );
-
 
 	    // Run onFrame ticker
 	    if (this.state.onFrame) this.state.onFrame();
