@@ -95,32 +95,37 @@
 	  },
 
 	  init: function () {
-	    this.state = {}; // Internal state
-
-	    // Get camera dom element
-	    var cameraEl = document.querySelector('a-entity[camera], a-camera');
+	    var state = this.state = {}; // Internal state
 
 	    // Add info msg
-	    cameraEl.appendChild(this.state.infoEl = document.createElement('a-text'));
-	    this.state.infoEl.setAttribute('position', '0 -0.1 -1'); // Canvas center
-	    this.state.infoEl.setAttribute('width', 1);
-	    this.state.infoEl.setAttribute('align', 'center');
-	    this.state.infoEl.setAttribute('color', 'lavender');
+	    state.infoEl = document.createElement('a-text');
+	    state.infoEl.setAttribute('position', '0 -0.1 -1'); // Canvas center
+	    state.infoEl.setAttribute('width', 1);
+	    state.infoEl.setAttribute('align', 'center');
+	    state.infoEl.setAttribute('color', 'lavender');
 
-	    // Setup tooltip (attached to camera)
-	    cameraEl.appendChild(this.state.tooltipEl = document.createElement('a-text'));
-	    this.state.tooltipEl.setAttribute('position', '0 -0.5 -1'); // Aligned to canvas bottom
-	    this.state.tooltipEl.setAttribute('width', 2);
-	    this.state.tooltipEl.setAttribute('align', 'center');
-	    this.state.tooltipEl.setAttribute('color', 'lavender');
-	    this.state.tooltipEl.setAttribute('value', '');
+	    // Setup tooltip
+	    state.tooltipEl = document.createElement('a-text');
+	    state.tooltipEl.setAttribute('position', '0 -0.5 -1'); // Aligned to canvas bottom
+	    state.tooltipEl.setAttribute('width', 2);
+	    state.tooltipEl.setAttribute('align', 'center');
+	    state.tooltipEl.setAttribute('color', 'lavender');
+	    state.tooltipEl.setAttribute('value', '');
 
-	    // Keep reference to Three camera object
-	    this.cameraObj = cameraEl.object3D.children
-	        .filter(function(child) { return child.type === 'PerspectiveCamera' })[0];
+	    // On camera mount
+	    this.el.sceneEl.addEventListener('camera-set-active', function(evt) {
+	      const cameraEl = evt.detail.cameraEl;
+
+	      // Keep reference to Three camera object
+	      state.cameraObj = cameraEl.components.camera.camera;
+
+	      // Attach fixed view elements to camera
+	      cameraEl.appendChild(state.infoEl);
+	      cameraEl.appendChild(state.tooltipEl);
+	    });
 
 	    // Add D3 force-directed layout
-	    this.state.d3ForceLayout = d3.forceSimulation()
+	    state.d3ForceLayout = d3.forceSimulation()
 	        .force('link', d3.forceLink())
 	        .force('charge', d3.forceManyBody())
 	        .force('center', d3.forceCenter())
@@ -320,13 +325,14 @@
 	    var centerRaycaster = new THREE.Raycaster();
 	    centerRaycaster.setFromCamera(
 	        new THREE.Vector2(0, 0), // Canvas center
-	        this.cameraObj
+	        this.state.cameraObj
 	    );
 
 	    var intersects = centerRaycaster.intersectObjects(this.el.object3D.children)
 	        .filter(function(o) { return o.object.name }); // Check only objects with labels
 
 	    this.state.tooltipEl.setAttribute('value', intersects.length ? intersects[0].object.name : '' );
+
 
 	    // Run onFrame ticker
 	    if (this.state.onFrame) this.state.onFrame();
