@@ -3144,7 +3144,7 @@
 /* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-interpolate/ Version 1.1.5. Copyright 2017 Mike Bostock.
+	// https://d3js.org/d3-interpolate/ Version 1.1.6. Copyright 2017 Mike Bostock.
 	(function (global, factory) {
 		 true ? factory(exports, __webpack_require__(11)) :
 		typeof define === 'function' && define.amd ? define(['exports', 'd3-color'], factory) :
@@ -3271,7 +3271,7 @@
 	var array = function(a, b) {
 	  var nb = b ? b.length : 0,
 	      na = a ? Math.min(nb, a.length) : 0,
-	      x = new Array(nb),
+	      x = new Array(na),
 	      c = new Array(nb),
 	      i;
 
