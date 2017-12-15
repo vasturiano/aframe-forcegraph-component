@@ -29,6 +29,7 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | id-field           | Node object attribute name referring to unique node id (used in link objects source/target).                               | id            |
 | val-field          | Node object accessor function, attribute or a numeric constant for the node numeric value (affects sphere volume).         | val           |
 | name-field         | Node object accessor function or attribute for name (shown in label).                                                      | name          |
+| desc-field         | Node object accessor function or attribute for description (shown under label).                                                      | name          |
 | color-field        | Node object accessor function or attribute for node color (affects sphere color).                                          | color         |
 | link-source-field  | Link object attribute name referring to id of source node.                                                                 | source        |
 | link-target-field  | Link object attribute name referring to id of target node.                                                                 | target        |
