@@ -46,6 +46,8 @@ AFRAME.registerComponent('forcegraph', {
     colorField: {parse: parseAccessor, default: 'color'},
     linkSourceField: {type: 'string', default: 'source'},
     linkTargetField: {type: 'string', default: 'target'},
+    linkNameField: {parse: parseAccessor, default: 'name'},
+    linkNamePrecision: {type: 'number', default: 2},
     linkColorField: {parse: parseAccessor, default: 'color'},
     forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
     warmupTicks: {type: 'int', default: 0}, // how many times to tick the force engine at init before starting to render
@@ -160,10 +162,12 @@ AFRAME.registerComponent('forcegraph', {
       el3d.add(node.__sphere = sphere);
     });
 
+    var linkNameAccessor = accessorFn(elData.linkNameField);
     var linkColorAccessor = accessorFn(elData.linkColorField);
     var lineMaterials = {}; // indexed by color
     elData.links.forEach(function(link) {
       var color = linkColorAccessor(link);
+      var name = linkNameAccessor(link);
       if (!lineMaterials.hasOwnProperty(color)) {
         lineMaterials[color] = new THREE.LineBasicMaterial({
           color: colorStr2Hex(color || '#f0f0f0'),
@@ -176,6 +180,7 @@ AFRAME.registerComponent('forcegraph', {
       geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(2 * 3), 3));
       var lineMaterial = lineMaterials[color];
       var line = new THREE.Line(geometry, lineMaterial);
+      line.name = name;
 
       el3d.add(link.__line = line);
     });
@@ -285,6 +290,7 @@ AFRAME.registerComponent('forcegraph', {
   tick: function(t, td) {
     // Update tooltip
     var centerRaycaster = new THREE.Raycaster();
+    centerRaycaster.linePrecision = this.data.linkNamePrecision;
     centerRaycaster.setFromCamera(
         new THREE.Vector2(0, 0), // Canvas center
         this.state.cameraObj
