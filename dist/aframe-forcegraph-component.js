@@ -89,6 +89,7 @@
 	    idField: {type: 'string', default: 'id'},
 	    valField: {parse: parseAccessor, default: 'val'},
 	    nameField: {parse: parseAccessor, default: 'name'},
+	    descField: {parse: parseAccessor, default: 'desc'},
 	    colorField: {parse: parseAccessor, default: 'color'},
 	    linkSourceField: {type: 'string', default: 'source'},
 	    linkTargetField: {type: 'string', default: 'target'},
@@ -117,10 +118,19 @@
 	    state.tooltipEl.setAttribute('color', 'lavender');
 	    state.tooltipEl.setAttribute('value', '');
 
+	    // Setup sub-tooltip
+	    state.subTooltipEl = document.createElement('a-text');
+	    state.subTooltipEl.setAttribute('position', '0 -0.6 -1'); // Aligned to canvas bottom
+	    state.subTooltipEl.setAttribute('width', 1.5);
+	    state.subTooltipEl.setAttribute('align', 'center');
+	    state.subTooltipEl.setAttribute('color', 'lavender');
+	    state.subTooltipEl.setAttribute('value', '');
+
 	    // Get camera dom element and attach fixed view elements to camera
 	    var cameraEl = document.querySelector('a-entity[camera], a-camera');
 	    cameraEl.appendChild(state.infoEl);
 	    cameraEl.appendChild(state.tooltipEl);
+	    cameraEl.appendChild(state.subTooltipEl);
 
 	    // Keep reference to Three camera object
 	    state.cameraObj = cameraEl.object3D.children
@@ -144,6 +154,7 @@
 	    // Clean-up elems
 	    this.state.infoEl.remove();
 	    this.state.tooltipEl.remove();
+	    this.state.subTooltipEl.remove();
 	  },
 
 	  update: function (oldData) {
@@ -180,6 +191,7 @@
 	    while(el3d.children.length){ el3d.remove(el3d.children[0]) } // Clear the place
 
 	    var nameAccessor = accessorFn(elData.nameField);
+	    var descAccessor = accessorFn(elData.descField);
 	    var valAccessor = accessorFn(elData.valField);
 	    var colorAccessor = accessorFn(elData.colorField);
 	    var sphereGeometries = {}; // indexed by node value
@@ -202,6 +214,7 @@
 	      var sphere = new THREE.Mesh(sphereGeometries[val], sphereMaterials[color]);
 
 	      sphere.name = nameAccessor(node); // Add label
+	      sphere.desc = descAccessor(node); // Add sub-label
 
 	      el3d.add(node.__sphere = sphere);
 	    });
@@ -340,6 +353,7 @@
 	        .filter(function(o) { return o.object.name }); // Check only objects with labels
 
 	    this.state.tooltipEl.setAttribute('value', intersects.length ? intersects[0].object.name : '' );
+	    this.state.subTooltipEl.setAttribute('value', intersects.length ? intersects[0].object.desc || '' : '' );
 
 	    // Run onFrame ticker
 	    if (this.state.onFrame) this.state.onFrame();
