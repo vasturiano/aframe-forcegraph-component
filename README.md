@@ -33,6 +33,8 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | color-field        | Node object accessor function or attribute for node color (affects sphere color).                                          | color         |
 | link-source-field  | Link object attribute name referring to id of source node.                                                                 | source        |
 | link-target-field  | Link object attribute name referring to id of target node.                                                                 | target        |
+| link-name-field    | Link object accessor function or attribute for name (shown in label).                                                      | name          |
+| link-name-precision | Wether to display the link label when gazing the link closely (low value) or from far away (high value)                                                       | 2          |
 | link-color-field   | Link object accessor function or attribute for line color.                                                                 | color         |
 | force-engine       | Which force-simulation engine to use ([*d3*](https://github.com/vasturiano/d3-force-3d) or [*ngraph*](https://github.com/anvaka/ngraph.forcelayout)).  | d3             |
 | warmup-ticks       | How many times to tick the force simulation engine at ignition before starting to render.                                  | 0             |
