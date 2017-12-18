@@ -47,6 +47,8 @@ AFRAME.registerComponent('forcegraph', {
     colorField: {parse: parseAccessor, default: 'color'},
     linkSourceField: {type: 'string', default: 'source'},
     linkTargetField: {type: 'string', default: 'target'},
+    linkNameField: {parse: parseAccessor, default: 'name'},
+    linkNamePrecision: {type: 'number', default: 2},
     linkColorField: {parse: parseAccessor, default: 'color'},
     forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
     warmupTicks: {type: 'int', default: 0}, // how many times to tick the force engine at init before starting to render
@@ -173,6 +175,7 @@ AFRAME.registerComponent('forcegraph', {
       el3d.add(node.__sphere = sphere);
     });
 
+    var linkNameAccessor = accessorFn(elData.linkNameField);
     var linkColorAccessor = accessorFn(elData.linkColorField);
     var lineMaterials = {}; // indexed by color
     elData.links.forEach(function(link) {
@@ -189,6 +192,8 @@ AFRAME.registerComponent('forcegraph', {
       geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(2 * 3), 3));
       var lineMaterial = lineMaterials[color];
       var line = new THREE.Line(geometry, lineMaterial);
+
+      line.name = linkNameAccessor(link); // Add link label
 
       el3d.add(link.__line = line);
     });
@@ -298,13 +303,18 @@ AFRAME.registerComponent('forcegraph', {
   tick: function(t, td) {
     // Update tooltip
     var centerRaycaster = new THREE.Raycaster();
+    centerRaycaster.linePrecision = this.data.linkNamePrecision;
     centerRaycaster.setFromCamera(
         new THREE.Vector2(0, 0), // Canvas center
         this.state.cameraObj
     );
 
     var intersects = centerRaycaster.intersectObjects(this.el.object3D.children)
-        .filter(function(o) { return o.object.name }); // Check only objects with labels
+        .filter(function(o) { return o.object.name }) // Check only objects with labels
+        .sort(function(a, b) {                        // Prioritize meshes over lines
+            return isMesh(b) - isMesh(a);
+            function isMesh(o) { return o.object.type === 'Mesh'; }
+        });
 
     this.state.tooltipEl.setAttribute('value', intersects.length ? intersects[0].object.name : '' );
     this.state.subTooltipEl.setAttribute('value', intersects.length ? intersects[0].object.desc || '' : '' );
