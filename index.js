@@ -180,7 +180,6 @@ AFRAME.registerComponent('forcegraph', {
     var lineMaterials = {}; // indexed by color
     elData.links.forEach(function(link) {
       var color = linkColorAccessor(link);
-      var name = linkNameAccessor(link);
       if (!lineMaterials.hasOwnProperty(color)) {
         lineMaterials[color] = new THREE.LineBasicMaterial({
           color: colorStr2Hex(color || '#f0f0f0'),
@@ -193,7 +192,8 @@ AFRAME.registerComponent('forcegraph', {
       geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(2 * 3), 3));
       var lineMaterial = lineMaterials[color];
       var line = new THREE.Line(geometry, lineMaterial);
-      line.name = name;
+
+      line.name = linkNameAccessor(link); // Add link label
 
       el3d.add(link.__line = line);
     });
@@ -310,7 +310,11 @@ AFRAME.registerComponent('forcegraph', {
     );
 
     var intersects = centerRaycaster.intersectObjects(this.el.object3D.children)
-        .filter(function(o) { return o.object.name }); // Check only objects with labels
+        .filter(function(o) { return o.object.name }) // Check only objects with labels
+        .sort(function(a, b) {                        // Prioritize meshes over lines
+            return isMesh(b) - isMesh(a);
+            function isMesh(o) { return o.object.type === 'Mesh'; }
+        });
 
     this.state.tooltipEl.setAttribute('value', intersects.length ? intersects[0].object.name : '' );
     this.state.subTooltipEl.setAttribute('value', intersects.length ? intersects[0].object.desc || '' : '' );
