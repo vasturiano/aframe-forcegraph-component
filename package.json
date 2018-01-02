@@ -51,7 +51,9 @@
     "ngraph.forcelayout3d": "^0.0.16",
     "ngraph.graph": "^0.0.14",
     "qwest": "^4.5.0",
-    "tinycolor2": "^1.4.1"
+    "tinycolor2": "^1.4.1",
+    "three": "^0.89.0",
+    "three.meshline": "^1.0.3"
   },
   "devDependencies": {
     "browserify": "^13.0.0",

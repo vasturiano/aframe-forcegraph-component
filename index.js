@@ -13,7 +13,8 @@ var qwest = require('qwest'),
       graph: require('ngraph.graph'),
       forcelayout: require('ngraph.forcelayout'),
       forcelayout3d: require('ngraph.forcelayout3d')
-    };
+    },
+    MeshLine = require('three.meshline');
 
 var parseAccessor = function(prop) {
   var geval = eval; // Avoid using eval directly https://github.com/rollup/rollup/wiki/Troubleshooting#avoiding-eval
@@ -191,28 +192,34 @@ AFRAME.registerComponent('forcegraph', {
       var color = linkColorAccessor(link) || '#f0f0f0';
       var val = Math.round(linkValAccessor(link)) || 1;
       var materialName = color+"-"+val;
+      var defaultLineMaterial = new MeshLine.MeshLineMaterial({
+          color: new THREE.Color(0xed6a5a)
+      	});
       if (!lineMaterials.hasOwnProperty(materialName)) {
-        lineMaterials[materialName] = new THREE.LineBasicMaterial({
-          color: colorStr2Hex(color),
+        lineMaterials[materialName] = new MeshLine.MeshLineMaterial({
+          color: (new THREE.Color(colorStr2Hex(color))),
           transparent: true,
-          linewidth: elData.defaultLineWidth * val,
+          lineWidth: elData.defaultLineWidth,// * val,
           opacity: elData.lineOpacity
         });
       }
 
-      var geometry = new THREE.BufferGeometry();
-      geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(2 * 3), 3));
+      var geo = new Float32Array( 2 * 3 );
+    	for( var j = 0; j < geo.length; j += 3 ) {
+    		geo[ j ] = geo[ j + 1 ] = geo[ j + 2 ] = 0;
+    	}
+    	var g = new MeshLine.MeshLine();
+      g.setGeometry(geo);
+
       var lineMaterial = lineMaterials[materialName];
-      var line = new THREE.Line(geometry, lineMaterial);
+      var mesh = new THREE.Mesh( g.geometry, lineMaterial );
+      mesh.geo = geo;
+      mesh.g = g;
 
-      line.name = linkNameAccessor(link); // Add link label
+      mesh.name = linkNameAccessor(link); // Add link label
 
-      el3d.add(link.__line = line);
+      el3d.add(link.__line = mesh);
     });
-    console.log("Line materials");
-    console.log(lineMaterials);
-    console.log("Links");
-    console.log(elData.links);
 
     // Feed data to force-directed layout
     var isD3Sim = elData.forceEngine !== 'ngraph',
@@ -278,17 +285,18 @@ AFRAME.registerComponent('forcegraph', {
                 : layout.getLinkPosition(layout.graph.getLink(link.source, link.target).id),
             start = pos[isD3Sim ? 'source' : 'from'],
             end = pos[isD3Sim ? 'target' : 'to'],
-            linePos = line.geometry.attributes.position;
+            g = line.g,
+            geo = line.geo;
 
-        linePos.array[0] = start.x;
-        linePos.array[1] = start.y || 0;
-        linePos.array[2] = start.z || 0;
-        linePos.array[3] = end.x;
-        linePos.array[4] = end.y || 0;
-        linePos.array[5] = end.z || 0;
-
-        linePos.needsUpdate = true;
-        line.geometry.computeBoundingSphere();
+        geo[0] = start.x;
+        geo[1] = start.y || 0;
+        geo[2] = start.z || 0;
+        geo[3] = end.x;
+        geo[4] = end.y || 0;
+        geo[5] = end.z || 0;
+        g.setGeometry( geo );
+        //g.needsUpdate = true;
+        //line.geometry.computeBoundingSphere();
       });
     }
 
