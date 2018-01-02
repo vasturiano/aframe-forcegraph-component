@@ -39,6 +39,7 @@ AFRAME.registerComponent('forcegraph', {
     nodeRelSize: {type: 'number', default: 4}, // volume per val unit
     nodeResolution: {type: 'number', default: 8}, // how many slice segments in the sphere's circumference
     lineOpacity: {type: 'number', default: 0.2},
+    defaultLineWidth: {type: 'number', default: 1}, // Line width is multiplied by link val field
     autoColorBy: {parse: parseAccessor, default: ''}, // color nodes with the same field equally
     idField: {type: 'string', default: 'id'},
     valField: {parse: parseAccessor, default: 'val'},
@@ -50,6 +51,8 @@ AFRAME.registerComponent('forcegraph', {
     linkNameField: {parse: parseAccessor, default: 'name'},
     linkNamePrecision: {type: 'number', default: 2},
     linkColorField: {parse: parseAccessor, default: 'color'},
+    linkValField: {parse: parseAccessor, default: 'val'}, // Default value when no 'val' set: 1 ; Rounded to nearest integer
+    linkAutoColorBy: {parse: parseAccessor, default: ''}, // color links with the same field equally
     forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
     warmupTicks: {type: 'int', default: 0}, // how many times to tick the force engine at init before starting to render
     cooldownTicks: {type: 'int', default: 1e18}, // Simulate infinity (int parser doesn't accept Infinity object)
@@ -133,7 +136,12 @@ AFRAME.registerComponent('forcegraph', {
 
     if (elData.autoColorBy) {
       // Auto add color to uncolored nodes
-      autoColorNodes(elData.nodes, accessorFn(elData.autoColorBy), elData.colorField);
+      autoColorObjects(elData.nodes, accessorFn(elData.autoColorBy), elData.colorField);
+    }
+
+    if (elData.linkAutoColorBy) {
+      // Auto add color to uncolored nodes
+      autoColorObjects(elData.links, accessorFn(elData.linkAutoColorBy), elData.linkColorField);
     }
 
     // parse links
@@ -177,26 +185,34 @@ AFRAME.registerComponent('forcegraph', {
 
     var linkNameAccessor = accessorFn(elData.linkNameField);
     var linkColorAccessor = accessorFn(elData.linkColorField);
+    var linkValAccessor = accessorFn(elData.linkValField);
     var lineMaterials = {}; // indexed by color
     elData.links.forEach(function(link) {
-      var color = linkColorAccessor(link);
-      if (!lineMaterials.hasOwnProperty(color)) {
-        lineMaterials[color] = new THREE.LineBasicMaterial({
-          color: colorStr2Hex(color || '#f0f0f0'),
+      var color = linkColorAccessor(link) || '#f0f0f0';
+      var val = Math.round(linkValAccessor(link)) || 1;
+      var materialName = color+"-"+val;
+      if (!lineMaterials.hasOwnProperty(materialName)) {
+        lineMaterials[materialName] = new THREE.LineBasicMaterial({
+          color: colorStr2Hex(color),
           transparent: true,
+          linewidth: elData.defaultLineWidth * val,
           opacity: elData.lineOpacity
         });
       }
 
       var geometry = new THREE.BufferGeometry();
       geometry.addAttribute('position', new THREE.BufferAttribute(new Float32Array(2 * 3), 3));
-      var lineMaterial = lineMaterials[color];
+      var lineMaterial = lineMaterials[materialName];
       var line = new THREE.Line(geometry, lineMaterial);
 
       line.name = linkNameAccessor(link); // Add link label
 
       el3d.add(link.__line = line);
     });
+    console.log("Line materials");
+    console.log(lineMaterials);
+    console.log("Links");
+    console.log(elData.links);
 
     // Feed data to force-directed layout
     var isD3Sim = elData.forceEngine !== 'ngraph',
@@ -276,21 +292,22 @@ AFRAME.registerComponent('forcegraph', {
       });
     }
 
-    //
+    // Objects can be nodes or links ; autoset attribute colorField by colorByAccessor property
+    // If an object has already a color, don't set it.
 
-    function autoColorNodes(nodes, colorByAccessor, colorField) {
+    function autoColorObjects(objects, colorByAccessor, colorField) {
       if (!colorByAccessor || typeof colorField !== 'string') return;
 
       var colors = d3Chromatic.schemePaired; // Paired color set from color brewer
 
-      var uncoloredNodes = nodes.filter(function(node) { return !node[colorField] });
-      var nodeGroups = {};
+      var uncoloredObjects = objects.filter(function(obj) { return !obj[colorField] });
+      var objectGroups = {};
 
-      uncoloredNodes.forEach(function(node) { nodeGroups[colorByAccessor(node)] = null });
-      Object.keys(nodeGroups).forEach(function(group, idx) { nodeGroups[group] = idx });
+      uncoloredObjects.forEach(function(obj) { objectGroups[colorByAccessor(obj)] = null });
+      Object.keys(objectGroups).forEach(function(group, idx) { objectGroups[group] = idx });
 
-      uncoloredNodes.forEach(function(node) {
-        node[colorField] = colors[nodeGroups[colorByAccessor(node)] % colors.length];
+      uncoloredObjects.forEach(function(obj) {
+        obj[colorField] = colors[objectGroups[colorByAccessor(obj)] % colors.length];
       });
     }
 

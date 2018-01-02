@@ -25,6 +25,7 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | node-rel-size       | Node sphere volume per val unit.                                                                                           | 4             |
 | node-resolution     | Geometric resolution of each node, expressed in how many slice segments to divide the circumference. Higher values yield smoother spheres. | 8 |
 | line-opacity        | Opacity of links.                                                                                                          | 0.2           |
+| default-line-width  | Default link line width (Warning: Doesn't work on Windows platform with WebGL renderer) | 1             |
 | auto-color-by       | Node object accessor function (`fn(node)`) or attribute (e.g. `'type'`) to automatically group colors by. Only affects nodes without a color attribute. |               |
 | id-field            | Node object attribute name referring to unique node id (used in link objects source/target).                               | id            |
 | val-field           | Node object accessor function, attribute or a numeric constant for the node numeric value (affects sphere volume).         | val           |
@@ -36,6 +37,8 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | link-name-field     | Link object accessor function or attribute for name (shown in label).                                                      | name          |
 | link-name-precision | Whether to display the link label when gazing the link closely (low value) or from far away (high value).                  | 2             |
 | link-color-field    | Link object accessor function or attribute for line color.                                                                 | color         |
+| link-val-field     | Link object accessor function, attribute or a numeric constant for the link numeric value (affects line width, is rounded to integer and multiplied by default-line-width). | val         |
+| link-auto-color-by | Link object accessor function (`fn(node)`) or attribute (e.g. `'type'`) to automatically group colors by. Only affects links without a color attribute. |               |
 | force-engine        | Which force-simulation engine to use ([*d3*](https://github.com/vasturiano/d3-force-3d) or [*ngraph*](https://github.com/anvaka/ngraph.forcelayout)).  | d3             |
 | warmup-ticks        | How many times to tick the force simulation engine at ignition before starting to render.                                  | 0             |
 | cooldown-ticks      | How many times to tick the force simulation engine after rendering begins before stopping and freezing the engine.         | Infinity      |
