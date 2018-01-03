@@ -7,6 +7,11 @@ if (typeof AFRAME === 'undefined') {
 var accessorFn = require('accessor-fn');
 var ThreeForceGraph = require('three-forcegraph');
 
+if (ThreeForceGraph.hasOwnProperty('default')) {
+  // unwrap default export
+  ThreeForceGraph = ThreeForceGraph.default;
+}
+
 var parseAccessor = function(prop) {
   var geval = eval; // Avoid using eval directly https://github.com/rollup/rollup/wiki/Troubleshooting#avoiding-eval
   try {
@@ -140,11 +145,10 @@ AFRAME.registerComponent('forcegraph', {
       'cooldownTime'
     ];
 
-    fgProps.filter(function(p) {
-      return p in diff;
-    }).forEach(function(p) {
-      comp.state.forceGraph[p](elData[p]);
-    });
+    fgProps
+      .filter(function(p) { return p in diff; })
+      .filter(function(p) { return elData[p] !== ''; }) // Don't pass nully props
+      .forEach(function(p) { comp.state.forceGraph[p](elData[p]); });
 
     if ('nodes' in diff || 'links' in diff) {
       comp.state.forceGraph.graphData({

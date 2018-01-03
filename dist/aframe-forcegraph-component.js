@@ -53,6 +53,11 @@
 	var accessorFn = __webpack_require__(1);
 	var ThreeForceGraph = __webpack_require__(2);
 
+	if (ThreeForceGraph.hasOwnProperty('default')) {
+	  // unwrap default export
+	  ThreeForceGraph = ThreeForceGraph.default;
+	}
+
 	var parseAccessor = function(prop) {
 	  var geval = eval; // Avoid using eval directly https://github.com/rollup/rollup/wiki/Troubleshooting#avoiding-eval
 	  try {
@@ -186,11 +191,10 @@
 	      'cooldownTime'
 	    ];
 
-	    fgProps.filter(function(p) {
-	      return p in diff;
-	    }).forEach(function(p) {
-	      comp.state.forceGraph[p](elData[p]);
-	    });
+	    fgProps
+	      .filter(function(p) { return p in diff; })
+	      .filter(function(p) { return elData[p] !== ''; }) // Don't pass nully props
+	      .forEach(function(p) { comp.state.forceGraph[p](elData[p]); });
 
 	    if ('nodes' in diff || 'links' in diff) {
 	      comp.state.forceGraph.graphData({
