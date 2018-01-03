@@ -42,16 +42,8 @@
   },
   "homepage": "https://github.com/vasturiano/aframe-forcegraph-component#readme",
   "dependencies": {
-    "accessor-fn": "^1.2.1",
-    "d3-binarytree": "^0.1.1",
-    "d3-force-3d": "^1.0.7",
-    "d3-octree": "^0.1.2",
-    "d3-scale-chromatic": "^1.1.1",
-    "ngraph.forcelayout": "^0.2.1",
-    "ngraph.forcelayout3d": "^0.0.16",
-    "ngraph.graph": "^0.0.14",
-    "qwest": "^4.5.0",
-    "tinycolor2": "^1.4.1"
+    "accessor-fn": "^1.2.2",
+    "three-forcegraph": "^1.2.2"
   },
   "devDependencies": {
     "browserify": "^13.0.0",
