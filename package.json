@@ -3,7 +3,7 @@
   "version": "1.9.1",
   "description": "A 3D Force-Directed Graph component for A-Frame.",
   "main": "index.js",
-  "cdn": "dist/aframe-forcegraph-component.min.js",
+  "unpkg": "dist/aframe-forcegraph-component.min.js",
   "scripts": {
     "dev": "budo index.js:dist/aframe-forcegraph-component.min.js --port 7000 --live --open",
     "dist": "webpack index.js dist/aframe-forcegraph-component.js && webpack -p index.js dist/aframe-forcegraph-component.min.js",
@@ -46,6 +46,7 @@
     "three-forcegraph": "^1.2.2"
   },
   "devDependencies": {
+    "aframe": "*",
     "browserify": "^13.0.0",
     "budo": "^8.2.2",
     "chai": "^3.4.1",
@@ -64,13 +65,17 @@
     "randomcolor": "^0.4.4",
     "semistandard": "^8.0.0",
     "shelljs": "^0.7.0",
-    "sinon": "^2.1.0",
+    "sinon": "^1.17.5",
     "sinon-chai": "^2.8.0",
     "shx": "^0.1.1",
     "snazzy": "^4.0.0",
     "webpack": "^1.13.0"
   },
   "semistandard": {
+    "globals": [
+      "AFRAME",
+      "THREE"
+    ],
     "ignore": [
       "examples/build.js",
       "dist/**"
