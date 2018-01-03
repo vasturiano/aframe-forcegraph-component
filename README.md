@@ -10,36 +10,39 @@ A 3D Force-Directed Graph component for [A-Frame](https://aframe.io).
 </p>
 
 An A-Frame entity component to represent a graph data structure in a VR environment using a force-directed iterative layout.
-Uses [d3-force-3d](https://github.com/vasturiano/d3-force-3d) for the layout physics engine.
+Uses [three-forcegraph](https://github.com/vasturiano/three-forcegraph) as the underlying ThreeJS component to manage the graph object.
 
 See also the [standalone VR component version](https://github.com/vasturiano/3d-force-graph-vr).
 
 ### API
 
-| Property            | Description                                                                                                                | Default Value |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| json-url            | URL of JSON file to load graph data directly from. Will override content of the *nodes* and *links* component properties so either use one or the other. JSON should contain an object with two list properties: *nodes* and *links*.  |               |
-| nodes               | List of node objects. *Example*: ```[{"id": 1, "name": "first"}, {"id": 2, "name": "second"}]```                           | []            |
-| links               | List of link objects. *Example*: ```[{"source": 1, "target": 2}]```                                                        | []            |
-| num-dimensions      | Number of dimensions to run the force simulation on (1, 2 or 3).                                                           | 3             |
-| node-rel-size       | Node sphere volume per val unit.                                                                                           | 4             |
-| node-resolution     | Geometric resolution of each node, expressed in how many slice segments to divide the circumference. Higher values yield smoother spheres. | 8 |
-| line-opacity        | Opacity of links.                                                                                                          | 0.2           |
-| auto-color-by       | Node object accessor function (`fn(node)`) or attribute (e.g. `'type'`) to automatically group colors by. Only affects nodes without a color attribute. |               |
-| id-field            | Node object attribute name referring to unique node id (used in link objects source/target).                               | id            |
-| val-field           | Node object accessor function, attribute or a numeric constant for the node numeric value (affects sphere volume).         | val           |
-| name-field          | Node object accessor function or attribute for name (shown in label).                                                      | name          |
-| desc-field          | Node object accessor function or attribute for description (shown under label).                                            | name          |
-| color-field         | Node object accessor function or attribute for node color (affects sphere color).                                          | color         |
-| link-source-field   | Link object attribute name referring to id of source node.                                                                 | source        |
-| link-target-field   | Link object attribute name referring to id of target node.                                                                 | target        |
-| link-name-field     | Link object accessor function or attribute for name (shown in label).                                                      | name          |
-| link-name-precision | Whether to display the link label when gazing the link closely (low value) or from far away (high value).                  | 2             |
-| link-color-field    | Link object accessor function or attribute for line color.                                                                 | color         |
-| force-engine        | Which force-simulation engine to use ([*d3*](https://github.com/vasturiano/d3-force-3d) or [*ngraph*](https://github.com/anvaka/ngraph.forcelayout)).  | d3             |
-| warmup-ticks        | How many times to tick the force simulation engine at ignition before starting to render.                                  | 0             |
-| cooldown-ticks      | How many times to tick the force simulation engine after rendering begins before stopping and freezing the engine.         | Infinity      |
-| cooldown-time       | How much time (ms) to tick the force simulation engine after rendering begins before stopping and freezing the engine.     | 15000         |
+| Property             | Description                                                                                                                | Default Value |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| json-url             | URL of JSON file to load graph data directly from. Will override content of the *nodes* and *links* component properties so either use one or the other. JSON should contain an object with two list properties: *nodes* and *links*.  |               |
+| nodes                | List of node objects. *Example*: ```[{"id": 1, "name": "first"}, {"id": 2, "name": "second"}]```                           | []            |
+| links                | List of link objects. *Example*: ```[{"source": 1, "target": 2}]```                                                        | []            |
+| num-dimensions       | Number of dimensions to run the force simulation on (1, 2 or 3).                                                           | 3             |
+| node-rel-size        | Node sphere volume per value unit.                                                                                         | 4             |
+| auto-color-by        | Node object accessor function (`fn(node)`) or attribute (e.g. `'type'`) to automatically group colors by. Only affects nodes without a color attribute. |               |
+| node-id              | Node object accessor attribute for unique node id (used in link objects source/target).                                    | id            |
+| node-label           | Node object accessor function or attribute for name (shown in label).                                                      | name          |
+| node-desc            | Node object accessor function or attribute for description (shown under label).                                            | desc          |
+| node-val             | Node object accessor function, attribute or a numeric constant for the node numeric value (affects sphere volume).         | val           |
+| node-resolution      | Geometric resolution of each node, expressed in how many slice segments to divide the circumference. Higher values yield smoother spheres. | 8 |
+| node-color           | Node object accessor function or attribute for node color (affects sphere color).                                          | color         |
+| node-three-object    | Node object accessor function or attribute for generating a custom 3d object to render as graph nodes. Should return an instance of [ThreeJS Object3d](https://threejs.org/docs/index.html#api/core/Object3D). If a <i>falsy</i> value is returned, the default 3d object type will be used instead for that node.  | *default node object is a sphere, sized according to `val` and styled according to `color`.* |
+| link-source          | Link object accessor attribute referring to id of source node.                                                             | source        |
+| link-target          | Link object accessor attribute referring to id of target node.                                                             | target        |
+| link-label           | Link object accessor function or attribute for name (shown in label).                                                      | name          |
+| link-hover-precision | Whether to display the link label when gazing the link closely (low value) or from far away (high value).                  | 2             |
+| link-color           | Link object accessor function or attribute for line color.                                                                 | color         |
+| link-opacity         | Line opacity of links, between [0,1].                                                                                      | 0.2           |
+| force-engine         | Which force-simulation engine to use ([*d3*](https://github.com/vasturiano/d3-force-3d) or [*ngraph*](https://github.com/anvaka/ngraph.forcelayout)).  | d3             |
+| d3-alpha-decay       | [Simulation intensity decay](https://github.com/vasturiano/d3-force-3d#simulation_alphaDecay) parameter, only applicable if using the d3 simulation engine. | 0.0228 |
+| d3-velocity-decay    | Nodes' [velocity decay](https://github.com/vasturiano/d3-force-3d#simulation_velocityDecay) that simulates the medium resistance, only applicable if using the d3 simulation engine. | 0.4 |
+| warmup-ticks         | How many times to tick the force simulation engine at ignition before starting to render.                                  | 0             |
+| cooldown-ticks       | How many times to tick the force simulation engine after rendering begins before stopping and freezing the engine.         | Infinity      |
+| cooldown-time        | How long (ms) to tick the force simulation engine for after rendering begins before stopping and freezing the engine.      | 15000         |
 
 ### Installation
 
@@ -61,8 +64,6 @@ Install and use by directly including the [browser files](dist):
 </body>
 ```
 
-<!-- If component is accepted to the Registry, uncomment this. -->
-<!--
 Or with [angle](https://npmjs.com/package/angle/), you can install the proper
 version of the component straight into your HTML file, respective to your
 version of A-Frame:
@@ -70,7 +71,6 @@ version of A-Frame:
 ```sh
 angle install aframe-forcegraph-component
 ```
--->
 
 #### npm
 
