@@ -94,7 +94,7 @@ AFRAME.registerComponent('forcegraph', {
     });
 
     // setup FG object
-    this.el.object3d.add(state.forceGraph = new ThreeForceGraph());
+    this.el.object3D.add(state.forceGraph = new ThreeForceGraph());
 
     state.forceGraph
       .onLoading(function() {
@@ -163,7 +163,7 @@ AFRAME.registerComponent('forcegraph', {
       this.state.cameraObj
     );
 
-    var intersects = centerRaycaster.intersectObjects(this.el.object3D.children)
+    var intersects = centerRaycaster.intersectObjects(this.state.forceGraph.children)
       .filter(function(o) { // Check only node/link objects
         return ['node', 'link'].indexOf(o.object.__graphObjType) !== -1;
       })
@@ -174,8 +174,11 @@ AFRAME.registerComponent('forcegraph', {
 
     var topObject = intersects.length ? intersects[0].object : null;
 
-    this.state.tooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Label'])(topObject.__data) : '' );
-    this.state.subTooltipEl.setAttribute('value', topObject && topObject.__graphObjType === 'node' ? accessorFn(this.data.nodeDesc)(topObject.__data) : '' );
+    if (topObject !== this.state.hoverObj) {
+      this.state.hoverObj = topObject;
+      this.state.tooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Label'])(topObject.__data) || '' : '' );
+      this.state.subTooltipEl.setAttribute('value', topObject && topObject.__graphObjType === 'node' ? accessorFn(this.data.nodeDesc)(topObject.__data) || '' : '' );
+    }
 
     // Run force-graph ticker
     this.state.forceGraph.tickFrame();
