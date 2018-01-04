@@ -287,6 +287,17 @@
 	  });
 	}
 
+	var three$1 = window.THREE ? window.THREE // Prefer consumption from global THREE, if exists
+	: {
+	  SphereGeometry: three.SphereGeometry,
+	  BufferGeometry: three.BufferGeometry,
+	  BufferAttribute: three.BufferAttribute,
+	  Mesh: three.Mesh,
+	  MeshLambertMaterial: three.MeshLambertMaterial,
+	  Line: three.Line,
+	  LineBasicMaterial: three.LineBasicMaterial
+	};
+
 	var ngraph = { graph: graph, forcelayout: forcelayout, forcelayout3d: forcelayout3d };
 
 	//
@@ -418,19 +429,19 @@
 	        // Default object (sphere mesh)
 	        var val = valAccessor(node) || 1;
 	        if (!sphereGeometries.hasOwnProperty(val)) {
-	          sphereGeometries[val] = new three.SphereGeometry(Math.cbrt(val) * state.nodeRelSize, state.nodeResolution, state.nodeResolution);
+	          sphereGeometries[val] = new three$1.SphereGeometry(Math.cbrt(val) * state.nodeRelSize, state.nodeResolution, state.nodeResolution);
 	        }
 
 	        var color = colorAccessor(node);
 	        if (!sphereMaterials.hasOwnProperty(color)) {
-	          sphereMaterials[color] = new three.MeshLambertMaterial({
+	          sphereMaterials[color] = new three$1.MeshLambertMaterial({
 	            color: colorStr2Hex(color || '#ffffaa'),
 	            transparent: true,
 	            opacity: 0.75
 	          });
 	        }
 
-	        obj = new three.Mesh(sphereGeometries[val], sphereMaterials[color]);
+	        obj = new three$1.Mesh(sphereGeometries[val], sphereMaterials[color]);
 	      }
 
 	      obj.__graphObjType = 'node'; // Add object type
@@ -444,17 +455,17 @@
 	    state.graphData.links.forEach(function (link) {
 	      var color = linkColorAccessor(link);
 	      if (!lineMaterials.hasOwnProperty(color)) {
-	        lineMaterials[color] = new three.LineBasicMaterial({
+	        lineMaterials[color] = new three$1.LineBasicMaterial({
 	          color: colorStr2Hex(color || '#f0f0f0'),
 	          transparent: true,
 	          opacity: state.linkOpacity
 	        });
 	      }
 
-	      var geometry = new three.BufferGeometry();
-	      geometry.addAttribute('position', new three.BufferAttribute(new Float32Array(2 * 3), 3));
+	      var geometry = new three$1.BufferGeometry();
+	      geometry.addAttribute('position', new three$1.BufferAttribute(new Float32Array(2 * 3), 3));
 	      var lineMaterial = lineMaterials[color];
-	      var line = new three.Line(geometry, lineMaterial);
+	      var line = new three$1.Line(geometry, lineMaterial);
 
 	      line.renderOrder = 10; // Prevent visual glitches of dark lines on top of nodes by rendering them last
 
