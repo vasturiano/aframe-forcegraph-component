@@ -193,8 +193,7 @@
 
 	    fgProps
 	      .filter(function(p) { return p in diff; })
-	      .filter(function(p) { return elData[p] !== ''; }) // Don't pass nully props
-	      .forEach(function(p) { comp.state.forceGraph[p](elData[p]); });
+	      .forEach(function(p) { comp.state.forceGraph[p](elData[p] !== '' ? elData[p] : null); }); // Convert blank values into nulls
 
 	    if ('nodes' in diff || 'links' in diff) {
 	      comp.state.forceGraph.graphData({
