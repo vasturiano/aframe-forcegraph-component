@@ -45,6 +45,7 @@ AFRAME.registerComponent('forcegraph', {
     linkSource: {type: 'string', default: 'source'},
     linkTarget: {type: 'string', default: 'target'},
     linkLabel: {parse: parseAccessor, default: 'name'},
+    linkDesc: {parse: parseAccessor, default: 'desc'},
     linkHoverPrecision: {type: 'number', default: 2},
     linkColor: {parse: parseAccessor, default: 'color'},
     linkOpacity: {type: 'number', default: 0.2},
@@ -180,7 +181,7 @@ AFRAME.registerComponent('forcegraph', {
     if (topObject !== this.state.hoverObj) {
       this.state.hoverObj = topObject;
       this.state.tooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Label'])(topObject.__data) || '' : '' );
-      this.state.subTooltipEl.setAttribute('value', topObject && topObject.__graphObjType === 'node' ? accessorFn(this.data.nodeDesc)(topObject.__data) || '' : '' );
+      this.state.subTooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Desc'])(topObject.__data) || '' : '' );
     }
 
     // Run force-graph ticker
