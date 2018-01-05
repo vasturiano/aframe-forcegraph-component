@@ -80,19 +80,21 @@
 	    links: {parse: JSON.parse, default: '[]'},
 	    numDimensions: {type: 'number', default: 3},
 	    nodeRelSize: {type: 'number', default: 4}, // volume per val unit
-	    autoColorBy: {parse: parseAccessor, default: ''}, // color nodes with the same field equally
 	    nodeId: {type: 'string', default: 'id'},
 	    nodeLabel: {parse: parseAccessor, default: 'name'},
 	    nodeDesc: {parse: parseAccessor, default: 'desc'},
 	    nodeVal: {parse: parseAccessor, default: 'val'},
 	    nodeResolution: {type: 'number', default: 8}, // how many slice segments in the sphere's circumference
 	    nodeColor: {parse: parseAccessor, default: 'color'},
+	    nodeAutoColorBy: {parse: parseAccessor, default: ''}, // color nodes with the same field equally
 	    nodeThreeObject: {parse: parseAccessor, default: null},
 	    linkSource: {type: 'string', default: 'source'},
 	    linkTarget: {type: 'string', default: 'target'},
 	    linkLabel: {parse: parseAccessor, default: 'name'},
+	    linkDesc: {parse: parseAccessor, default: 'desc'},
 	    linkHoverPrecision: {type: 'number', default: 2},
 	    linkColor: {parse: parseAccessor, default: 'color'},
+	    linkAutoColorBy: {parse: parseAccessor, default: ''}, // color links with the same field equally
 	    linkOpacity: {type: 'number', default: 0.2},
 	    forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
 	    d3AlphaDecay: {type: 'number', default: 0.0228},
@@ -173,15 +175,16 @@
 	      'jsonUrl',
 	      'numDimensions',
 	      'nodeRelSize',
-	      'autoColorBy',
 	      'nodeId',
 	      'nodeVal',
 	      'nodeResolution',
 	      'nodeColor',
+	      'nodeAutoColorBy',
 	      'nodeThreeObject',
 	      'linkSource',
 	      'linkTarget',
 	      'linkColor',
+	      'linkAutoColorBy',
 	      'linkOpacity',
 	      'forceEngine',
 	      'd3AlphaDecay',
@@ -226,7 +229,7 @@
 	    if (topObject !== this.state.hoverObj) {
 	      this.state.hoverObj = topObject;
 	      this.state.tooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Label'])(topObject.__data) || '' : '' );
-	      this.state.subTooltipEl.setAttribute('value', topObject && topObject.__graphObjType === 'node' ? accessorFn(this.data.nodeDesc)(topObject.__data) || '' : '' );
+	      this.state.subTooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Desc'])(topObject.__data) || '' : '' );
 	    }
 
 	    // Run force-graph ticker
@@ -264,25 +267,28 @@
 	  return isNaN(str) ? parseInt(tinyColor(str).toHex(), 16) : str;
 	};
 
-	function autoColorNodes(nodes, colorByAccessor, colorField) {
+	// Autoset attribute colorField by colorByAccessor property
+	// If an object has already a color, don't set it
+	// Objects can be nodes or links
+	function autoColorObjects(objects, colorByAccessor, colorField) {
 	  if (!colorByAccessor || typeof colorField !== 'string') return;
 
 	  var colors = d3ScaleChromatic.schemePaired; // Paired color set from color brewer
 
-	  var uncoloredNodes = nodes.filter(function (node) {
-	    return !node[colorField];
+	  var uncoloredObjects = objects.filter(function (obj) {
+	    return !obj[colorField];
 	  });
-	  var nodeGroups = {};
+	  var objGroups = {};
 
-	  uncoloredNodes.forEach(function (node) {
-	    nodeGroups[colorByAccessor(node)] = null;
+	  uncoloredObjects.forEach(function (obj) {
+	    objGroups[colorByAccessor(obj)] = null;
 	  });
-	  Object.keys(nodeGroups).forEach(function (group, idx) {
-	    nodeGroups[group] = idx;
+	  Object.keys(objGroups).forEach(function (group, idx) {
+	    objGroups[group] = idx;
 	  });
 
-	  uncoloredNodes.forEach(function (node) {
-	    node[colorField] = colors[nodeGroups[colorByAccessor(node)] % colors.length];
+	  uncoloredObjects.forEach(function (obj) {
+	    obj[colorField] = colors[objGroups[colorByAccessor(obj)] % colors.length];
 	  });
 	}
 
@@ -334,15 +340,16 @@
 	      }
 	    },
 	    nodeRelSize: { default: 4 }, // volume per val unit
-	    autoColorBy: {},
 	    nodeId: { default: 'id' },
 	    nodeVal: { default: 'val' },
 	    nodeResolution: { default: 8 }, // how many slice segments in the sphere's circumference
 	    nodeColor: { default: 'color' },
+	    nodeAutoColorBy: {},
 	    nodeThreeObject: {},
 	    linkSource: { default: 'source' },
 	    linkTarget: { default: 'target' },
 	    linkColor: { default: 'color' },
+	    linkAutoColorBy: {},
 	    linkOpacity: { default: 0.2 },
 	    forceEngine: { default: 'd3' }, // d3 or ngraph
 	    d3AlphaDecay: { default: 0.0228 },
@@ -352,6 +359,10 @@
 	    cooldownTime: { default: 15000 }, // ms
 	    onLoading: { default: function _default() {}, triggerUpdate: false },
 	    onFinishLoading: { default: function _default() {}, triggerUpdate: false }
+	  },
+
+	  aliases: {
+	    autoColorBy: 'nodeAutoColorBy'
 	  },
 
 	  methods: {
@@ -397,9 +408,13 @@
 	      });
 	    }
 
-	    if (state.autoColorBy !== null) {
+	    if (state.nodeAutoColorBy !== null) {
 	      // Auto add color to uncolored nodes
-	      autoColorNodes(state.graphData.nodes, accessorFn(state.autoColorBy), state.nodeColor);
+	      autoColorObjects(state.graphData.nodes, accessorFn(state.nodeAutoColorBy), state.nodeColor);
+	    }
+	    if (state.linkAutoColorBy !== null) {
+	      // Auto add color to uncolored links
+	      autoColorObjects(state.graphData.links, accessorFn(state.linkAutoColorBy), state.linkColor);
 	    }
 
 	    // parse links

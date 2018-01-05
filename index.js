@@ -34,13 +34,13 @@ AFRAME.registerComponent('forcegraph', {
     links: {parse: JSON.parse, default: '[]'},
     numDimensions: {type: 'number', default: 3},
     nodeRelSize: {type: 'number', default: 4}, // volume per val unit
-    autoColorBy: {parse: parseAccessor, default: ''}, // color nodes with the same field equally
     nodeId: {type: 'string', default: 'id'},
     nodeLabel: {parse: parseAccessor, default: 'name'},
     nodeDesc: {parse: parseAccessor, default: 'desc'},
     nodeVal: {parse: parseAccessor, default: 'val'},
     nodeResolution: {type: 'number', default: 8}, // how many slice segments in the sphere's circumference
     nodeColor: {parse: parseAccessor, default: 'color'},
+    nodeAutoColorBy: {parse: parseAccessor, default: ''}, // color nodes with the same field equally
     nodeThreeObject: {parse: parseAccessor, default: null},
     linkSource: {type: 'string', default: 'source'},
     linkTarget: {type: 'string', default: 'target'},
@@ -48,6 +48,7 @@ AFRAME.registerComponent('forcegraph', {
     linkDesc: {parse: parseAccessor, default: 'desc'},
     linkHoverPrecision: {type: 'number', default: 2},
     linkColor: {parse: parseAccessor, default: 'color'},
+    linkAutoColorBy: {parse: parseAccessor, default: ''}, // color links with the same field equally
     linkOpacity: {type: 'number', default: 0.2},
     forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
     d3AlphaDecay: {type: 'number', default: 0.0228},
@@ -128,15 +129,16 @@ AFRAME.registerComponent('forcegraph', {
       'jsonUrl',
       'numDimensions',
       'nodeRelSize',
-      'autoColorBy',
       'nodeId',
       'nodeVal',
       'nodeResolution',
       'nodeColor',
+      'nodeAutoColorBy',
       'nodeThreeObject',
       'linkSource',
       'linkTarget',
       'linkColor',
+      'linkAutoColorBy',
       'linkOpacity',
       'forceEngine',
       'd3AlphaDecay',
