@@ -700,7 +700,7 @@
 /* 4 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://github.com/vasturiano/d3-force-3d Version 1.0.7. Copyright 2017 Vasco Asturiano.
+	// https://github.com/vasturiano/d3-force-3d Version 1.1.0. Copyright 2018 Vasco Asturiano.
 	(function (global, factory) {
 		 true ? factory(exports, __webpack_require__(5), __webpack_require__(6), __webpack_require__(7), __webpack_require__(8), __webpack_require__(9), __webpack_require__(10)) :
 		typeof define === 'function' && define.amd ? define(['exports', 'd3-binarytree', 'd3-quadtree', 'd3-octree', 'd3-collection', 'd3-dispatch', 'd3-timer'], factory) :
@@ -1143,7 +1143,7 @@
 	    },
 
 	    force: function(name, _) {
-	      return arguments.length > 1 ? ((_ == null ? forces.remove(name) : forces.set(name, initializeForce(_))), simulation) : forces.get(name);
+	      return arguments.length > 1 ? (_ == null ? forces.remove(name) : forces.set(name, initializeForce(_)), simulation) : forces.get(name);
 	    },
 
 	    find: function() {
@@ -1214,18 +1214,18 @@
 	  }
 
 	  function accumulate(treeNode) {
-	    var strength = 0, q, c, x$$1, y$$1, z$$1, i;
+	    var strength = 0, q, c, weight = 0, x, y, z, i;
 
 	    // For internal nodes, accumulate forces from children.
 	    if (treeNode.length) {
-	      for (x$$1 = y$$1 = z$$1 = i = 0; i < 4; ++i) {
-	        if ((q = treeNode[i]) && (c = q.value)) {
-	          strength += c, x$$1 += c * (q.x || 0), y$$1 += c * (q.y || 0), z$$1 += c * (q.z || 0);
+	      for (x = y = z = i = 0; i < 4; ++i) {
+	        if ((q = treeNode[i]) && (c = Math.abs(q.value))) {
+	          strength += q.value, weight += c, x += c * (q.x || 0), y += c * (q.y || 0), z += c * (q.z || 0);
 	        }
 	      }
-	      treeNode.x = x$$1 / strength;
-	      if (nDim > 1) { treeNode.y = y$$1 / strength; }
-	      if (nDim > 2) { treeNode.z = z$$1 / strength; }
+	      treeNode.x = x / weight;
+	      if (nDim > 1) { treeNode.y = y / weight; }
+	      if (nDim > 2) { treeNode.z = z / weight; }
 	    }
 
 	    // For leaf nodes, accumulate forces from coincident nodes.
@@ -1245,23 +1245,23 @@
 	    if (!treeNode.value) return true;
 	    var x2 = [arg1, arg2, arg3][nDim-1];
 
-	    var x$$1 = treeNode.x - node.x,
-	        y$$1 = (nDim > 1 ? treeNode.y - node.y : 0),
-	        z$$1 = (nDim > 2 ? treeNode.z - node.z : 0),
+	    var x = treeNode.x - node.x,
+	        y = (nDim > 1 ? treeNode.y - node.y : 0),
+	        z = (nDim > 2 ? treeNode.z - node.z : 0),
 	        w = x2 - x1,
-	        l = x$$1 * x$$1 + y$$1 * y$$1 + z$$1 * z$$1;
+	        l = x * x + y * y + z * z;
 
 	    // Apply the Barnes-Hut approximation if possible.
 	    // Limit forces for very close nodes; randomize direction if coincident.
 	    if (w * w / theta2 < l) {
 	      if (l < distanceMax2) {
-	        if (x$$1 === 0) x$$1 = jiggle(), l += x$$1 * x$$1;
-	        if (nDim > 1 && y$$1 === 0) y$$1 = jiggle(), l += y$$1 * y$$1;
-	        if (nDim > 2 && z$$1 === 0) z$$1 = jiggle(), l += z$$1 * z$$1;
+	        if (x === 0) x = jiggle(), l += x * x;
+	        if (nDim > 1 && y === 0) y = jiggle(), l += y * y;
+	        if (nDim > 2 && z === 0) z = jiggle(), l += z * z;
 	        if (l < distanceMin2) l = Math.sqrt(distanceMin2 * l);
-	        node.vx += x$$1 * treeNode.value * alpha / l;
-	        if (nDim > 1) { node.vy += y$$1 * treeNode.value * alpha / l; }
-	        if (nDim > 2) { node.vz += z$$1 * treeNode.value * alpha / l; }
+	        node.vx += x * treeNode.value * alpha / l;
+	        if (nDim > 1) { node.vy += y * treeNode.value * alpha / l; }
+	        if (nDim > 2) { node.vz += z * treeNode.value * alpha / l; }
 	      }
 	      return true;
 	    }
@@ -1271,17 +1271,17 @@
 
 	    // Limit forces for very close nodes; randomize direction if coincident.
 	    if (treeNode.data !== node || treeNode.next) {
-	      if (x$$1 === 0) x$$1 = jiggle(), l += x$$1 * x$$1;
-	      if (nDim > 1 && y$$1 === 0) y$$1 = jiggle(), l += y$$1 * y$$1;
-	      if (nDim > 2 && z$$1 === 0) z$$1 = jiggle(), l += z$$1 * z$$1;
+	      if (x === 0) x = jiggle(), l += x * x;
+	      if (nDim > 1 && y === 0) y = jiggle(), l += y * y;
+	      if (nDim > 2 && z === 0) z = jiggle(), l += z * z;
 	      if (l < distanceMin2) l = Math.sqrt(distanceMin2 * l);
 	    }
 
 	    do if (treeNode.data !== node) {
 	      w = strengths[treeNode.data.index] * alpha / l;
-	      node.vx += x$$1 * w;
-	      if (nDim > 1) { node.vy += y$$1 * w; }
-	      if (nDim > 2) { node.vz += z$$1 * w; }
+	      node.vx += x * w;
+	      if (nDim > 1) { node.vy += y * w; }
+	      if (nDim > 2) { node.vz += z * w; }
 	    } while (treeNode = treeNode.next);
 	  }
 
@@ -1305,6 +1305,72 @@
 
 	  force.theta = function(_) {
 	    return arguments.length ? (theta2 = _ * _, force) : Math.sqrt(theta2);
+	  };
+
+	  return force;
+	};
+
+	var radial = function(radius, x, y, z) {
+	  var nodes,
+	      nDim,
+	      strength = constant(0.1),
+	      strengths,
+	      radiuses;
+
+	  if (typeof radius !== "function") radius = constant(+radius);
+	  if (x == null) x = 0;
+	  if (y == null) y = 0;
+	  if (z == null) z = 0;
+
+	  function force(alpha) {
+	    for (var i = 0, n = nodes.length; i < n; ++i) {
+	      var node = nodes[i],
+	          dx = node.x - x || 1e-6,
+	          dy = (node.y || 0) - y || 1e-6,
+	          dz = (node.z || 0) - z || 1e-6,
+	          r = Math.sqrt(dx * dx + dy * dy + dz * dz),
+	          k = (radiuses[i] - r) * strengths[i] * alpha / r;
+	      node.vx += dx * k;
+	      if (nDim>1) { node.vy += dy * k; }
+	      if (nDim>2) { node.vz += dz * k; }
+	    }
+	  }
+
+	  function initialize() {
+	    if (!nodes) return;
+	    var i, n = nodes.length;
+	    strengths = new Array(n);
+	    radiuses = new Array(n);
+	    for (i = 0; i < n; ++i) {
+	      radiuses[i] = +radius(nodes[i], i, nodes);
+	      strengths[i] = isNaN(radiuses[i]) ? 0 : +strength(nodes[i], i, nodes);
+	    }
+	  }
+
+	  force.initialize = function(initNodes, numDimensions) {
+	    nodes = initNodes;
+	    nDim = numDimensions;
+	    initialize();
+	  };
+
+	  force.strength = function(_) {
+	    return arguments.length ? (strength = typeof _ === "function" ? _ : constant(+_), initialize(), force) : strength;
+	  };
+
+	  force.radius = function(_) {
+	    return arguments.length ? (radius = typeof _ === "function" ? _ : constant(+_), initialize(), force) : radius;
+	  };
+
+	  force.x = function(_) {
+	    return arguments.length ? (x = +_, force) : x;
+	  };
+
+	  force.y = function(_) {
+	    return arguments.length ? (y = +_, force) : y;
+	  };
+
+	  force.z = function(_) {
+	    return arguments.length ? (z = +_, force) : z;
 	  };
 
 	  return force;
@@ -1434,6 +1500,7 @@
 	exports.forceCollide = collide;
 	exports.forceLink = link;
 	exports.forceManyBody = manyBody;
+	exports.forceRadial = radial;
 	exports.forceSimulation = simulation;
 	exports.forceX = x$2;
 	exports.forceY = y$2;
