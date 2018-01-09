@@ -87,6 +87,7 @@
 	    nodeResolution: {type: 'number', default: 8}, // how many slice segments in the sphere's circumference
 	    nodeColor: {parse: parseAccessor, default: 'color'},
 	    nodeAutoColorBy: {parse: parseAccessor, default: ''}, // color nodes with the same field equally
+	    nodeOpacity: {type: 'number', default: 0.75},
 	    nodeThreeObject: {parse: parseAccessor, default: null},
 	    linkSource: {type: 'string', default: 'source'},
 	    linkTarget: {type: 'string', default: 'target'},
@@ -180,6 +181,7 @@
 	      'nodeResolution',
 	      'nodeColor',
 	      'nodeAutoColorBy',
+	      'nodeOpacity',
 	      'nodeThreeObject',
 	      'linkSource',
 	      'linkTarget',
@@ -345,6 +347,7 @@
 	    nodeResolution: { default: 8 }, // how many slice segments in the sphere's circumference
 	    nodeColor: { default: 'color' },
 	    nodeAutoColorBy: {},
+	    nodeOpacity: 0.75,
 	    nodeThreeObject: {},
 	    linkSource: { default: 'source' },
 	    linkTarget: { default: 'target' },
@@ -451,7 +454,7 @@
 	          sphereMaterials[color] = new three$1.MeshLambertMaterial({
 	            color: colorStr2Hex(color || '#ffffaa'),
 	            transparent: true,
-	            opacity: 0.75
+	            opacity: state.nodeOpacity
 	          });
 	        }
 

@@ -30,6 +30,7 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | node-resolution      | Geometric resolution of each node, expressed in how many slice segments to divide the circumference. Higher values yield smoother spheres. | 8 |
 | node-color           | Node object accessor function or attribute for node color (affects sphere color).                                          | color         |
 | node-auto-color-by   | Node object accessor function (`fn(node)`) or attribute (e.g. `'type'`) to automatically group colors by. Only affects nodes without a color attribute. |               |
+| node-opacity         | Nodes sphere opacity, between [0,1].                                                                                       | 0.75          |
 | node-three-object    | Node object accessor function or attribute for generating a custom 3d object to render as graph nodes. Should return an instance of [ThreeJS Object3d](https://threejs.org/docs/index.html#api/core/Object3D). If a <i>falsy</i> value is returned, the default 3d object type will be used instead for that node.  | *default node object is a sphere, sized according to `val` and styled according to `color`.* |
 | link-source          | Link object accessor attribute referring to id of source node.                                                             | source        |
 | link-target          | Link object accessor attribute referring to id of target node.                                                             | target        |
