@@ -97,6 +97,8 @@
 	    linkColor: {parse: parseAccessor, default: 'color'},
 	    linkAutoColorBy: {parse: parseAccessor, default: ''}, // color links with the same field equally
 	    linkOpacity: {type: 'number', default: 0.2},
+	    linkWidth: {parse: parseAccessor, default: 'color'},
+	    linkResolution: {type: 'number', default: 6}, // how many radial segments in each line cylinder's geometry
 	    forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
 	    d3AlphaDecay: {type: 'number', default: 0.0228},
 	    d3VelocityDecay: {type: 'number', default: 0.4},
@@ -296,11 +298,14 @@
 
 	var three$1 = window.THREE ? window.THREE // Prefer consumption from global THREE, if exists
 	: {
-	  SphereGeometry: three.SphereGeometry,
-	  BufferGeometry: three.BufferGeometry,
-	  BufferAttribute: three.BufferAttribute,
 	  Mesh: three.Mesh,
 	  MeshLambertMaterial: three.MeshLambertMaterial,
+	  BufferGeometry: three.BufferGeometry,
+	  BufferAttribute: three.BufferAttribute,
+	  Matrix4: three.Matrix4,
+	  Vector3: three.Vector3,
+	  SphereGeometry: three.SphereGeometry,
+	  CylinderGeometry: three.CylinderGeometry,
 	  Line: three.Line,
 	  LineBasicMaterial: three.LineBasicMaterial
 	};
@@ -354,6 +359,8 @@
 	    linkColor: { default: 'color' },
 	    linkAutoColorBy: {},
 	    linkOpacity: { default: 0.2 },
+	    linkWidth: {}, // Rounded to nearest decimal. For falsy values use dimensionless line with 1px regardless of distance.
+	    linkResolution: { default: 6 }, // how many radial segments in each line cylinder's geometry
 	    forceEngine: { default: 'd3' }, // d3 or ngraph
 	    d3AlphaDecay: { default: 0.0228 },
 	    d3VelocityDecay: { default: 0.4 },
@@ -468,21 +475,41 @@
 	    });
 
 	    var linkColorAccessor = accessorFn(state.linkColor);
+	    var linkWidthAccessor = accessorFn(state.linkWidth);
 	    var lineMaterials = {}; // indexed by color
+	    var cylinderGeometries = {}; // indexed by width
 	    state.graphData.links.forEach(function (link) {
 	      var color = linkColorAccessor(link);
+	      var width = Math.ceil(linkWidthAccessor(link) * 10) / 10;
+
+	      var useCylinder = !!width;
+
+	      var geometry = void 0;
+	      if (useCylinder) {
+	        if (!cylinderGeometries.hasOwnProperty(width)) {
+	          var r = width / 2;
+	          geometry = new three$1.CylinderGeometry(r, r, 1, state.linkResolution, 1, false);
+	          geometry.applyMatrix(new three$1.Matrix4().makeTranslation(0, 1 / 2, 0));
+	          geometry.applyMatrix(new three$1.Matrix4().makeRotationX(Math.PI / 2));
+	          cylinderGeometries[width] = geometry;
+	        }
+	        geometry = cylinderGeometries[width];
+	      } else {
+	        // Use plain line (constant width)
+	        geometry = new three$1.BufferGeometry();
+	        geometry.addAttribute('position', new three$1.BufferAttribute(new Float32Array(2 * 3), 3));
+	      }
+
 	      if (!lineMaterials.hasOwnProperty(color)) {
-	        lineMaterials[color] = new three$1.LineBasicMaterial({
+	        lineMaterials[color] = new three$1.MeshLambertMaterial({
 	          color: colorStr2Hex(color || '#f0f0f0'),
 	          transparent: true,
 	          opacity: state.linkOpacity
 	        });
 	      }
-
-	      var geometry = new three$1.BufferGeometry();
-	      geometry.addAttribute('position', new three$1.BufferAttribute(new Float32Array(2 * 3), 3));
 	      var lineMaterial = lineMaterials[color];
-	      var line = new three$1.Line(geometry, lineMaterial);
+
+	      var line = new three$1[useCylinder ? 'Mesh' : 'Line'](geometry, lineMaterial);
 
 	      line.renderOrder = 10; // Prevent visual glitches of dark lines on top of nodes by rendering them last
 
@@ -549,20 +576,35 @@
 	        var line = link.__lineObj;
 	        if (!line) return;
 
-	        var pos = isD3Sim ? link : layout.getLinkPosition(layout.graph.getLink(link.source, link.target).id),
-	            start = pos[isD3Sim ? 'source' : 'from'],
-	            end = pos[isD3Sim ? 'target' : 'to'],
-	            linePos = line.geometry.attributes.position;
+	        var pos = isD3Sim ? link : layout.getLinkPosition(layout.graph.getLink(link.source, link.target).id);
+	        var start = pos[isD3Sim ? 'source' : 'from'];
+	        var end = pos[isD3Sim ? 'target' : 'to'];
 
-	        linePos.array[0] = start.x;
-	        linePos.array[1] = start.y || 0;
-	        linePos.array[2] = start.z || 0;
-	        linePos.array[3] = end.x;
-	        linePos.array[4] = end.y || 0;
-	        linePos.array[5] = end.z || 0;
+	        if (line.type === 'Line') {
+	          // Update line geometry
+	          var linePos = line.geometry.attributes.position;
 
-	        linePos.needsUpdate = true;
-	        line.geometry.computeBoundingSphere();
+	          linePos.array[0] = start.x;
+	          linePos.array[1] = start.y || 0;
+	          linePos.array[2] = start.z || 0;
+	          linePos.array[3] = end.x;
+	          linePos.array[4] = end.y || 0;
+	          linePos.array[5] = end.z || 0;
+
+	          linePos.needsUpdate = true;
+	          line.geometry.computeBoundingSphere();
+	        } else {
+	          // Update cylinder geometry
+	          var vStart = new three$1.Vector3(start.x, start.y || 0, start.z || 0);
+	          var vEnd = new three$1.Vector3(end.x, end.y || 0, end.z || 0);
+	          var distance = vStart.distanceTo(vEnd);
+
+	          line.position.x = vStart.x;
+	          line.position.y = vStart.y;
+	          line.position.z = vStart.z;
+	          line.lookAt(vEnd);
+	          line.scale.z = distance;
+	        }
 	      });
 	    }
 	  }

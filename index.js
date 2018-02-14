@@ -51,6 +51,8 @@ AFRAME.registerComponent('forcegraph', {
     linkColor: {parse: parseAccessor, default: 'color'},
     linkAutoColorBy: {parse: parseAccessor, default: ''}, // color links with the same field equally
     linkOpacity: {type: 'number', default: 0.2},
+    linkWidth: {parse: parseAccessor, default: 0},
+    linkResolution: {type: 'number', default: 6}, // how many radial segments in each line cylinder's geometry
     forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
     d3AlphaDecay: {type: 'number', default: 0.0228},
     d3VelocityDecay: {type: 'number', default: 0.4},
@@ -142,6 +144,8 @@ AFRAME.registerComponent('forcegraph', {
       'linkColor',
       'linkAutoColorBy',
       'linkOpacity',
+      'linkWidth',
+      'linkResolution',
       'forceEngine',
       'd3AlphaDecay',
       'd3VelocityDecay',

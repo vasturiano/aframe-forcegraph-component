@@ -26,7 +26,7 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | node-id              | Node object accessor attribute for unique node id (used in link objects source/target).                                    | id            |
 | node-label           | Node object accessor function or attribute for name (shown in label).                                                      | name          |
 | node-desc            | Node object accessor function or attribute for description (shown under label).                                            | desc          |
-| node-val             | Node object accessor function, attribute or a numeric constant for the node numeric value (affects sphere volume).         | val           |
+| node-val             | Node object accessor function or attribute for the node numeric value (affects sphere volume).                             | val           |
 | node-resolution      | Geometric resolution of each node, expressed in how many slice segments to divide the circumference. Higher values yield smoother spheres. | 8 |
 | node-color           | Node object accessor function or attribute for node color (affects sphere color).                                          | color         |
 | node-auto-color-by   | Node object accessor function (`fn(node)`) or attribute (e.g. `'type'`) to automatically group colors by. Only affects nodes without a color attribute. |               |
@@ -40,6 +40,8 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | link-color           | Link object accessor function or attribute for line color.                                                                 | color         |
 | link-auto-color-by   | Link object accessor function (`fn(link)`) or attribute (e.g. `'type'`) to automatically group colors by. Only affects links without a color attribute. |               |
 | link-opacity         | Line opacity of links, between [0,1].                                                                                      | 0.2           |
+| link-width           | Link object accessor function or attribute for the link line width. A value of zero will render a [ThreeJS Line](https://threejs.org/docs/#api/objects/Line) whose width is constant (`1px`) regardless of distance. Values are rounded to the nearest decimal for indexing purposes. | 0 |
+| link-resolution      | Getter/setter for the geometric resolution of each link, expressed in how many radial segments to divide the cylinder. Higher values yield smoother cylinders. Applicable only to links with positive width. | 6 |
 | force-engine         | Which force-simulation engine to use ([*d3*](https://github.com/vasturiano/d3-force-3d) or [*ngraph*](https://github.com/anvaka/ngraph.forcelayout)).  | d3             |
 | d3-alpha-decay       | [Simulation intensity decay](https://github.com/vasturiano/d3-force-3d#simulation_alphaDecay) parameter, only applicable if using the d3 simulation engine. | 0.0228 |
 | d3-velocity-decay    | Nodes' [velocity decay](https://github.com/vasturiano/d3-force-3d#simulation_velocityDecay) that simulates the medium resistance, only applicable if using the d3 simulation engine. | 0.4 |
