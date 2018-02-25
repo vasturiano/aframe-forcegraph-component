@@ -13,6 +13,8 @@ if (ThreeForceGraph.hasOwnProperty('default')) {
 }
 
 var parseAccessor = function(prop) {
+  if (!isNaN(parseFloat(prop))) { return parseFloat(prop); } // parse numbers
+
   var geval = eval; // Avoid using eval directly https://github.com/rollup/rollup/wiki/Troubleshooting#avoiding-eval
   try {
     var evalled = geval('(' + prop + ')');
@@ -53,6 +55,10 @@ AFRAME.registerComponent('forcegraph', {
     linkOpacity: {type: 'number', default: 0.2},
     linkWidth: {parse: parseAccessor, default: 0},
     linkResolution: {type: 'number', default: 6}, // how many radial segments in each line cylinder's geometry
+    linkDirectionalParticles: {parse: parseAccessor, default: 0}, // animate photons travelling in the link direction
+    linkDirectionalParticleSpeed: {parse: parseAccessor, default: 0.01}, // in link length ratio per frame
+    linkDirectionalParticleWidth: {parse: parseAccessor, default: 0.5},
+    linkDirectionalParticleResolution: {type: 'number', default: 4}, // how many slice segments in the particle sphere's circumference
     forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
     d3AlphaDecay: {type: 'number', default: 0.0228},
     d3VelocityDecay: {type: 'number', default: 0.4},
@@ -146,6 +152,10 @@ AFRAME.registerComponent('forcegraph', {
       'linkOpacity',
       'linkWidth',
       'linkResolution',
+      'linkDirectionalParticles',
+      'linkDirectionalParticleSpeed',
+      'linkDirectionalParticleWidth',
+      'linkDirectionalParticleResolution',
       'forceEngine',
       'd3AlphaDecay',
       'd3VelocityDecay',
