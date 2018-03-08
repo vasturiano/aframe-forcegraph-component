@@ -270,13 +270,12 @@
 
 	var d3ScaleChromatic = __webpack_require__(3);
 	var tinyColor = _interopDefault(__webpack_require__(6));
-	__webpack_require__(7);
-	var three = __webpack_require__(8);
-	var d3Force3d = __webpack_require__(9);
-	var graph = _interopDefault(__webpack_require__(16));
-	var forcelayout = _interopDefault(__webpack_require__(18));
-	var forcelayout3d = _interopDefault(__webpack_require__(35));
-	var Kapsule = _interopDefault(__webpack_require__(58));
+	var three = __webpack_require__(7);
+	var d3Force3d = __webpack_require__(8);
+	var graph = _interopDefault(__webpack_require__(15));
+	var forcelayout = _interopDefault(__webpack_require__(17));
+	var forcelayout3d = _interopDefault(__webpack_require__(34));
+	var Kapsule = _interopDefault(__webpack_require__(57));
 	var accessorFn = _interopDefault(__webpack_require__(1));
 
 	var colorStr2Hex = function colorStr2Hex(str) {
@@ -3558,482 +3557,15 @@
 /* 7 */
 /***/ (function(module, exports) {
 
-	(function(self) {
-	  'use strict';
-
-	  if (self.fetch) {
-	    return
-	  }
-
-	  var support = {
-	    searchParams: 'URLSearchParams' in self,
-	    iterable: 'Symbol' in self && 'iterator' in Symbol,
-	    blob: 'FileReader' in self && 'Blob' in self && (function() {
-	      try {
-	        new Blob()
-	        return true
-	      } catch(e) {
-	        return false
-	      }
-	    })(),
-	    formData: 'FormData' in self,
-	    arrayBuffer: 'ArrayBuffer' in self
-	  }
-
-	  if (support.arrayBuffer) {
-	    var viewClasses = [
-	      '[object Int8Array]',
-	      '[object Uint8Array]',
-	      '[object Uint8ClampedArray]',
-	      '[object Int16Array]',
-	      '[object Uint16Array]',
-	      '[object Int32Array]',
-	      '[object Uint32Array]',
-	      '[object Float32Array]',
-	      '[object Float64Array]'
-	    ]
-
-	    var isDataView = function(obj) {
-	      return obj && DataView.prototype.isPrototypeOf(obj)
-	    }
-
-	    var isArrayBufferView = ArrayBuffer.isView || function(obj) {
-	      return obj && viewClasses.indexOf(Object.prototype.toString.call(obj)) > -1
-	    }
-	  }
-
-	  function normalizeName(name) {
-	    if (typeof name !== 'string') {
-	      name = String(name)
-	    }
-	    if (/[^a-z0-9\-#$%&'*+.\^_`|~]/i.test(name)) {
-	      throw new TypeError('Invalid character in header field name')
-	    }
-	    return name.toLowerCase()
-	  }
-
-	  function normalizeValue(value) {
-	    if (typeof value !== 'string') {
-	      value = String(value)
-	    }
-	    return value
-	  }
-
-	  // Build a destructive iterator for the value list
-	  function iteratorFor(items) {
-	    var iterator = {
-	      next: function() {
-	        var value = items.shift()
-	        return {done: value === undefined, value: value}
-	      }
-	    }
-
-	    if (support.iterable) {
-	      iterator[Symbol.iterator] = function() {
-	        return iterator
-	      }
-	    }
-
-	    return iterator
-	  }
-
-	  function Headers(headers) {
-	    this.map = {}
-
-	    if (headers instanceof Headers) {
-	      headers.forEach(function(value, name) {
-	        this.append(name, value)
-	      }, this)
-	    } else if (Array.isArray(headers)) {
-	      headers.forEach(function(header) {
-	        this.append(header[0], header[1])
-	      }, this)
-	    } else if (headers) {
-	      Object.getOwnPropertyNames(headers).forEach(function(name) {
-	        this.append(name, headers[name])
-	      }, this)
-	    }
-	  }
-
-	  Headers.prototype.append = function(name, value) {
-	    name = normalizeName(name)
-	    value = normalizeValue(value)
-	    var oldValue = this.map[name]
-	    this.map[name] = oldValue ? oldValue+','+value : value
-	  }
-
-	  Headers.prototype['delete'] = function(name) {
-	    delete this.map[normalizeName(name)]
-	  }
-
-	  Headers.prototype.get = function(name) {
-	    name = normalizeName(name)
-	    return this.has(name) ? this.map[name] : null
-	  }
-
-	  Headers.prototype.has = function(name) {
-	    return this.map.hasOwnProperty(normalizeName(name))
-	  }
-
-	  Headers.prototype.set = function(name, value) {
-	    this.map[normalizeName(name)] = normalizeValue(value)
-	  }
-
-	  Headers.prototype.forEach = function(callback, thisArg) {
-	    for (var name in this.map) {
-	      if (this.map.hasOwnProperty(name)) {
-	        callback.call(thisArg, this.map[name], name, this)
-	      }
-	    }
-	  }
-
-	  Headers.prototype.keys = function() {
-	    var items = []
-	    this.forEach(function(value, name) { items.push(name) })
-	    return iteratorFor(items)
-	  }
-
-	  Headers.prototype.values = function() {
-	    var items = []
-	    this.forEach(function(value) { items.push(value) })
-	    return iteratorFor(items)
-	  }
-
-	  Headers.prototype.entries = function() {
-	    var items = []
-	    this.forEach(function(value, name) { items.push([name, value]) })
-	    return iteratorFor(items)
-	  }
-
-	  if (support.iterable) {
-	    Headers.prototype[Symbol.iterator] = Headers.prototype.entries
-	  }
-
-	  function consumed(body) {
-	    if (body.bodyUsed) {
-	      return Promise.reject(new TypeError('Already read'))
-	    }
-	    body.bodyUsed = true
-	  }
-
-	  function fileReaderReady(reader) {
-	    return new Promise(function(resolve, reject) {
-	      reader.onload = function() {
-	        resolve(reader.result)
-	      }
-	      reader.onerror = function() {
-	        reject(reader.error)
-	      }
-	    })
-	  }
-
-	  function readBlobAsArrayBuffer(blob) {
-	    var reader = new FileReader()
-	    var promise = fileReaderReady(reader)
-	    reader.readAsArrayBuffer(blob)
-	    return promise
-	  }
-
-	  function readBlobAsText(blob) {
-	    var reader = new FileReader()
-	    var promise = fileReaderReady(reader)
-	    reader.readAsText(blob)
-	    return promise
-	  }
-
-	  function readArrayBufferAsText(buf) {
-	    var view = new Uint8Array(buf)
-	    var chars = new Array(view.length)
-
-	    for (var i = 0; i < view.length; i++) {
-	      chars[i] = String.fromCharCode(view[i])
-	    }
-	    return chars.join('')
-	  }
-
-	  function bufferClone(buf) {
-	    if (buf.slice) {
-	      return buf.slice(0)
-	    } else {
-	      var view = new Uint8Array(buf.byteLength)
-	      view.set(new Uint8Array(buf))
-	      return view.buffer
-	    }
-	  }
-
-	  function Body() {
-	    this.bodyUsed = false
-
-	    this._initBody = function(body) {
-	      this._bodyInit = body
-	      if (!body) {
-	        this._bodyText = ''
-	      } else if (typeof body === 'string') {
-	        this._bodyText = body
-	      } else if (support.blob && Blob.prototype.isPrototypeOf(body)) {
-	        this._bodyBlob = body
-	      } else if (support.formData && FormData.prototype.isPrototypeOf(body)) {
-	        this._bodyFormData = body
-	      } else if (support.searchParams && URLSearchParams.prototype.isPrototypeOf(body)) {
-	        this._bodyText = body.toString()
-	      } else if (support.arrayBuffer && support.blob && isDataView(body)) {
-	        this._bodyArrayBuffer = bufferClone(body.buffer)
-	        // IE 10-11 can't handle a DataView body.
-	        this._bodyInit = new Blob([this._bodyArrayBuffer])
-	      } else if (support.arrayBuffer && (ArrayBuffer.prototype.isPrototypeOf(body) || isArrayBufferView(body))) {
-	        this._bodyArrayBuffer = bufferClone(body)
-	      } else {
-	        throw new Error('unsupported BodyInit type')
-	      }
-
-	      if (!this.headers.get('content-type')) {
-	        if (typeof body === 'string') {
-	          this.headers.set('content-type', 'text/plain;charset=UTF-8')
-	        } else if (this._bodyBlob && this._bodyBlob.type) {
-	          this.headers.set('content-type', this._bodyBlob.type)
-	        } else if (support.searchParams && URLSearchParams.prototype.isPrototypeOf(body)) {
-	          this.headers.set('content-type', 'application/x-www-form-urlencoded;charset=UTF-8')
-	        }
-	      }
-	    }
-
-	    if (support.blob) {
-	      this.blob = function() {
-	        var rejected = consumed(this)
-	        if (rejected) {
-	          return rejected
-	        }
-
-	        if (this._bodyBlob) {
-	          return Promise.resolve(this._bodyBlob)
-	        } else if (this._bodyArrayBuffer) {
-	          return Promise.resolve(new Blob([this._bodyArrayBuffer]))
-	        } else if (this._bodyFormData) {
-	          throw new Error('could not read FormData body as blob')
-	        } else {
-	          return Promise.resolve(new Blob([this._bodyText]))
-	        }
-	      }
-
-	      this.arrayBuffer = function() {
-	        if (this._bodyArrayBuffer) {
-	          return consumed(this) || Promise.resolve(this._bodyArrayBuffer)
-	        } else {
-	          return this.blob().then(readBlobAsArrayBuffer)
-	        }
-	      }
-	    }
-
-	    this.text = function() {
-	      var rejected = consumed(this)
-	      if (rejected) {
-	        return rejected
-	      }
-
-	      if (this._bodyBlob) {
-	        return readBlobAsText(this._bodyBlob)
-	      } else if (this._bodyArrayBuffer) {
-	        return Promise.resolve(readArrayBufferAsText(this._bodyArrayBuffer))
-	      } else if (this._bodyFormData) {
-	        throw new Error('could not read FormData body as text')
-	      } else {
-	        return Promise.resolve(this._bodyText)
-	      }
-	    }
-
-	    if (support.formData) {
-	      this.formData = function() {
-	        return this.text().then(decode)
-	      }
-	    }
-
-	    this.json = function() {
-	      return this.text().then(JSON.parse)
-	    }
-
-	    return this
-	  }
-
-	  // HTTP methods whose capitalization should be normalized
-	  var methods = ['DELETE', 'GET', 'HEAD', 'OPTIONS', 'POST', 'PUT']
-
-	  function normalizeMethod(method) {
-	    var upcased = method.toUpperCase()
-	    return (methods.indexOf(upcased) > -1) ? upcased : method
-	  }
-
-	  function Request(input, options) {
-	    options = options || {}
-	    var body = options.body
-
-	    if (input instanceof Request) {
-	      if (input.bodyUsed) {
-	        throw new TypeError('Already read')
-	      }
-	      this.url = input.url
-	      this.credentials = input.credentials
-	      if (!options.headers) {
-	        this.headers = new Headers(input.headers)
-	      }
-	      this.method = input.method
-	      this.mode = input.mode
-	      if (!body && input._bodyInit != null) {
-	        body = input._bodyInit
-	        input.bodyUsed = true
-	      }
-	    } else {
-	      this.url = String(input)
-	    }
-
-	    this.credentials = options.credentials || this.credentials || 'omit'
-	    if (options.headers || !this.headers) {
-	      this.headers = new Headers(options.headers)
-	    }
-	    this.method = normalizeMethod(options.method || this.method || 'GET')
-	    this.mode = options.mode || this.mode || null
-	    this.referrer = null
-
-	    if ((this.method === 'GET' || this.method === 'HEAD') && body) {
-	      throw new TypeError('Body not allowed for GET or HEAD requests')
-	    }
-	    this._initBody(body)
-	  }
-
-	  Request.prototype.clone = function() {
-	    return new Request(this, { body: this._bodyInit })
-	  }
-
-	  function decode(body) {
-	    var form = new FormData()
-	    body.trim().split('&').forEach(function(bytes) {
-	      if (bytes) {
-	        var split = bytes.split('=')
-	        var name = split.shift().replace(/\+/g, ' ')
-	        var value = split.join('=').replace(/\+/g, ' ')
-	        form.append(decodeURIComponent(name), decodeURIComponent(value))
-	      }
-	    })
-	    return form
-	  }
-
-	  function parseHeaders(rawHeaders) {
-	    var headers = new Headers()
-	    rawHeaders.split(/\r?\n/).forEach(function(line) {
-	      var parts = line.split(':')
-	      var key = parts.shift().trim()
-	      if (key) {
-	        var value = parts.join(':').trim()
-	        headers.append(key, value)
-	      }
-	    })
-	    return headers
-	  }
-
-	  Body.call(Request.prototype)
-
-	  function Response(bodyInit, options) {
-	    if (!options) {
-	      options = {}
-	    }
-
-	    this.type = 'default'
-	    this.status = 'status' in options ? options.status : 200
-	    this.ok = this.status >= 200 && this.status < 300
-	    this.statusText = 'statusText' in options ? options.statusText : 'OK'
-	    this.headers = new Headers(options.headers)
-	    this.url = options.url || ''
-	    this._initBody(bodyInit)
-	  }
-
-	  Body.call(Response.prototype)
-
-	  Response.prototype.clone = function() {
-	    return new Response(this._bodyInit, {
-	      status: this.status,
-	      statusText: this.statusText,
-	      headers: new Headers(this.headers),
-	      url: this.url
-	    })
-	  }
-
-	  Response.error = function() {
-	    var response = new Response(null, {status: 0, statusText: ''})
-	    response.type = 'error'
-	    return response
-	  }
-
-	  var redirectStatuses = [301, 302, 303, 307, 308]
-
-	  Response.redirect = function(url, status) {
-	    if (redirectStatuses.indexOf(status) === -1) {
-	      throw new RangeError('Invalid status code')
-	    }
-
-	    return new Response(null, {status: status, headers: {location: url}})
-	  }
-
-	  self.Headers = Headers
-	  self.Request = Request
-	  self.Response = Response
-
-	  self.fetch = function(input, init) {
-	    return new Promise(function(resolve, reject) {
-	      var request = new Request(input, init)
-	      var xhr = new XMLHttpRequest()
-
-	      xhr.onload = function() {
-	        var options = {
-	          status: xhr.status,
-	          statusText: xhr.statusText,
-	          headers: parseHeaders(xhr.getAllResponseHeaders() || '')
-	        }
-	        options.url = 'responseURL' in xhr ? xhr.responseURL : options.headers.get('X-Request-URL')
-	        var body = 'response' in xhr ? xhr.response : xhr.responseText
-	        resolve(new Response(body, options))
-	      }
-
-	      xhr.onerror = function() {
-	        reject(new TypeError('Network request failed'))
-	      }
-
-	      xhr.ontimeout = function() {
-	        reject(new TypeError('Network request failed'))
-	      }
-
-	      xhr.open(request.method, request.url, true)
-
-	      if (request.credentials === 'include') {
-	        xhr.withCredentials = true
-	      }
-
-	      if ('responseType' in xhr && support.blob) {
-	        xhr.responseType = 'blob'
-	      }
-
-	      request.headers.forEach(function(value, name) {
-	        xhr.setRequestHeader(name, value)
-	      })
-
-	      xhr.send(typeof request._bodyInit === 'undefined' ? null : request._bodyInit)
-	    })
-	  }
-	  self.fetch.polyfill = true
-	})(typeof self !== 'undefined' ? self : this);
-
-
-/***/ }),
-/* 8 */
-/***/ (function(module, exports) {
-
 	module.exports = THREE;
 
 /***/ }),
-/* 9 */
+/* 8 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://github.com/vasturiano/d3-force-3d Version 1.1.0. Copyright 2018 Vasco Asturiano.
 	(function (global, factory) {
-		 true ? factory(exports, __webpack_require__(10), __webpack_require__(11), __webpack_require__(12), __webpack_require__(13), __webpack_require__(14), __webpack_require__(15)) :
+		 true ? factory(exports, __webpack_require__(9), __webpack_require__(10), __webpack_require__(11), __webpack_require__(12), __webpack_require__(13), __webpack_require__(14)) :
 		typeof define === 'function' && define.amd ? define(['exports', 'd3-binarytree', 'd3-quadtree', 'd3-octree', 'd3-collection', 'd3-dispatch', 'd3-timer'], factory) :
 		(factory((global.d3 = global.d3 || {}),global.d3,global.d3,global.d3,global.d3,global.d3,global.d3));
 	}(this, (function (exports,d3Binarytree,d3Quadtree,d3Octree,d3Collection,d3Dispatch,d3Timer) { 'use strict';
@@ -4843,7 +4375,7 @@
 
 
 /***/ }),
-/* 10 */
+/* 9 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://github.com/vasturiano/d3-binarytree Version 0.1.2. Copyright 2017 Vasco Asturiano.
@@ -5216,7 +4748,7 @@
 
 
 /***/ }),
-/* 11 */
+/* 10 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-quadtree/ Version 1.0.3. Copyright 2017 Mike Bostock.
@@ -5657,7 +5189,7 @@
 
 
 /***/ }),
-/* 12 */
+/* 11 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://github.com/vasturiano/d3-octree Version 0.1.2. Copyright 2017 Vasco Asturiano.
@@ -6180,7 +5712,7 @@
 
 
 /***/ }),
-/* 13 */
+/* 12 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-collection/ Version 1.0.4. Copyright 2017 Mike Bostock.
@@ -6403,7 +5935,7 @@
 
 
 /***/ }),
-/* 14 */
+/* 13 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-dispatch/ Version 1.0.3. Copyright 2017 Mike Bostock.
@@ -6504,7 +6036,7 @@
 
 
 /***/ }),
-/* 15 */
+/* 14 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-timer/ Version 1.0.7. Copyright 2017 Mike Bostock.
@@ -6659,7 +6191,7 @@
 
 
 /***/ }),
-/* 16 */
+/* 15 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -6679,7 +6211,7 @@
 	 */
 	module.exports = createGraph;
 
-	var eventify = __webpack_require__(17);
+	var eventify = __webpack_require__(16);
 
 	/**
 	 * Creates a new graph
@@ -7266,7 +6798,7 @@
 
 
 /***/ }),
-/* 17 */
+/* 16 */
 /***/ (function(module, exports) {
 
 	module.exports = function(subject) {
@@ -7360,13 +6892,13 @@
 
 
 /***/ }),
-/* 18 */
+/* 17 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = createLayout;
-	module.exports.simulator = __webpack_require__(19);
+	module.exports.simulator = __webpack_require__(18);
 
-	var eventify = __webpack_require__(34);
+	var eventify = __webpack_require__(33);
 
 	/**
 	 * Creates force based layout for a given graph.
@@ -7381,7 +6913,7 @@
 	    throw new Error('Graph structure cannot be undefined');
 	  }
 
-	  var createSimulator = __webpack_require__(19);
+	  var createSimulator = __webpack_require__(18);
 	  var physicsSimulator = createSimulator(physicsSettings);
 
 	  var nodeMass = defaultNodeMass
@@ -7741,7 +7273,7 @@
 
 
 /***/ }),
-/* 19 */
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -7750,10 +7282,10 @@
 	module.exports = physicsSimulator;
 
 	function physicsSimulator(settings) {
-	  var Spring = __webpack_require__(20);
-	  var expose = __webpack_require__(21);
-	  var merge = __webpack_require__(22);
-	  var eventify = __webpack_require__(17);
+	  var Spring = __webpack_require__(19);
+	  var expose = __webpack_require__(20);
+	  var merge = __webpack_require__(21);
+	  var eventify = __webpack_require__(16);
 
 	  settings = merge(settings, {
 	      /**
@@ -7793,12 +7325,12 @@
 	  });
 
 	  // We allow clients to override basic factory methods:
-	  var createQuadTree = settings.createQuadTree || __webpack_require__(23);
-	  var createBounds = settings.createBounds || __webpack_require__(28);
-	  var createDragForce = settings.createDragForce || __webpack_require__(29);
-	  var createSpringForce = settings.createSpringForce || __webpack_require__(30);
-	  var integrate = settings.integrator || __webpack_require__(31);
-	  var createBody = settings.createBody || __webpack_require__(32);
+	  var createQuadTree = settings.createQuadTree || __webpack_require__(22);
+	  var createBounds = settings.createBounds || __webpack_require__(27);
+	  var createDragForce = settings.createDragForce || __webpack_require__(28);
+	  var createSpringForce = settings.createSpringForce || __webpack_require__(29);
+	  var integrate = settings.integrator || __webpack_require__(30);
+	  var createBody = settings.createBody || __webpack_require__(31);
 
 	  var bodies = [], // Bodies in this simulation.
 	      springs = [], // Springs in this simulation.
@@ -8023,7 +7555,7 @@
 
 
 /***/ }),
-/* 20 */
+/* 19 */
 /***/ (function(module, exports) {
 
 	module.exports = Spring;
@@ -8043,7 +7575,7 @@
 
 
 /***/ }),
-/* 21 */
+/* 20 */
 /***/ (function(module, exports) {
 
 	module.exports = exposeProperties;
@@ -8093,7 +7625,7 @@
 
 
 /***/ }),
-/* 22 */
+/* 21 */
 /***/ (function(module, exports) {
 
 	module.exports = merge;
@@ -8130,7 +7662,7 @@
 
 
 /***/ }),
-/* 23 */
+/* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -8146,10 +7678,10 @@
 	  options.theta = typeof options.theta === 'number' ? options.theta : 0.8;
 
 	  // we require deterministic randomness here
-	  var random = __webpack_require__(24).random(1984),
-	    Node = __webpack_require__(25),
-	    InsertStack = __webpack_require__(26),
-	    isSamePosition = __webpack_require__(27);
+	  var random = __webpack_require__(23).random(1984),
+	    Node = __webpack_require__(24),
+	    InsertStack = __webpack_require__(25),
+	    isSamePosition = __webpack_require__(26);
 
 	  var gravity = options.gravity,
 	    updateQueue = [],
@@ -8463,7 +7995,7 @@
 
 
 /***/ }),
-/* 24 */
+/* 23 */
 /***/ (function(module, exports) {
 
 	module.exports = {
@@ -8554,7 +8086,7 @@
 
 
 /***/ }),
-/* 25 */
+/* 24 */
 /***/ (function(module, exports) {
 
 	/**
@@ -8590,7 +8122,7 @@
 
 
 /***/ }),
-/* 26 */
+/* 25 */
 /***/ (function(module, exports) {
 
 	module.exports = InsertStack;
@@ -8638,7 +8170,7 @@
 
 
 /***/ }),
-/* 27 */
+/* 26 */
 /***/ (function(module, exports) {
 
 	module.exports = function isSamePosition(point1, point2) {
@@ -8650,11 +8182,11 @@
 
 
 /***/ }),
-/* 28 */
+/* 27 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = function (bodies, settings) {
-	  var random = __webpack_require__(24).random(42);
+	  var random = __webpack_require__(23).random(42);
 	  var boundingBox =  { x1: 0, y1: 0, x2: 0, y2: 0 };
 
 	  return {
@@ -8736,7 +8268,7 @@
 
 
 /***/ }),
-/* 29 */
+/* 28 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -8747,8 +8279,8 @@
 	 * @param {Number=} options.dragCoeff drag force coefficient. 0.1 by default
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(22),
-	      expose = __webpack_require__(21);
+	  var merge = __webpack_require__(21),
+	      expose = __webpack_require__(20);
 
 	  options = merge(options, {
 	    dragCoeff: 0.02
@@ -8769,7 +8301,7 @@
 
 
 /***/ }),
-/* 30 */
+/* 29 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -8781,9 +8313,9 @@
 	 * @param {Number=} options.springLength desired length of a spring at rest.
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(22);
-	  var random = __webpack_require__(24).random(42);
-	  var expose = __webpack_require__(21);
+	  var merge = __webpack_require__(21);
+	  var random = __webpack_require__(23).random(42);
+	  var expose = __webpack_require__(20);
 
 	  options = merge(options, {
 	    springCoeff: 0.0002,
@@ -8825,7 +8357,7 @@
 
 
 /***/ }),
-/* 31 */
+/* 30 */
 /***/ (function(module, exports) {
 
 	/**
@@ -8876,10 +8408,10 @@
 
 
 /***/ }),
-/* 32 */
+/* 31 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var physics = __webpack_require__(33);
+	var physics = __webpack_require__(32);
 
 	module.exports = function(pos) {
 	  return new physics.Body(pos);
@@ -8887,7 +8419,7 @@
 
 
 /***/ }),
-/* 33 */
+/* 32 */
 /***/ (function(module, exports) {
 
 	module.exports = {
@@ -8958,7 +8490,7 @@
 
 
 /***/ }),
-/* 34 */
+/* 33 */
 /***/ (function(module, exports) {
 
 	module.exports = function(subject) {
@@ -9052,7 +8584,7 @@
 
 
 /***/ }),
-/* 35 */
+/* 34 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -9062,17 +8594,17 @@
 	 * I was doing it wrong, will see if I can refactor/throw away this module.
 	 */
 	module.exports = createLayout;
-	createLayout.get2dLayout = __webpack_require__(36);
+	createLayout.get2dLayout = __webpack_require__(35);
 
 	function createLayout(graph, physicsSettings) {
-	  var merge = __webpack_require__(22);
+	  var merge = __webpack_require__(21);
 	  physicsSettings = merge(physicsSettings, {
-	        createQuadTree: __webpack_require__(48),
-	        createBounds: __webpack_require__(52),
-	        createDragForce: __webpack_require__(53),
-	        createSpringForce: __webpack_require__(54),
+	        createQuadTree: __webpack_require__(47),
+	        createBounds: __webpack_require__(51),
+	        createDragForce: __webpack_require__(52),
+	        createSpringForce: __webpack_require__(53),
 	        integrator: getIntegrator(physicsSettings),
-	        createBody: __webpack_require__(55)
+	        createBody: __webpack_require__(54)
 	      });
 
 	  return createLayout.get2dLayout(graph, physicsSettings);
@@ -9080,21 +8612,21 @@
 
 	function getIntegrator(physicsSettings) {
 	  if (physicsSettings && physicsSettings.integrator === 'verlet') {
-	    return __webpack_require__(56);
+	    return __webpack_require__(55);
 	  }
 
-	  return __webpack_require__(57)
+	  return __webpack_require__(56)
 	}
 
 
 /***/ }),
-/* 36 */
+/* 35 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = createLayout;
-	module.exports.simulator = __webpack_require__(37);
+	module.exports.simulator = __webpack_require__(36);
 
-	var eventify = __webpack_require__(17);
+	var eventify = __webpack_require__(16);
 
 	/**
 	 * Creates force based layout for a given graph.
@@ -9108,7 +8640,7 @@
 	    throw new Error('Graph structure cannot be undefined');
 	  }
 
-	  var createSimulator = __webpack_require__(37);
+	  var createSimulator = __webpack_require__(36);
 	  var physicsSimulator = createSimulator(physicsSettings);
 
 	  var nodeBodies = typeof Object.create === 'function' ? Object.create(null) : {};
@@ -9407,7 +8939,7 @@
 
 
 /***/ }),
-/* 37 */
+/* 36 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -9416,10 +8948,10 @@
 	module.exports = physicsSimulator;
 
 	function physicsSimulator(settings) {
-	  var Spring = __webpack_require__(38);
-	  var expose = __webpack_require__(21);
-	  var merge = __webpack_require__(22);
-	  var eventify = __webpack_require__(17);
+	  var Spring = __webpack_require__(37);
+	  var expose = __webpack_require__(20);
+	  var merge = __webpack_require__(21);
+	  var eventify = __webpack_require__(16);
 
 	  settings = merge(settings, {
 	      /**
@@ -9464,12 +8996,12 @@
 	  });
 
 	  // We allow clients to override basic factory methods:
-	  var createQuadTree = settings.createQuadTree || __webpack_require__(39);
-	  var createBounds = settings.createBounds || __webpack_require__(43);
-	  var createDragForce = settings.createDragForce || __webpack_require__(44);
-	  var createSpringForce = settings.createSpringForce || __webpack_require__(45);
-	  var integrate = settings.integrator || __webpack_require__(46);
-	  var createBody = settings.createBody || __webpack_require__(47);
+	  var createQuadTree = settings.createQuadTree || __webpack_require__(38);
+	  var createBounds = settings.createBounds || __webpack_require__(42);
+	  var createDragForce = settings.createDragForce || __webpack_require__(43);
+	  var createSpringForce = settings.createSpringForce || __webpack_require__(44);
+	  var integrate = settings.integrator || __webpack_require__(45);
+	  var createBody = settings.createBody || __webpack_require__(46);
 
 	  var bodies = [], // Bodies in this simulation.
 	      springs = [], // Springs in this simulation.
@@ -9689,7 +9221,7 @@
 
 
 /***/ }),
-/* 38 */
+/* 37 */
 /***/ (function(module, exports) {
 
 	module.exports = Spring;
@@ -9709,7 +9241,7 @@
 
 
 /***/ }),
-/* 39 */
+/* 38 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -9725,10 +9257,10 @@
 	  options.theta = typeof options.theta === 'number' ? options.theta : 0.8;
 
 	  // we require deterministic randomness here
-	  var random = __webpack_require__(24).random(1984),
-	    Node = __webpack_require__(40),
-	    InsertStack = __webpack_require__(41),
-	    isSamePosition = __webpack_require__(42);
+	  var random = __webpack_require__(23).random(1984),
+	    Node = __webpack_require__(39),
+	    InsertStack = __webpack_require__(40),
+	    isSamePosition = __webpack_require__(41);
 
 	  var gravity = options.gravity,
 	    updateQueue = [],
@@ -10039,7 +9571,7 @@
 
 
 /***/ }),
-/* 40 */
+/* 39 */
 /***/ (function(module, exports) {
 
 	/**
@@ -10075,7 +9607,7 @@
 
 
 /***/ }),
-/* 41 */
+/* 40 */
 /***/ (function(module, exports) {
 
 	module.exports = InsertStack;
@@ -10123,7 +9655,7 @@
 
 
 /***/ }),
-/* 42 */
+/* 41 */
 /***/ (function(module, exports) {
 
 	module.exports = function isSamePosition(point1, point2) {
@@ -10135,11 +9667,11 @@
 
 
 /***/ }),
-/* 43 */
+/* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = function (bodies, settings) {
-	  var random = __webpack_require__(24).random(42);
+	  var random = __webpack_require__(23).random(42);
 	  var boundingBox =  { x1: 0, y1: 0, x2: 0, y2: 0 };
 
 	  return {
@@ -10221,7 +9753,7 @@
 
 
 /***/ }),
-/* 44 */
+/* 43 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -10232,8 +9764,8 @@
 	 * @param {Number=} options.dragCoeff drag force coefficient. 0.1 by default
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(22),
-	      expose = __webpack_require__(21);
+	  var merge = __webpack_require__(21),
+	      expose = __webpack_require__(20);
 
 	  options = merge(options, {
 	    dragCoeff: 0.02
@@ -10254,7 +9786,7 @@
 
 
 /***/ }),
-/* 45 */
+/* 44 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -10266,9 +9798,9 @@
 	 * @param {Number=} options.springLength desired length of a spring at rest.
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(22);
-	  var random = __webpack_require__(24).random(42);
-	  var expose = __webpack_require__(21);
+	  var merge = __webpack_require__(21);
+	  var random = __webpack_require__(23).random(42);
+	  var expose = __webpack_require__(20);
 
 	  options = merge(options, {
 	    springCoeff: 0.0002,
@@ -10310,7 +9842,7 @@
 
 
 /***/ }),
-/* 46 */
+/* 45 */
 /***/ (function(module, exports) {
 
 	/**
@@ -10361,10 +9893,10 @@
 
 
 /***/ }),
-/* 47 */
+/* 46 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var physics = __webpack_require__(33);
+	var physics = __webpack_require__(32);
 
 	module.exports = function(pos) {
 	  return new physics.Body(pos);
@@ -10372,7 +9904,7 @@
 
 
 /***/ }),
-/* 48 */
+/* 47 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -10393,10 +9925,10 @@
 	  options.theta = typeof options.theta === 'number' ? options.theta : 0.8;
 
 	  // we require deterministic randomness here
-	  var random = __webpack_require__(24).random(1984),
-	    Node = __webpack_require__(49),
-	    InsertStack = __webpack_require__(50),
-	    isSamePosition = __webpack_require__(51);
+	  var random = __webpack_require__(23).random(1984),
+	    Node = __webpack_require__(48),
+	    InsertStack = __webpack_require__(49),
+	    isSamePosition = __webpack_require__(50);
 
 	  var gravity = options.gravity,
 	    updateQueue = [],
@@ -10771,7 +10303,7 @@
 
 
 /***/ }),
-/* 49 */
+/* 48 */
 /***/ (function(module, exports) {
 
 	/**
@@ -10819,7 +10351,7 @@
 
 
 /***/ }),
-/* 50 */
+/* 49 */
 /***/ (function(module, exports) {
 
 	module.exports = InsertStack;
@@ -10867,7 +10399,7 @@
 
 
 /***/ }),
-/* 51 */
+/* 50 */
 /***/ (function(module, exports) {
 
 	module.exports = function isSamePosition(point1, point2) {
@@ -10880,11 +10412,11 @@
 
 
 /***/ }),
-/* 52 */
+/* 51 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = function (bodies, settings) {
-	  var random = __webpack_require__(24).random(42);
+	  var random = __webpack_require__(23).random(42);
 	  var boundingBox =  { x1: 0, y1: 0, z1: 0, x2: 0, y2: 0, z2: 0 };
 
 	  return {
@@ -10983,7 +10515,7 @@
 
 
 /***/ }),
-/* 53 */
+/* 52 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -10994,8 +10526,8 @@
 	 * @param {Number=} options.dragCoeff drag force coefficient. 0.1 by default
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(22),
-	      expose = __webpack_require__(21);
+	  var merge = __webpack_require__(21),
+	      expose = __webpack_require__(20);
 
 	  options = merge(options, {
 	    dragCoeff: 0.02
@@ -11017,7 +10549,7 @@
 
 
 /***/ }),
-/* 54 */
+/* 53 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -11029,9 +10561,9 @@
 	 * @param {Number=} options.springLength desired length of a spring at rest.
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(22);
-	  var random = __webpack_require__(24).random(42);
-	  var expose = __webpack_require__(21);
+	  var merge = __webpack_require__(21);
+	  var random = __webpack_require__(23).random(42);
+	  var expose = __webpack_require__(20);
 
 	  options = merge(options, {
 	    springCoeff: 0.0002,
@@ -11077,10 +10609,10 @@
 
 
 /***/ }),
-/* 55 */
+/* 54 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var physics = __webpack_require__(33);
+	var physics = __webpack_require__(32);
 
 	module.exports = function(pos) {
 	  return new physics.Body3d(pos);
@@ -11088,7 +10620,7 @@
 
 
 /***/ }),
-/* 56 */
+/* 55 */
 /***/ (function(module, exports) {
 
 	module.exports = integrate;
@@ -11115,7 +10647,7 @@
 
 
 /***/ }),
-/* 57 */
+/* 56 */
 /***/ (function(module, exports) {
 
 	/**
@@ -11169,7 +10701,7 @@
 
 
 /***/ }),
-/* 58 */
+/* 57 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	!function(n,t){ true?module.exports=t():"function"==typeof define&&define.amd?define([],t):"object"==typeof exports?exports.Kapsule=t():n.Kapsule=t()}("undefined"!=typeof self?self:this,function(){return function(n){var t={};function e(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return n[r].call(o.exports,o,o.exports,e),o.l=!0,o.exports}return e.m=n,e.c=t,e.d=function(n,t,r){e.o(n,t)||Object.defineProperty(n,t,{configurable:!1,enumerable:!0,get:r})},e.n=function(n){var t=n&&n.__esModule?function(){return n.default}:function(){return n};return e.d(t,"a",t),t},e.o=function(n,t){return Object.prototype.hasOwnProperty.call(n,t)},e.p="",e(e.s=0)}([function(n,t,e){var r,o,i;u=function(n,t,e){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.default=function(n){var t=n.stateInit,e=void 0===t?function(){return{}}:t,r=n.props,a=void 0===r?{}:r,f=n.methods,l=void 0===f?{}:f,c=n.aliases,s=void 0===c?{}:c,d=n.init,p=void 0===d?function(){}:d,v=n.update,h=void 0===v?function(){}:v,y=Object.keys(a).map(function(n){return new u(n,a[n])});return function(){var n=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},t=Object.assign({},e instanceof Function?e():e,{initialised:!1});function r(t){return u(t,n),a(),r}var u=function(n,e){p.call(r,n,t,e),t.initialised=!0},a=(0,o.default)(function(){t.initialised&&h.call(r,t)},1);return y.forEach(function(n){r[n.name]=function(n){var e=arguments.length>1&&void 0!==arguments[1]&&arguments[1],o=arguments.length>2&&void 0!==arguments[2]?arguments[2]:function(n,t){};return function(i){return arguments.length?(t[n]=i,o.call(r,i,t),e&&a(),r):t[n]}}(n.name,n.triggerUpdate,n.onChange)}),Object.keys(l).forEach(function(n){r[n]=function(){for(var e,o=arguments.length,i=Array(o),u=0;u<o;u++)i[u]=arguments[u];return(e=l[n]).call.apply(e,[r,t].concat(i))}}),Object.entries(s).forEach(function(n){var t=i(n,2),e=t[0],o=t[1];return r[e]=r[o]}),r.resetProps=function(){return y.forEach(function(n){r[n.name](n.defaultVal)}),r},r.resetProps(),t._rerender=a,r}};var r,o=(r=e,r&&r.__esModule?r:{default:r});var i=function(){return function(n,t){if(Array.isArray(n))return n;if(Symbol.iterator in Object(n))return function(n,t){var e=[],r=!0,o=!1,i=void 0;try{for(var u,a=n[Symbol.iterator]();!(r=(u=a.next()).done)&&(e.push(u.value),!t||e.length!==t);r=!0);}catch(n){o=!0,i=n}finally{try{!r&&a.return&&a.return()}finally{if(o)throw i}}return e}(n,t);throw new TypeError("Invalid attempt to destructure non-iterable instance")}}();var u=function n(t,e){var r=e.default,o=void 0===r?null:r,i=e.triggerUpdate,u=void 0===i||i,a=e.onChange,f=void 0===a?function(n,t){}:a;!function(n,t){if(!(n instanceof t))throw new TypeError("Cannot call a class as a function")}(this,n),this.name=t,this.defaultVal=o,this.triggerUpdate=u,this.onChange=f};n.exports=t.default},o=[n,t,e(1)],void 0===(i="function"==typeof(r=u)?r.apply(t,o):r)||(n.exports=i);var u},function(n,t){n.exports=function(n,t,e){var r,o,i,u,a;null==t&&(t=100);function f(){var l=Date.now()-u;l<t&&l>=0?r=setTimeout(f,t-l):(r=null,e||(a=n.apply(i,o),i=o=null))}var l=function(){i=this,o=arguments,u=Date.now();var l=e&&!r;return r||(r=setTimeout(f,t)),l&&(a=n.apply(i,o),i=o=null),a};return l.clear=function(){r&&(clearTimeout(r),r=null)},l.flush=function(){r&&(a=n.apply(i,o),i=o=null,clearTimeout(r),r=null)},l}}])});
