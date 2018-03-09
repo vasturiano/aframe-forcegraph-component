@@ -58,6 +58,7 @@ AFRAME.registerComponent('forcegraph', {
     linkDirectionalParticles: {parse: parseAccessor, default: 0}, // animate photons travelling in the link direction
     linkDirectionalParticleSpeed: {parse: parseAccessor, default: 0.01}, // in link length ratio per frame
     linkDirectionalParticleWidth: {parse: parseAccessor, default: 0.5},
+    linkDirectionalParticleColor: {parse: parseAccessor, default: null},
     linkDirectionalParticleResolution: {type: 'number', default: 4}, // how many slice segments in the particle sphere's circumference
     forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
     d3AlphaDecay: {type: 'number', default: 0.0228},
@@ -155,6 +156,7 @@ AFRAME.registerComponent('forcegraph', {
       'linkDirectionalParticles',
       'linkDirectionalParticleSpeed',
       'linkDirectionalParticleWidth',
+      'linkDirectionalParticleColor',
       'linkDirectionalParticleResolution',
       'forceEngine',
       'd3AlphaDecay',

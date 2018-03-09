@@ -104,6 +104,7 @@
 	    linkDirectionalParticles: {parse: parseAccessor, default: 0}, // animate photons travelling in the link direction
 	    linkDirectionalParticleSpeed: {parse: parseAccessor, default: 0.01}, // in link length ratio per frame
 	    linkDirectionalParticleWidth: {parse: parseAccessor, default: 0.5},
+	    linkDirectionalParticleColor: {parse: parseAccessor, default: null},
 	    linkDirectionalParticleResolution: {type: 'number', default: 4}, // how many slice segments in the particle sphere's circumference
 	    forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
 	    d3AlphaDecay: {type: 'number', default: 0.0228},
@@ -201,6 +202,7 @@
 	      'linkDirectionalParticles',
 	      'linkDirectionalParticleSpeed',
 	      'linkDirectionalParticleWidth',
+	      'linkDirectionalParticleColor',
 	      'linkDirectionalParticleResolution',
 	      'forceEngine',
 	      'd3AlphaDecay',
@@ -414,6 +416,7 @@
 	    linkDirectionalParticles: { default: 0 }, // animate photons travelling in the link direction
 	    linkDirectionalParticleSpeed: { default: 0.01, triggerUpdate: false }, // in link length ratio per frame
 	    linkDirectionalParticleWidth: { default: 0.5 },
+	    linkDirectionalParticleColor: {},
 	    linkDirectionalParticleResolution: { default: 4 }, // how many slice segments in the particle sphere's circumference
 	    forceEngine: { default: 'd3' }, // d3 or ngraph
 	    d3AlphaDecay: { default: 0.0228 },
@@ -628,6 +631,7 @@
 	    var linkWidthAccessor = accessorFn(state.linkWidth);
 	    var linkParticlesAccessor = accessorFn(state.linkDirectionalParticles);
 	    var linkParticleWidthAccessor = accessorFn(state.linkDirectionalParticleWidth);
+	    var linkParticleColorAccessor = accessorFn(state.linkDirectionalParticleColor);
 
 	    var lineMaterials = {}; // indexed by link color
 	    var cylinderGeometries = {}; // indexed by link width
@@ -677,6 +681,7 @@
 	      // Add photon particles
 	      var numPhotons = Math.round(Math.abs(linkParticlesAccessor(link)));
 	      var photonR = Math.ceil(linkParticleWidthAccessor(link) * 10) / 10 / 2;
+	      var photonColor = linkParticleColorAccessor(link) || color || '#f0f0f0';
 
 	      if (!particleGeometries.hasOwnProperty(photonR)) {
 	        particleGeometries[photonR] = new three$1.SphereGeometry(photonR, state.linkDirectionalParticleResolution, state.linkDirectionalParticleResolution);
@@ -685,7 +690,7 @@
 
 	      if (!particleMaterials.hasOwnProperty(color)) {
 	        particleMaterials[color] = new three$1.MeshLambertMaterial({
-	          color: colorStr2Hex(color || '#f0f0f0'),
+	          color: colorStr2Hex(photonColor),
 	          transparent: true,
 	          opacity: state.linkOpacity * 3
 	        });
