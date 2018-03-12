@@ -383,6 +383,12 @@
 	    numDimensions: {
 	      default: 3,
 	      onChange: function onChange(numDim, state) {
+	        var chargeForce = state.d3ForceLayout.force('charge');
+	        // Increase repulsion on 3D mode for improved spatial separation
+	        if (chargeForce) {
+	          chargeForce.strength(numDim > 2 ? -60 : -30);
+	        }
+
 	        if (numDim < 3) {
 	          eraseDimension(state.graphData.nodes, 'z');
 	        }
@@ -421,6 +427,10 @@
 	    forceEngine: { default: 'd3' }, // d3 or ngraph
 	    d3AlphaDecay: { default: 0.0228, triggerUpdate: false, onChange: function onChange(alphaDecay, state) {
 	        state.d3ForceLayout.alphaDecay(alphaDecay);
+	      }
+	    },
+	    d3AlphaTarget: { default: 0, triggerUpdate: false, onChange: function onChange(alphaTarget, state) {
+	        state.d3ForceLayout.alphaTarget(alphaTarget);
 	      }
 	    },
 	    d3VelocityDecay: { default: 0.4, triggerUpdate: false, onChange: function onChange(velocityDecay, state) {
