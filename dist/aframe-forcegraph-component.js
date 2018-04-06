@@ -283,6 +283,9 @@
 	var colorStr2Hex = function colorStr2Hex(str) {
 	  return isNaN(str) ? parseInt(tinyColor(str).toHex(), 16) : str;
 	};
+	var colorAlpha = function colorAlpha(str) {
+	  return isNaN(str) ? tinyColor(str).getAlpha() : 1;
+	};
 
 	// Autoset attribute colorField by colorByAccessor property
 	// If an object has already a color, don't set it
@@ -637,7 +640,7 @@
 	          sphereMaterials[color] = new three$1.MeshLambertMaterial({
 	            color: colorStr2Hex(color || '#ffffaa'),
 	            transparent: true,
-	            opacity: state.nodeOpacity
+	            opacity: state.nodeOpacity * colorAlpha(color)
 	          });
 	        }
 
@@ -687,7 +690,7 @@
 	        lineMaterials[color] = new three$1.MeshLambertMaterial({
 	          color: colorStr2Hex(color || '#f0f0f0'),
 	          transparent: true,
-	          opacity: state.linkOpacity
+	          opacity: state.linkOpacity * colorAlpha(color)
 	        });
 	      }
 	      var lineMaterial = lineMaterials[color];
