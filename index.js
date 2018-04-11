@@ -12,18 +12,20 @@ if (ThreeForceGraph.hasOwnProperty('default')) {
   ThreeForceGraph = ThreeForceGraph.default;
 }
 
-var parseAccessor = function(prop) {
-  if (!isNaN(parseFloat(prop))) { return parseFloat(prop); } // parse numbers
-
+var parseFn = function(prop) {
   var geval = eval; // Avoid using eval directly https://github.com/rollup/rollup/wiki/Troubleshooting#avoiding-eval
   try {
     var evalled = geval('(' + prop + ')');
-    if (evalled instanceof Function) {
-      prop = evalled;
-    }
+    return evalled;
   }
   catch (e) {} // Can't eval, not a function
-  return prop;
+  return null;
+};
+
+var parseAccessor = function(prop) {
+  if (!isNaN(parseFloat(prop))) { return parseFloat(prop); } // parse numbers
+  if (parseFn(prop)) { return parseFn(prop); } // parse functions
+  return prop; //strings
 };
 
 /**
@@ -60,6 +62,8 @@ AFRAME.registerComponent('forcegraph', {
     linkDirectionalParticleWidth: {parse: parseAccessor, default: 0.5},
     linkDirectionalParticleColor: {parse: parseAccessor, default: null},
     linkDirectionalParticleResolution: {type: 'number', default: 4}, // how many slice segments in the particle sphere's circumference
+    onNodeCenterHover: {parse: parseFn, default: function() {}},
+    onLinkCenterHover: {parse: parseFn, default: function() {}},
     forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
     d3AlphaDecay: {type: 'number', default: 0.0228},
     d3VelocityDecay: {type: 'number', default: 0.4},
@@ -199,6 +203,20 @@ AFRAME.registerComponent('forcegraph', {
     var topObject = intersects.length ? intersects[0].object : null;
 
     if (topObject !== this.state.hoverObj) {
+      const prevObjType = this.state.hoverObj ? this.state.hoverObj.__graphObjType : null;
+      const prevObjData = this.state.hoverObj ? this.state.hoverObj.__data : null;
+      const objType = topObject ? topObject.__graphObjType : null;
+      const objData = topObject ? topObject.__data : null;
+
+      if (prevObjType && prevObjType !== objType) {
+        // Hover out
+        this.data['on' + (prevObjType === 'node' ? 'Node' : 'Link') + 'CenterHover'](null, prevObjData);
+      }
+      if (objType) {
+        // Hover in
+        this.data['on' + (objType === 'node' ? 'Node' : 'Link') + 'CenterHover'](objData, prevObjType === objType ? prevObjData : null);
+      }
+
       this.state.hoverObj = topObject;
       this.state.tooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Label'])(topObject.__data) || '' : '' );
       this.state.subTooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Desc'])(topObject.__data) || '' : '' );
