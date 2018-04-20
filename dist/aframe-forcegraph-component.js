@@ -525,6 +525,8 @@
 	          var start = pos[isD3Sim ? 'source' : 'from'];
 	          var end = pos[isD3Sim ? 'target' : 'to'];
 
+	          if (!start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
+
 	          if (line.type === 'Line') {
 	            // Update line geometry
 	            var linePos = line.geometry.attributes.position;
@@ -563,6 +565,8 @@
 	          var pos = isD3Sim ? link : state.layout.getLinkPosition(state.layout.graph.getLink(link.source, link.target).id);
 	          var start = pos[isD3Sim ? 'source' : 'from'];
 	          var end = pos[isD3Sim ? 'target' : 'to'];
+
+	          if (!start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
 
 	          var particleSpeed = particleSpeedAccessor(link);
 
@@ -756,9 +760,15 @@
 	    if (isD3Sim) {
 	      // D3-force
 	      (layout = state.d3ForceLayout).stop().alpha(1) // re-heat the simulation
-	      .numDimensions(state.numDimensions).nodes(state.graphData.nodes).force('link').id(function (d) {
-	        return d[state.nodeId];
-	      }).links(state.graphData.links);
+	      .numDimensions(state.numDimensions).nodes(state.graphData.nodes);
+
+	      // add links (if link force is still active)
+	      var linkForce = state.d3ForceLayout.force('link');
+	      if (linkForce) {
+	        linkForce.id(function (d) {
+	          return d[state.nodeId];
+	        }).links(state.graphData.links);
+	      }
 	    } else {
 	      // ngraph
 	      var _graph = ngraph.graph();
