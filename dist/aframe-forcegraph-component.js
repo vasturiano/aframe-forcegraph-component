@@ -103,6 +103,7 @@
 	    linkOpacity: {type: 'number', default: 0.2},
 	    linkWidth: {parse: parseAccessor, default: 0},
 	    linkResolution: {type: 'number', default: 6}, // how many radial segments in each line cylinder's geometry
+	    linkMaterial: {parse: parseAccessor, default: null},
 	    linkDirectionalParticles: {parse: parseAccessor, default: 0}, // animate photons travelling in the link direction
 	    linkDirectionalParticleSpeed: {parse: parseAccessor, default: 0.01}, // in link length ratio per frame
 	    linkDirectionalParticleWidth: {parse: parseAccessor, default: 0.5},
@@ -203,6 +204,7 @@
 	      'linkOpacity',
 	      'linkWidth',
 	      'linkResolution',
+	      'linkMaterial',
 	      'linkDirectionalParticles',
 	      'linkDirectionalParticleSpeed',
 	      'linkDirectionalParticleWidth',
@@ -440,6 +442,7 @@
 	    linkOpacity: { default: 0.2 },
 	    linkWidth: {}, // Rounded to nearest decimal. For falsy values use dimensionless line with 1px regardless of distance.
 	    linkResolution: { default: 6 }, // how many radial segments in each line cylinder's geometry
+	    linkMaterial: {},
 	    linkDirectionalParticles: { default: 0 }, // animate photons travelling in the link direction
 	    linkDirectionalParticleSpeed: { default: 0.01, triggerUpdate: false }, // in link length ratio per frame
 	    linkDirectionalParticleWidth: { default: 0.5 },
@@ -675,6 +678,7 @@
 	      state.graphScene.add(node.__threeObj = obj);
 	    });
 
+	    var customLinkMaterialAccessor = accessorFn(state.linkMaterial);
 	    var linkColorAccessor = accessorFn(state.linkColor);
 	    var linkWidthAccessor = accessorFn(state.linkWidth);
 	    var linkParticlesAccessor = accessorFn(state.linkDirectionalParticles);
@@ -708,14 +712,17 @@
 	        geometry.addAttribute('position', new three$1.BufferAttribute(new Float32Array(2 * 3), 3));
 	      }
 
-	      if (!lineMaterials.hasOwnProperty(color)) {
-	        lineMaterials[color] = new three$1.MeshLambertMaterial({
-	          color: colorStr2Hex(color || '#f0f0f0'),
-	          transparent: true,
-	          opacity: state.linkOpacity * colorAlpha(color)
-	        });
+	      var lineMaterial = customLinkMaterialAccessor(link);
+	      if (!lineMaterial) {
+	        if (!lineMaterials.hasOwnProperty(color)) {
+	          lineMaterials[color] = new three$1.MeshLambertMaterial({
+	            color: colorStr2Hex(color || '#f0f0f0'),
+	            transparent: true,
+	            opacity: state.linkOpacity * colorAlpha(color)
+	          });
+	        }
+	        lineMaterial = lineMaterials[color];
 	      }
-	      var lineMaterial = lineMaterials[color];
 
 	      var line = new three$1[useCylinder ? 'Mesh' : 'Line'](geometry, lineMaterial);
 

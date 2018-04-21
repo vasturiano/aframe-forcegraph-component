@@ -57,6 +57,7 @@ AFRAME.registerComponent('forcegraph', {
     linkOpacity: {type: 'number', default: 0.2},
     linkWidth: {parse: parseAccessor, default: 0},
     linkResolution: {type: 'number', default: 6}, // how many radial segments in each line cylinder's geometry
+    linkMaterial: {parse: parseAccessor, default: null},
     linkDirectionalParticles: {parse: parseAccessor, default: 0}, // animate photons travelling in the link direction
     linkDirectionalParticleSpeed: {parse: parseAccessor, default: 0.01}, // in link length ratio per frame
     linkDirectionalParticleWidth: {parse: parseAccessor, default: 0.5},
@@ -157,6 +158,7 @@ AFRAME.registerComponent('forcegraph', {
       'linkOpacity',
       'linkWidth',
       'linkResolution',
+      'linkMaterial',
       'linkDirectionalParticles',
       'linkDirectionalParticleSpeed',
       'linkDirectionalParticleWidth',
