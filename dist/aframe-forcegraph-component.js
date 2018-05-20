@@ -103,6 +103,8 @@
 	    linkOpacity: {type: 'number', default: 0.2},
 	    linkWidth: {parse: parseAccessor, default: 0},
 	    linkResolution: {type: 'number', default: 6}, // how many radial segments in each line cylinder's geometry
+	    linkCurvature: {parse: parseAccessor, default: 0},
+	    linkCurveRotation: {parse: parseAccessor, default: 0},
 	    linkMaterial: {parse: parseAccessor, default: null},
 	    linkDirectionalParticles: {parse: parseAccessor, default: 0}, // animate photons travelling in the link direction
 	    linkDirectionalParticleSpeed: {parse: parseAccessor, default: 0.01}, // in link length ratio per frame
@@ -204,6 +206,8 @@
 	      'linkOpacity',
 	      'linkWidth',
 	      'linkResolution',
+	      'linkCurvature',
+	      'linkCurveRotation',
 	      'linkMaterial',
 	      'linkDirectionalParticles',
 	      'linkDirectionalParticleSpeed',
@@ -383,7 +387,9 @@
 	  SphereGeometry: three.SphereGeometry,
 	  CylinderGeometry: three.CylinderGeometry,
 	  Line: three.Line,
-	  LineBasicMaterial: three.LineBasicMaterial
+	  LineBasicMaterial: three.LineBasicMaterial,
+	  QuadraticBezierCurve3: three.QuadraticBezierCurve3,
+	  CubicBezierCurve3: three.CubicBezierCurve3
 	};
 	var ngraph = { graph: graph, forcelayout: forcelayout, forcelayout3d: forcelayout3d };
 
@@ -441,7 +447,9 @@
 	    linkAutoColorBy: {},
 	    linkOpacity: { default: 0.2 },
 	    linkWidth: {}, // Rounded to nearest decimal. For falsy values use dimensionless line with 1px regardless of distance.
-	    linkResolution: { default: 6 }, // how many radial segments in each line cylinder's geometry
+	    linkResolution: { default: 6 }, // how many radial segments in each line tube's geometry
+	    linkCurvature: { default: 0, triggerUpdate: false }, // line curvature radius (0: straight, 1: semi-circle)
+	    linkCurveRotation: { default: 0, triggerUpdate: false }, // line curve rotation along the line axis (0: interection with XY plane, PI: upside down)
 	    linkMaterial: {},
 	    linkDirectionalParticles: { default: 0 }, // animate photons travelling in the link direction
 	    linkDirectionalParticleSpeed: { default: 0.01, triggerUpdate: false }, // in link length ratio per frame
@@ -520,6 +528,8 @@
 	        });
 
 	        // Update links position
+	        var linkCurvatureAccessor = accessorFn(state.linkCurvature);
+	        var linkCurveRotationAccessor = accessorFn(state.linkCurveRotation);
 	        state.graphData.links.forEach(function (link) {
 	          var line = link.__lineObj;
 	          if (!line) return;
@@ -530,29 +540,73 @@
 
 	          if (!start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
 
+	          link.__curve = null; // Wipe curve ref from object
+
 	          if (line.type === 'Line') {
 	            // Update line geometry
-	            var linePos = line.geometry.attributes.position;
+	            var curvature = linkCurvatureAccessor(link);
+	            var curveResolution = 30; // # line segments
 
-	            linePos.array[0] = start.x;
-	            linePos.array[1] = start.y || 0;
-	            linePos.array[2] = start.z || 0;
-	            linePos.array[3] = end.x;
-	            linePos.array[4] = end.y || 0;
-	            linePos.array[5] = end.z || 0;
+	            if (!curvature) {
+	              var linePos = line.geometry.getAttribute('position');
+	              if (!linePos || !linePos.array || linePos.array.length !== 6) {
+	                line.geometry.addAttribute('position', linePos = new three$1.BufferAttribute(new Float32Array(2 * 3), 3));
+	              }
 
-	            linePos.needsUpdate = true;
+	              linePos.array[0] = start.x;
+	              linePos.array[1] = start.y || 0;
+	              linePos.array[2] = start.z || 0;
+	              linePos.array[3] = end.x;
+	              linePos.array[4] = end.y || 0;
+	              linePos.array[5] = end.z || 0;
+
+	              linePos.needsUpdate = true;
+	            } else {
+	              // bezier curve line
+	              var vStart = new three$1.Vector3(start.x, start.y || 0, start.z || 0);
+	              var vEnd = new three$1.Vector3(end.x, end.y || 0, end.z || 0);
+
+	              var l = vStart.distanceTo(vEnd); // line length
+
+	              var curve = void 0;
+	              var curveRotation = linkCurveRotationAccessor(link);
+
+	              if (l > 0) {
+	                var dx = end.x - start.x;
+	                var dy = end.y - start.y || 0;
+
+	                var vLine = new three$1.Vector3().subVectors(vEnd, vStart);
+
+	                var cp = vLine.clone().multiplyScalar(curvature).cross(dx !== 0 || dy !== 0 ? new three$1.Vector3(0, 0, 1) : new three$1.Vector3(0, 1, 0)) // avoid cross-product of parallel vectors (prefer Z, fallback to Y)
+	                .applyAxisAngle(vLine.normalize(), curveRotation) // rotate along line axis according to linkCurveRotation
+	                .add(new three$1.Vector3().addVectors(vStart, vEnd).divideScalar(2));
+
+	                curve = new three$1.QuadraticBezierCurve3(vStart, cp, vEnd);
+	              } else {
+	                // Same point, draw a loop
+	                var d = curvature * 70;
+	                var endAngle = -curveRotation; // Rotate clockwise (from Z angle perspective)
+	                var startAngle = endAngle + Math.PI / 2;
+
+	                curve = new three$1.CubicBezierCurve3(vStart, new three$1.Vector3(d * Math.cos(startAngle), d * Math.sin(startAngle), 0).add(vStart), new three$1.Vector3(d * Math.cos(endAngle), d * Math.sin(endAngle), 0).add(vStart), vEnd);
+	              }
+
+	              line.geometry.setFromPoints(curve.getPoints(curveResolution));
+	              link.__curve = curve;
+	            }
 	            line.geometry.computeBoundingSphere();
 	          } else {
 	            // Update cylinder geometry
-	            var vStart = new three$1.Vector3(start.x, start.y || 0, start.z || 0);
-	            var vEnd = new three$1.Vector3(end.x, end.y || 0, end.z || 0);
-	            var distance = vStart.distanceTo(vEnd);
+	            // links with width ignore linkCurvature because TubeGeometries can't be updated
 
-	            line.position.x = vStart.x;
-	            line.position.y = vStart.y;
-	            line.position.z = vStart.z;
-	            line.lookAt(vEnd);
+	            var _vStart = new three$1.Vector3(start.x, start.y || 0, start.z || 0);
+	            var _vEnd = new three$1.Vector3(end.x, end.y || 0, end.z || 0);
+	            var distance = _vStart.distanceTo(_vEnd);
+
+	            line.position.x = _vStart.x;
+	            line.position.y = _vStart.y;
+	            line.position.z = _vStart.z;
+	            line.lookAt(_vEnd);
 	            line.scale.z = distance;
 	          }
 	        });
@@ -573,11 +627,27 @@
 
 	          var particleSpeed = particleSpeedAccessor(link);
 
+	          var getPhotonPos = link.__curve ? function (t) {
+	            return link.__curve.getPoint(t);
+	          } // interpolate along bezier curve
+	          : function (t) {
+	            // straight line: interpolate linearly
+	            var iplt = function iplt(dim, start, end, t) {
+	              return start[dim] + (end[dim] - start[dim]) * t || 0;
+	            };
+	            return {
+	              x: iplt('x', start, end, t),
+	              y: iplt('y', start, end, t),
+	              z: iplt('z', start, end, t)
+	            };
+	          };
+
 	          photons.forEach(function (photon, idx) {
 	            var photonPosRatio = photon.__progressRatio = ((photon.__progressRatio || idx / photons.length) + particleSpeed) % 1;
 
+	            var pos = getPhotonPos(photonPosRatio);
 	            ['x', 'y', 'z'].forEach(function (dim) {
-	              return photon.position[dim] = start[dim] + (end[dim] - start[dim]) * photonPosRatio || 0;
+	              return photon.position[dim] = pos[dim];
 	            });
 	          });
 	        });
@@ -632,11 +702,28 @@
 	      link.target = link[state.linkTarget];
 	    });
 
-	    // Add WebGL objects
+	    // Clear the scene
+	    var deallocate = function deallocate(obj) {
+	      if (obj.geometry) {
+	        obj.geometry.dispose();
+	      }
+	      if (obj.material) {
+	        obj.material.dispose();
+	      }
+	      if (obj.texture) {
+	        obj.texture.dispose();
+	      }
+	      if (obj.children) {
+	        obj.children.forEach(deallocate);
+	      }
+	    };
 	    while (state.graphScene.children.length) {
-	      state.graphScene.remove(state.graphScene.children[0]);
-	    } // Clear the place
+	      var obj = state.graphScene.children[0];
+	      state.graphScene.remove(obj);
+	      deallocate(obj);
+	    }
 
+	    // Add WebGL objects
 	    var customNodeObjectAccessor = accessorFn(state.nodeThreeObject);
 	    var valAccessor = accessorFn(state.nodeVal);
 	    var colorAccessor = accessorFn(state.nodeColor);
@@ -709,16 +796,17 @@
 	      } else {
 	        // Use plain line (constant width)
 	        geometry = new three$1.BufferGeometry();
-	        geometry.addAttribute('position', new three$1.BufferAttribute(new Float32Array(2 * 3), 3));
 	      }
 
 	      var lineMaterial = customLinkMaterialAccessor(link);
 	      if (!lineMaterial) {
 	        if (!lineMaterials.hasOwnProperty(color)) {
+	          var lineOpacity = state.linkOpacity * colorAlpha(color);
 	          lineMaterials[color] = new three$1.MeshLambertMaterial({
 	            color: colorStr2Hex(color || '#f0f0f0'),
-	            transparent: true,
-	            opacity: state.linkOpacity * colorAlpha(color)
+	            transparent: lineOpacity < 1,
+	            opacity: lineOpacity,
+	            depthWrite: lineOpacity >= 1 // Prevent transparency issues
 	          });
 	        }
 	        lineMaterial = lineMaterials[color];
@@ -850,7 +938,7 @@
 /* 3 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-scale-chromatic/ Version 1.2.0. Copyright 2018 Mike Bostock.
+	// https://d3js.org/d3-scale-chromatic/ Version 1.3.0. Copyright 2018 Mike Bostock.
 	(function (global, factory) {
 		 true ? factory(exports, __webpack_require__(4), __webpack_require__(5)) :
 		typeof define === 'function' && define.amd ? define(['exports', 'd3-interpolate', 'd3-color'], factory) :
@@ -1233,15 +1321,28 @@
 
 	var cool = d3Interpolate.interpolateCubehelixLong(d3Color.cubehelix(260, 0.75, 0.35), d3Color.cubehelix(80, 1.50, 0.8));
 
-	var rainbow = d3Color.cubehelix();
+	var c = d3Color.cubehelix();
 
-	function rainbow$1(t) {
+	function rainbow(t) {
 	  if (t < 0 || t > 1) t -= Math.floor(t);
 	  var ts = Math.abs(t - 0.5);
-	  rainbow.h = 360 * t - 100;
-	  rainbow.s = 1.5 - 1.5 * ts;
-	  rainbow.l = 0.8 - 0.9 * ts;
-	  return rainbow + "";
+	  c.h = 360 * t - 100;
+	  c.s = 1.5 - 1.5 * ts;
+	  c.l = 0.8 - 0.9 * ts;
+	  return c + "";
+	}
+
+	var c$1 = d3Color.rgb();
+	var pi_1_3 = Math.PI / 3;
+	var pi_2_3 = Math.PI * 2 / 3;
+
+	function sinebow(t) {
+	  var x;
+	  t = (0.5 - t) * Math.PI;
+	  c$1.r = 255 * (x = Math.sin(t)) * x;
+	  c$1.g = 255 * (x = Math.sin(t + pi_1_3)) * x;
+	  c$1.b = 255 * (x = Math.sin(t + pi_2_3)) * x;
+	  return c$1 + "";
 	}
 
 	function ramp$1(range) {
@@ -1323,9 +1424,10 @@
 	exports.interpolateOranges = Oranges;
 	exports.schemeOranges = scheme$26;
 	exports.interpolateCubehelixDefault = cubehelix$1;
-	exports.interpolateRainbow = rainbow$1;
+	exports.interpolateRainbow = rainbow;
 	exports.interpolateWarm = warm;
 	exports.interpolateCool = cool;
+	exports.interpolateSinebow = sinebow;
 	exports.interpolateViridis = viridis;
 	exports.interpolateMagma = magma;
 	exports.interpolateInferno = inferno;
@@ -1340,7 +1442,7 @@
 /* 4 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-interpolate/ Version 1.1.6. Copyright 2017 Mike Bostock.
+	// https://d3js.org/d3-interpolate/ Version 1.2.0. Copyright 2018 Mike Bostock.
 	(function (global, factory) {
 		 true ? factory(exports, __webpack_require__(5)) :
 		typeof define === 'function' && define.amd ? define(['exports', 'd3-color'], factory) :
@@ -1852,6 +1954,15 @@
 	var cubehelix$2 = cubehelix$1(hue);
 	var cubehelixLong = cubehelix$1(nogamma);
 
+	function piecewise(interpolate, values) {
+	  var i = 0, n = values.length - 1, v = values[0], I = new Array(n < 0 ? 0 : n);
+	  while (i < n) I[i] = interpolate(v, v = values[++i]);
+	  return function(t) {
+	    var i = Math.max(0, Math.min(n - 1, Math.floor(t *= n)));
+	    return I[i](t - i);
+	  };
+	}
+
 	var quantize = function(interpolator, n) {
 	  var samples = new Array(n);
 	  for (var i = 0; i < n; ++i) samples[i] = interpolator(i / (n - 1));
@@ -1880,6 +1991,7 @@
 	exports.interpolateHclLong = hclLong;
 	exports.interpolateCubehelix = cubehelix$2;
 	exports.interpolateCubehelixLong = cubehelixLong;
+	exports.piecewise = piecewise;
 	exports.quantize = quantize;
 
 	Object.defineProperty(exports, '__esModule', { value: true });
@@ -1891,7 +2003,7 @@
 /* 5 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-color/ Version 1.0.3. Copyright 2017 Mike Bostock.
+	// https://d3js.org/d3-color/ Version 1.2.0. Copyright 2018 Mike Bostock.
 	(function (global, factory) {
 		 true ? factory(exports) :
 		typeof define === 'function' && define.amd ? define(['exports'], factory) :
@@ -2081,6 +2193,9 @@
 	  displayable: function() {
 	    return this.rgb().displayable();
 	  },
+	  hex: function() {
+	    return this.rgb().hex();
+	  },
 	  toString: function() {
 	    return this.rgb() + "";
 	  }
@@ -2147,6 +2262,9 @@
 	        && (0 <= this.b && this.b <= 255)
 	        && (0 <= this.opacity && this.opacity <= 1);
 	  },
+	  hex: function() {
+	    return "#" + hex(this.r) + hex(this.g) + hex(this.b);
+	  },
 	  toString: function() {
 	    var a = this.opacity; a = isNaN(a) ? 1 : Math.max(0, Math.min(1, a));
 	    return (a === 1 ? "rgb(" : "rgba(")
@@ -2156,6 +2274,11 @@
 	        + (a === 1 ? ")" : ", " + a + ")");
 	  }
 	}));
+
+	function hex(value) {
+	  value = Math.max(0, Math.min(255, Math.round(value) || 0));
+	  return (value < 16 ? "0" : "") + value.toString(16);
+	}
 
 	function hsla(h, s, l, a) {
 	  if (a <= 0) h = s = l = NaN;
@@ -2241,10 +2364,11 @@
 	var deg2rad = Math.PI / 180;
 	var rad2deg = 180 / Math.PI;
 
-	var Kn = 18;
-	var Xn = 0.950470;
+	// https://beta.observablehq.com/@mbostock/lab-and-rgb
+	var K = 18;
+	var Xn = 0.96422;
 	var Yn = 1;
-	var Zn = 1.088830;
+	var Zn = 0.82521;
 	var t0 = 4 / 29;
 	var t1 = 6 / 29;
 	var t2 = 3 * t1 * t1;
@@ -2253,17 +2377,24 @@
 	function labConvert(o) {
 	  if (o instanceof Lab) return new Lab(o.l, o.a, o.b, o.opacity);
 	  if (o instanceof Hcl) {
+	    if (isNaN(o.h)) return new Lab(o.l, 0, 0, o.opacity);
 	    var h = o.h * deg2rad;
 	    return new Lab(o.l, Math.cos(h) * o.c, Math.sin(h) * o.c, o.opacity);
 	  }
 	  if (!(o instanceof Rgb)) o = rgbConvert(o);
-	  var b = rgb2xyz(o.r),
-	      a = rgb2xyz(o.g),
-	      l = rgb2xyz(o.b),
-	      x = xyz2lab((0.4124564 * b + 0.3575761 * a + 0.1804375 * l) / Xn),
-	      y = xyz2lab((0.2126729 * b + 0.7151522 * a + 0.0721750 * l) / Yn),
-	      z = xyz2lab((0.0193339 * b + 0.1191920 * a + 0.9503041 * l) / Zn);
+	  var r = rgb2lrgb(o.r),
+	      g = rgb2lrgb(o.g),
+	      b = rgb2lrgb(o.b),
+	      y = xyz2lab((0.2225045 * r + 0.7168786 * g + 0.0606169 * b) / Yn), x, z;
+	  if (r === g && g === b) x = z = y; else {
+	    x = xyz2lab((0.4360747 * r + 0.3850649 * g + 0.1430804 * b) / Xn);
+	    z = xyz2lab((0.0139322 * r + 0.0971045 * g + 0.7141733 * b) / Zn);
+	  }
 	  return new Lab(116 * y - 16, 500 * (x - y), 200 * (y - z), o.opacity);
+	}
+
+	function gray(l, opacity) {
+	  return new Lab(l, 0, 0, opacity == null ? 1 : opacity);
 	}
 
 	function lab(l, a, b, opacity) {
@@ -2279,22 +2410,22 @@
 
 	define(Lab, lab, extend(Color, {
 	  brighter: function(k) {
-	    return new Lab(this.l + Kn * (k == null ? 1 : k), this.a, this.b, this.opacity);
+	    return new Lab(this.l + K * (k == null ? 1 : k), this.a, this.b, this.opacity);
 	  },
 	  darker: function(k) {
-	    return new Lab(this.l - Kn * (k == null ? 1 : k), this.a, this.b, this.opacity);
+	    return new Lab(this.l - K * (k == null ? 1 : k), this.a, this.b, this.opacity);
 	  },
 	  rgb: function() {
 	    var y = (this.l + 16) / 116,
 	        x = isNaN(this.a) ? y : y + this.a / 500,
 	        z = isNaN(this.b) ? y : y - this.b / 200;
-	    y = Yn * lab2xyz(y);
 	    x = Xn * lab2xyz(x);
+	    y = Yn * lab2xyz(y);
 	    z = Zn * lab2xyz(z);
 	    return new Rgb(
-	      xyz2rgb( 3.2404542 * x - 1.5371385 * y - 0.4985314 * z), // D65 -> sRGB
-	      xyz2rgb(-0.9692660 * x + 1.8760108 * y + 0.0415560 * z),
-	      xyz2rgb( 0.0556434 * x - 0.2040259 * y + 1.0572252 * z),
+	      lrgb2rgb( 3.1338561 * x - 1.6168667 * y - 0.4906146 * z),
+	      lrgb2rgb(-0.9787684 * x + 1.9161415 * y + 0.0334540 * z),
+	      lrgb2rgb( 0.0719453 * x - 0.2289914 * y + 1.4052427 * z),
 	      this.opacity
 	    );
 	  }
@@ -2308,19 +2439,24 @@
 	  return t > t1 ? t * t * t : t2 * (t - t0);
 	}
 
-	function xyz2rgb(x) {
+	function lrgb2rgb(x) {
 	  return 255 * (x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055);
 	}
 
-	function rgb2xyz(x) {
+	function rgb2lrgb(x) {
 	  return (x /= 255) <= 0.04045 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
 	}
 
 	function hclConvert(o) {
 	  if (o instanceof Hcl) return new Hcl(o.h, o.c, o.l, o.opacity);
 	  if (!(o instanceof Lab)) o = labConvert(o);
+	  if (o.a === 0 && o.b === 0) return new Hcl(NaN, 0, o.l, o.opacity);
 	  var h = Math.atan2(o.b, o.a) * rad2deg;
 	  return new Hcl(h < 0 ? h + 360 : h, Math.sqrt(o.a * o.a + o.b * o.b), o.l, o.opacity);
+	}
+
+	function lch(l, c, h, opacity) {
+	  return arguments.length === 1 ? hclConvert(l) : new Hcl(h, c, l, opacity == null ? 1 : opacity);
 	}
 
 	function hcl(h, c, l, opacity) {
@@ -2336,10 +2472,10 @@
 
 	define(Hcl, hcl, extend(Color, {
 	  brighter: function(k) {
-	    return new Hcl(this.h, this.c, this.l + Kn * (k == null ? 1 : k), this.opacity);
+	    return new Hcl(this.h, this.c, this.l + K * (k == null ? 1 : k), this.opacity);
 	  },
 	  darker: function(k) {
-	    return new Hcl(this.h, this.c, this.l - Kn * (k == null ? 1 : k), this.opacity);
+	    return new Hcl(this.h, this.c, this.l - K * (k == null ? 1 : k), this.opacity);
 	  },
 	  rgb: function() {
 	    return labConvert(this).rgb();
@@ -2409,6 +2545,8 @@
 	exports.hsl = hsl;
 	exports.lab = lab;
 	exports.hcl = hcl;
+	exports.lch = lch;
+	exports.gray = gray;
 	exports.cubehelix = cubehelix;
 
 	Object.defineProperty(exports, '__esModule', { value: true });
