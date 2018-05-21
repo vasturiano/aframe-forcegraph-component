@@ -398,20 +398,44 @@
 	var ForceGraph = Kapsule({
 
 	  props: {
-	    jsonUrl: {},
+	    jsonUrl: {
+	      onChange: function onChange(jsonUrl, state) {
+	        var _this = this;
+
+	        if (jsonUrl && !state.fetchingJson && !state.graphData.nodes.length) {
+	          // Load data asynchronously
+	          state.fetchingJson = true;
+	          state.onLoading();
+
+	          fetch(jsonUrl).then(function (r) {
+	            return r.json();
+	          }).then(function (json) {
+	            state.fetchingJson = false;
+	            _this.graphData(json);
+	          });
+	        }
+	      },
+	      triggerUpdate: false
+	    },
 	    graphData: {
 	      default: {
 	        nodes: [],
 	        links: []
 	      },
-	      onChange: function onChange(_, state) {
-	        state.engineRunning = false;
-	      } // Pause simulation
+	      onChange: function onChange(graphData, state) {
+	        if (graphData.nodes.length || graphData.links.length) {
+	          console.info('force-graph loading', graphData.nodes.length + ' nodes', graphData.links.length + ' links');
+	        }
 
+	        state.sceneNeedsRepopulating = true;
+	        state.simulationNeedsReheating = true;
+	      }
 	    },
 	    numDimensions: {
 	      default: 3,
 	      onChange: function onChange(numDim, state) {
+	        state.simulationNeedsReheating = true;
+
 	        var chargeForce = state.d3ForceLayout.force('charge');
 	        // Increase repulsion on 3D mode for improved spatial separation
 	        if (chargeForce) {
@@ -433,30 +457,99 @@
 	        }
 	      }
 	    },
-	    nodeRelSize: { default: 4 }, // volume per val unit
-	    nodeId: { default: 'id' },
-	    nodeVal: { default: 'val' },
-	    nodeResolution: { default: 8 }, // how many slice segments in the sphere's circumference
-	    nodeColor: { default: 'color' },
-	    nodeAutoColorBy: {},
-	    nodeOpacity: { default: 0.75 },
-	    nodeThreeObject: {},
-	    linkSource: { default: 'source' },
-	    linkTarget: { default: 'target' },
-	    linkColor: { default: 'color' },
-	    linkAutoColorBy: {},
-	    linkOpacity: { default: 0.2 },
-	    linkWidth: {}, // Rounded to nearest decimal. For falsy values use dimensionless line with 1px regardless of distance.
-	    linkResolution: { default: 6 }, // how many radial segments in each line tube's geometry
+	    nodeRelSize: { default: 4, onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    }, // volume per val unit
+	    nodeId: { default: 'id', onChange: function onChange(_, state) {
+	        state.simulationNeedsReheating = true;
+	      }
+	    },
+	    nodeVal: { default: 'val', onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    nodeResolution: { default: 8, onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    }, // how many slice segments in the sphere's circumference
+	    nodeColor: { default: 'color', onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    nodeAutoColorBy: {
+	      onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    nodeOpacity: { default: 0.75, onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    nodeThreeObject: {
+	      onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    linkSource: { default: 'source', onChange: function onChange(_, state) {
+	        state.simulationNeedsReheating = true;
+	      }
+	    },
+	    linkTarget: { default: 'target', onChange: function onChange(_, state) {
+	        state.simulationNeedsReheating = true;
+	      }
+	    },
+	    linkColor: { default: 'color', onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    linkAutoColorBy: {
+	      onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    linkOpacity: { default: 0.2, onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    linkWidth: {
+	      onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    }, // Rounded to nearest decimal. For falsy values use dimensionless line with 1px regardless of distance.
+	    linkResolution: { default: 6, onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    }, // how many radial segments in each line tube's geometry
 	    linkCurvature: { default: 0, triggerUpdate: false }, // line curvature radius (0: straight, 1: semi-circle)
 	    linkCurveRotation: { default: 0, triggerUpdate: false }, // line curve rotation along the line axis (0: interection with XY plane, PI: upside down)
-	    linkMaterial: {},
-	    linkDirectionalParticles: { default: 0 }, // animate photons travelling in the link direction
+	    linkMaterial: {
+	      onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    linkDirectionalParticles: { default: 0, onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    }, // animate photons travelling in the link direction
 	    linkDirectionalParticleSpeed: { default: 0.01, triggerUpdate: false }, // in link length ratio per frame
-	    linkDirectionalParticleWidth: { default: 0.5 },
-	    linkDirectionalParticleColor: {},
-	    linkDirectionalParticleResolution: { default: 4 }, // how many slice segments in the particle sphere's circumference
-	    forceEngine: { default: 'd3' }, // d3 or ngraph
+	    linkDirectionalParticleWidth: { default: 0.5, onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    linkDirectionalParticleColor: {
+	      onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    linkDirectionalParticleResolution: { default: 4, onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    }, // how many slice segments in the particle sphere's circumference
+	    forceEngine: { default: 'd3', onChange: function onChange(_, state) {
+	        state.simulationNeedsReheating = true;
+	      }
+	    }, // d3 or ngraph
 	    d3AlphaDecay: { default: 0.0228, triggerUpdate: false, onChange: function onChange(alphaDecay, state) {
 	        state.d3ForceLayout.alphaDecay(alphaDecay);
 	      }
@@ -489,6 +582,7 @@
 	      state.d3ForceLayout.force(forceName, forceFn); // Force setter
 	      return this;
 	    },
+	    _updateScene: function _updateScene(state) {},
 	    // reset cooldown state
 	    resetCountdown: function resetCountdown(state) {
 	      state.cntTicks = 0;
@@ -658,7 +752,9 @@
 	  stateInit: function stateInit() {
 	    return {
 	      d3ForceLayout: d3Force3d.forceSimulation().force('link', d3Force3d.forceLink()).force('charge', d3Force3d.forceManyBody()).force('center', d3Force3d.forceCenter()).stop(),
-	      engineRunning: false
+	      engineRunning: false,
+	      sceneNeedsRepopulating: true,
+	      simulationNeedsReheating: true
 	    };
 	  },
 
@@ -667,223 +763,213 @@
 	    state.graphScene = threeObj;
 	  },
 	  update: function update(state) {
-	    state.engineRunning = false; // Pause simulation
-	    state.onLoading();
+	    if (state.sceneNeedsRepopulating) {
+	      state.sceneNeedsRepopulating = false;
 
-	    if (state.graphData.nodes.length || state.graphData.links.length) {
-	      console.info('force-graph loading', state.graphData.nodes.length + ' nodes', state.graphData.links.length + ' links');
-	    }
-
-	    if (!state.fetchingJson && state.jsonUrl && !state.graphData.nodes.length && !state.graphData.links.length) {
-	      // (Re-)load data
-	      state.fetchingJson = true;
-
-	      fetch(state.jsonUrl).then(function (r) {
-	        return r.json();
-	      }).then(function (json) {
-	        state.fetchingJson = false;
-	        state.graphData = json;
-	        state._rerender(); // Force re-update
-	      });
-	    }
-
-	    if (state.nodeAutoColorBy !== null) {
-	      // Auto add color to uncolored nodes
-	      autoColorObjects(state.graphData.nodes, accessorFn(state.nodeAutoColorBy), state.nodeColor);
-	    }
-	    if (state.linkAutoColorBy !== null) {
-	      // Auto add color to uncolored links
-	      autoColorObjects(state.graphData.links, accessorFn(state.linkAutoColorBy), state.linkColor);
-	    }
-
-	    // parse links
-	    state.graphData.links.forEach(function (link) {
-	      link.source = link[state.linkSource];
-	      link.target = link[state.linkTarget];
-	    });
-
-	    // Clear the scene
-	    var deallocate = function deallocate(obj) {
-	      if (obj.geometry) {
-	        obj.geometry.dispose();
+	      if (state.nodeAutoColorBy !== null) {
+	        // Auto add color to uncolored nodes
+	        autoColorObjects(state.graphData.nodes, accessorFn(state.nodeAutoColorBy), state.nodeColor);
 	      }
-	      if (obj.material) {
-	        obj.material.dispose();
+	      if (state.linkAutoColorBy !== null) {
+	        // Auto add color to uncolored links
+	        autoColorObjects(state.graphData.links, accessorFn(state.linkAutoColorBy), state.linkColor);
 	      }
-	      if (obj.texture) {
-	        obj.texture.dispose();
-	      }
-	      if (obj.children) {
-	        obj.children.forEach(deallocate);
-	      }
-	    };
-	    while (state.graphScene.children.length) {
-	      var obj = state.graphScene.children[0];
-	      state.graphScene.remove(obj);
-	      deallocate(obj);
-	    }
 
-	    // Add WebGL objects
-	    var customNodeObjectAccessor = accessorFn(state.nodeThreeObject);
-	    var valAccessor = accessorFn(state.nodeVal);
-	    var colorAccessor = accessorFn(state.nodeColor);
-	    var sphereGeometries = {}; // indexed by node value
-	    var sphereMaterials = {}; // indexed by color
-	    state.graphData.nodes.forEach(function (node) {
-	      var customObj = customNodeObjectAccessor(node);
-
-	      var obj = void 0;
-	      if (customObj) {
-	        obj = customObj;
-
-	        if (state.nodeThreeObject === obj) {
-	          // clone object if it's a shared object among all nodes
-	          obj = obj.clone();
+	      // Clear the scene
+	      var deallocate = function deallocate(obj) {
+	        if (obj.geometry) {
+	          obj.geometry.dispose();
 	        }
-	      } else {
-	        // Default object (sphere mesh)
-	        var val = valAccessor(node) || 1;
-	        if (!sphereGeometries.hasOwnProperty(val)) {
-	          sphereGeometries[val] = new three$1.SphereGeometry(Math.cbrt(val) * state.nodeRelSize, state.nodeResolution, state.nodeResolution);
+	        if (obj.material) {
+	          obj.material.dispose();
 	        }
-
-	        var color = colorAccessor(node);
-	        if (!sphereMaterials.hasOwnProperty(color)) {
-	          sphereMaterials[color] = new three$1.MeshLambertMaterial({
-	            color: colorStr2Hex(color || '#ffffaa'),
-	            transparent: true,
-	            opacity: state.nodeOpacity * colorAlpha(color)
-	          });
+	        if (obj.texture) {
+	          obj.texture.dispose();
 	        }
-
-	        obj = new three$1.Mesh(sphereGeometries[val], sphereMaterials[color]);
-	      }
-
-	      obj.__graphObjType = 'node'; // Add object type
-	      obj.__data = node; // Attach node data
-
-	      state.graphScene.add(node.__threeObj = obj);
-	    });
-
-	    var customLinkMaterialAccessor = accessorFn(state.linkMaterial);
-	    var linkColorAccessor = accessorFn(state.linkColor);
-	    var linkWidthAccessor = accessorFn(state.linkWidth);
-	    var linkParticlesAccessor = accessorFn(state.linkDirectionalParticles);
-	    var linkParticleWidthAccessor = accessorFn(state.linkDirectionalParticleWidth);
-	    var linkParticleColorAccessor = accessorFn(state.linkDirectionalParticleColor);
-
-	    var lineMaterials = {}; // indexed by link color
-	    var cylinderGeometries = {}; // indexed by link width
-	    var particleMaterials = {}; // indexed by link color
-	    var particleGeometries = {}; // indexed by particle width
-	    state.graphData.links.forEach(function (link) {
-	      // Add line
-	      var color = linkColorAccessor(link);
-	      var linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
-
-	      var useCylinder = !!linkWidth;
-
-	      var geometry = void 0;
-	      if (useCylinder) {
-	        if (!cylinderGeometries.hasOwnProperty(linkWidth)) {
-	          var r = linkWidth / 2;
-	          geometry = new three$1.CylinderGeometry(r, r, 1, state.linkResolution, 1, false);
-	          geometry.applyMatrix(new three$1.Matrix4().makeTranslation(0, 1 / 2, 0));
-	          geometry.applyMatrix(new three$1.Matrix4().makeRotationX(Math.PI / 2));
-	          cylinderGeometries[linkWidth] = geometry;
+	        if (obj.children) {
+	          obj.children.forEach(deallocate);
 	        }
-	        geometry = cylinderGeometries[linkWidth];
-	      } else {
-	        // Use plain line (constant width)
-	        geometry = new three$1.BufferGeometry();
+	      };
+	      while (state.graphScene.children.length) {
+	        var obj = state.graphScene.children[0];
+	        state.graphScene.remove(obj);
+	        deallocate(obj);
 	      }
 
-	      var lineMaterial = customLinkMaterialAccessor(link);
-	      if (!lineMaterial) {
-	        if (!lineMaterials.hasOwnProperty(color)) {
-	          var lineOpacity = state.linkOpacity * colorAlpha(color);
-	          lineMaterials[color] = new three$1.MeshLambertMaterial({
-	            color: colorStr2Hex(color || '#f0f0f0'),
-	            transparent: lineOpacity < 1,
-	            opacity: lineOpacity,
-	            depthWrite: lineOpacity >= 1 // Prevent transparency issues
-	          });
-	        }
-	        lineMaterial = lineMaterials[color];
-	      }
-
-	      var line = new three$1[useCylinder ? 'Mesh' : 'Line'](geometry, lineMaterial);
-
-	      line.renderOrder = 10; // Prevent visual glitches of dark lines on top of nodes by rendering them last
-
-	      line.__graphObjType = 'link'; // Add object type
-	      line.__data = link; // Attach link data
-
-	      state.graphScene.add(link.__lineObj = line);
-
-	      // Add photon particles
-	      var numPhotons = Math.round(Math.abs(linkParticlesAccessor(link)));
-	      var photonR = Math.ceil(linkParticleWidthAccessor(link) * 10) / 10 / 2;
-	      var photonColor = linkParticleColorAccessor(link) || color || '#f0f0f0';
-
-	      if (!particleGeometries.hasOwnProperty(photonR)) {
-	        particleGeometries[photonR] = new three$1.SphereGeometry(photonR, state.linkDirectionalParticleResolution, state.linkDirectionalParticleResolution);
-	      }
-	      var particleGeometry = particleGeometries[photonR];
-
-	      if (!particleMaterials.hasOwnProperty(color)) {
-	        particleMaterials[color] = new three$1.MeshLambertMaterial({
-	          color: colorStr2Hex(photonColor),
-	          transparent: true,
-	          opacity: state.linkOpacity * 3
-	        });
-	      }
-	      var particleMaterial = particleMaterials[color];
-
-	      var photons = [].concat(toConsumableArray(Array(numPhotons))).map(function () {
-	        return new three$1.Mesh(particleGeometry, particleMaterial);
-	      });
-	      photons.forEach(function (photon) {
-	        return state.graphScene.add(photon);
-	      });
-	      link.__photonObjs = photons;
-	    });
-
-	    // Feed data to force-directed layout
-	    var isD3Sim = state.forceEngine !== 'ngraph';
-	    var layout = void 0;
-	    if (isD3Sim) {
-	      // D3-force
-	      (layout = state.d3ForceLayout).stop().alpha(1) // re-heat the simulation
-	      .numDimensions(state.numDimensions).nodes(state.graphData.nodes);
-
-	      // add links (if link force is still active)
-	      var linkForce = state.d3ForceLayout.force('link');
-	      if (linkForce) {
-	        linkForce.id(function (d) {
-	          return d[state.nodeId];
-	        }).links(state.graphData.links);
-	      }
-	    } else {
-	      // ngraph
-	      var _graph = ngraph.graph();
+	      // Add WebGL objects
+	      var customNodeObjectAccessor = accessorFn(state.nodeThreeObject);
+	      var valAccessor = accessorFn(state.nodeVal);
+	      var colorAccessor = accessorFn(state.nodeColor);
+	      var sphereGeometries = {}; // indexed by node value
+	      var sphereMaterials = {}; // indexed by color
 	      state.graphData.nodes.forEach(function (node) {
-	        _graph.addNode(node[state.nodeId]);
+	        var customObj = customNodeObjectAccessor(node);
+
+	        var obj = void 0;
+	        if (customObj) {
+	          obj = customObj;
+
+	          if (state.nodeThreeObject === obj) {
+	            // clone object if it's a shared object among all nodes
+	            obj = obj.clone();
+	          }
+	        } else {
+	          // Default object (sphere mesh)
+	          var val = valAccessor(node) || 1;
+	          if (!sphereGeometries.hasOwnProperty(val)) {
+	            sphereGeometries[val] = new three$1.SphereGeometry(Math.cbrt(val) * state.nodeRelSize, state.nodeResolution, state.nodeResolution);
+	          }
+
+	          var color = colorAccessor(node);
+	          if (!sphereMaterials.hasOwnProperty(color)) {
+	            sphereMaterials[color] = new three$1.MeshLambertMaterial({
+	              color: colorStr2Hex(color || '#ffffaa'),
+	              transparent: true,
+	              opacity: state.nodeOpacity * colorAlpha(color)
+	            });
+	          }
+
+	          obj = new three$1.Mesh(sphereGeometries[val], sphereMaterials[color]);
+	        }
+
+	        obj.__graphObjType = 'node'; // Add object type
+	        obj.__data = node; // Attach node data
+
+	        state.graphScene.add(node.__threeObj = obj);
 	      });
+
+	      var customLinkMaterialAccessor = accessorFn(state.linkMaterial);
+	      var linkColorAccessor = accessorFn(state.linkColor);
+	      var linkWidthAccessor = accessorFn(state.linkWidth);
+	      var linkParticlesAccessor = accessorFn(state.linkDirectionalParticles);
+	      var linkParticleWidthAccessor = accessorFn(state.linkDirectionalParticleWidth);
+	      var linkParticleColorAccessor = accessorFn(state.linkDirectionalParticleColor);
+
+	      var lineMaterials = {}; // indexed by link color
+	      var cylinderGeometries = {}; // indexed by link width
+	      var particleMaterials = {}; // indexed by link color
+	      var particleGeometries = {}; // indexed by particle width
 	      state.graphData.links.forEach(function (link) {
-	        _graph.addLink(link.source, link.target);
+	        // Add line
+	        var color = linkColorAccessor(link);
+	        var linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
+
+	        var useCylinder = !!linkWidth;
+
+	        var geometry = void 0;
+	        if (useCylinder) {
+	          if (!cylinderGeometries.hasOwnProperty(linkWidth)) {
+	            var r = linkWidth / 2;
+	            geometry = new three$1.CylinderGeometry(r, r, 1, state.linkResolution, 1, false);
+	            geometry.applyMatrix(new three$1.Matrix4().makeTranslation(0, 1 / 2, 0));
+	            geometry.applyMatrix(new three$1.Matrix4().makeRotationX(Math.PI / 2));
+	            cylinderGeometries[linkWidth] = geometry;
+	          }
+	          geometry = cylinderGeometries[linkWidth];
+	        } else {
+	          // Use plain line (constant width)
+	          geometry = new three$1.BufferGeometry();
+	        }
+
+	        var lineMaterial = customLinkMaterialAccessor(link);
+	        if (!lineMaterial) {
+	          if (!lineMaterials.hasOwnProperty(color)) {
+	            var lineOpacity = state.linkOpacity * colorAlpha(color);
+	            lineMaterials[color] = new three$1.MeshLambertMaterial({
+	              color: colorStr2Hex(color || '#f0f0f0'),
+	              transparent: lineOpacity < 1,
+	              opacity: lineOpacity,
+	              depthWrite: lineOpacity >= 1 // Prevent transparency issues
+	            });
+	          }
+	          lineMaterial = lineMaterials[color];
+	        }
+
+	        var line = new three$1[useCylinder ? 'Mesh' : 'Line'](geometry, lineMaterial);
+
+	        line.renderOrder = 10; // Prevent visual glitches of dark lines on top of nodes by rendering them last
+
+	        line.__graphObjType = 'link'; // Add object type
+	        line.__data = link; // Attach link data
+
+	        state.graphScene.add(link.__lineObj = line);
+
+	        // Add photon particles
+	        var numPhotons = Math.round(Math.abs(linkParticlesAccessor(link)));
+	        var photonR = Math.ceil(linkParticleWidthAccessor(link) * 10) / 10 / 2;
+	        var photonColor = linkParticleColorAccessor(link) || color || '#f0f0f0';
+
+	        if (!particleGeometries.hasOwnProperty(photonR)) {
+	          particleGeometries[photonR] = new three$1.SphereGeometry(photonR, state.linkDirectionalParticleResolution, state.linkDirectionalParticleResolution);
+	        }
+	        var particleGeometry = particleGeometries[photonR];
+
+	        if (!particleMaterials.hasOwnProperty(color)) {
+	          particleMaterials[color] = new three$1.MeshLambertMaterial({
+	            color: colorStr2Hex(photonColor),
+	            transparent: true,
+	            opacity: state.linkOpacity * 3
+	          });
+	        }
+	        var particleMaterial = particleMaterials[color];
+
+	        var photons = [].concat(toConsumableArray(Array(numPhotons))).map(function () {
+	          return new three$1.Mesh(particleGeometry, particleMaterial);
+	        });
+	        photons.forEach(function (photon) {
+	          return state.graphScene.add(photon);
+	        });
+	        link.__photonObjs = photons;
 	      });
-	      layout = ngraph['forcelayout' + (state.numDimensions === 2 ? '' : '3d')](_graph);
-	      layout.graph = _graph; // Attach graph reference to layout
 	    }
 
-	    for (var i = 0; i < state.warmupTicks; i++) {
-	      layout[isD3Sim ? 'tick' : 'step']();
-	    } // Initial ticks before starting to render
+	    if (state.simulationNeedsReheating) {
+	      state.simulationNeedsReheating = false;
+	      state.engineRunning = false; // Pause simulation
 
-	    state.layout = layout;
-	    this.resetCountdown();
-	    state.onFinishLoading();
+	      // parse links
+	      state.graphData.links.forEach(function (link) {
+	        link.source = link[state.linkSource];
+	        link.target = link[state.linkTarget];
+	      });
+
+	      // Feed data to force-directed layout
+	      var isD3Sim = state.forceEngine !== 'ngraph';
+	      var layout = void 0;
+	      if (isD3Sim) {
+	        // D3-force
+	        (layout = state.d3ForceLayout).stop().alpha(1) // re-heat the simulation
+	        .numDimensions(state.numDimensions).nodes(state.graphData.nodes);
+
+	        // add links (if link force is still active)
+	        var linkForce = state.d3ForceLayout.force('link');
+	        if (linkForce) {
+	          linkForce.id(function (d) {
+	            return d[state.nodeId];
+	          }).links(state.graphData.links);
+	        }
+	      } else {
+	        // ngraph
+	        var _graph = ngraph.graph();
+	        state.graphData.nodes.forEach(function (node) {
+	          _graph.addNode(node[state.nodeId]);
+	        });
+	        state.graphData.links.forEach(function (link) {
+	          _graph.addLink(link.source, link.target);
+	        });
+	        layout = ngraph['forcelayout' + (state.numDimensions === 2 ? '' : '3d')](_graph);
+	        layout.graph = _graph; // Attach graph reference to layout
+	      }
+
+	      for (var i = 0; i < state.warmupTicks; i++) {
+	        layout[isD3Sim ? 'tick' : 'step']();
+	      } // Initial ticks before starting to render
+
+	      state.layout = layout;
+	      this.resetCountdown();
+
+	      state.onFinishLoading();
+	    }
 	  }
 	});
 
