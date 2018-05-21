@@ -402,7 +402,7 @@
 	      onChange: function onChange(jsonUrl, state) {
 	        var _this = this;
 
-	        if (jsonUrl && !state.fetchingJson && !state.graphData.nodes.length) {
+	        if (jsonUrl && !state.fetchingJson) {
 	          // Load data asynchronously
 	          state.fetchingJson = true;
 	          state.onLoading();
@@ -764,6 +764,8 @@
 	    state.graphScene = threeObj;
 	  },
 	  update: function update(state) {
+	    state.engineRunning = false; // pause simulation
+
 	    if (state.sceneNeedsRepopulating) {
 	      state.sceneNeedsRepopulating = false;
 
@@ -971,6 +973,8 @@
 
 	      state.onFinishLoading();
 	    }
+
+	    state.engineRunning = true; // resume simulation
 	  }
 	});
 
