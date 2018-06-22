@@ -60,6 +60,10 @@ AFRAME.registerComponent('forcegraph', {
     linkCurvature: {parse: parseAccessor, default: 0},
     linkCurveRotation: {parse: parseAccessor, default: 0},
     linkMaterial: {parse: parseAccessor, default: null},
+    linkDirectionalArrowLength: {parse: parseAccessor, default: 0},
+    linkDirectionalArrowColor: {parse: parseAccessor, default: null},
+    linkDirectionalArrowRelPos: {parse: parseAccessor,  default: 0.5}, // value between 0<>1 indicating the relative pos along the (exposed) line
+    linkDirectionalArrowResolution: {type: 'number', default: 8}, // how many slice segments in the arrow's conic circumference
     linkDirectionalParticles: {parse: parseAccessor, default: 0}, // animate photons travelling in the link direction
     linkDirectionalParticleSpeed: {parse: parseAccessor, default: 0.01}, // in link length ratio per frame
     linkDirectionalParticleWidth: {parse: parseAccessor, default: 0.5},
@@ -163,6 +167,10 @@ AFRAME.registerComponent('forcegraph', {
       'linkCurvature',
       'linkCurveRotation',
       'linkMaterial',
+      'linkDirectionalArrowLength',
+      'linkDirectionalArrowColor',
+      'linkDirectionalArrowRelPos',
+      'linkDirectionalArrowResolution',
       'linkDirectionalParticles',
       'linkDirectionalParticleSpeed',
       'linkDirectionalParticleWidth',

@@ -106,6 +106,10 @@
 	    linkCurvature: {parse: parseAccessor, default: 0},
 	    linkCurveRotation: {parse: parseAccessor, default: 0},
 	    linkMaterial: {parse: parseAccessor, default: null},
+	    linkDirectionalArrowLength: {parse: parseAccessor, default: 0},
+	    linkDirectionalArrowColor: {parse: parseAccessor, default: null},
+	    linkDirectionalArrowRelPos: {parse: parseAccessor,  default: 0.5}, // value between 0<>1 indicating the relative pos along the (exposed) line
+	    linkDirectionalArrowResolution: {type: 'number', default: 8}, // how many slice segments in the arrow's conic circumference
 	    linkDirectionalParticles: {parse: parseAccessor, default: 0}, // animate photons travelling in the link direction
 	    linkDirectionalParticleSpeed: {parse: parseAccessor, default: 0.01}, // in link length ratio per frame
 	    linkDirectionalParticleWidth: {parse: parseAccessor, default: 0.5},
@@ -209,6 +213,10 @@
 	      'linkCurvature',
 	      'linkCurveRotation',
 	      'linkMaterial',
+	      'linkDirectionalArrowLength',
+	      'linkDirectionalArrowColor',
+	      'linkDirectionalArrowRelPos',
+	      'linkDirectionalArrowResolution',
 	      'linkDirectionalParticles',
 	      'linkDirectionalParticleSpeed',
 	      'linkDirectionalParticleWidth',
@@ -386,6 +394,7 @@
 	  Vector3: three.Vector3,
 	  SphereGeometry: three.SphereGeometry,
 	  CylinderGeometry: three.CylinderGeometry,
+	  ConeGeometry: three.ConeGeometry,
 	  Line: three.Line,
 	  LineBasicMaterial: three.LineBasicMaterial,
 	  QuadraticBezierCurve3: three.QuadraticBezierCurve3,
@@ -529,6 +538,20 @@
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
+	    linkDirectionalArrowLength: { default: 0, onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    linkDirectionalArrowColor: {
+	      onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    linkDirectionalArrowRelPos: { default: 0.5, triggerUpdate: false }, // value between 0<>1 indicating the relative pos along the (exposed) line
+	    linkDirectionalArrowResolution: { default: 8, onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    }, // how many slice segments in the arrow's conic circumference
 	    linkDirectionalParticles: { default: 0, onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
@@ -597,6 +620,7 @@
 	      if (state.engineRunning) {
 	        layoutTick();
 	      }
+	      updateArrows();
 	      updatePhotons();
 
 	      return this;
@@ -704,6 +728,61 @@
 	            line.lookAt(_vEnd);
 	            line.scale.z = distance;
 	          }
+	        });
+	      }
+
+	      function updateArrows() {
+	        // update link arrow position
+	        var arrowRelPosAccessor = accessorFn(state.linkDirectionalArrowRelPos);
+	        var arrowLengthAccessor = accessorFn(state.linkDirectionalArrowLength);
+	        var nodeValAccessor = accessorFn(state.nodeVal);
+
+	        state.graphData.links.forEach(function (link) {
+	          var arrowObj = link.__arrowObj;
+	          if (!arrowObj) return;
+
+	          var pos = isD3Sim ? link : state.layout.getLinkPosition(state.layout.graph.getLink(link.source, link.target).id);
+	          var start = pos[isD3Sim ? 'source' : 'from'];
+	          var end = pos[isD3Sim ? 'target' : 'to'];
+
+	          if (!start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
+
+	          var startR = Math.sqrt(Math.max(0, nodeValAccessor(start) || 1)) * state.nodeRelSize;
+	          var endR = Math.sqrt(Math.max(0, nodeValAccessor(end) || 1)) * state.nodeRelSize;
+
+	          var arrowLength = arrowLengthAccessor(link);
+	          var arrowRelPos = arrowRelPosAccessor(link);
+
+	          var getPosAlongLine = link.__curve ? function (t) {
+	            return link.__curve.getPoint(t);
+	          } // interpolate along bezier curve
+	          : function (t) {
+	            // straight line: interpolate linearly
+	            var iplt = function iplt(dim, start, end, t) {
+	              return start[dim] + (end[dim] - start[dim]) * t || 0;
+	            };
+	            return {
+	              x: iplt('x', start, end, t),
+	              y: iplt('y', start, end, t),
+	              z: iplt('z', start, end, t)
+	            };
+	          };
+
+	          var lineLen = link.__curve ? link.__curve.getLength() : Math.sqrt(['x', 'y', 'z'].map(function (dim) {
+	            return Math.pow((end[dim] || 0) - (start[dim] || 0), 2);
+	          }).reduce(function (acc, v) {
+	            return acc + v;
+	          }, 0));
+
+	          var posAlongLine = startR + arrowLength + (lineLen - startR - endR - arrowLength) * arrowRelPos;
+
+	          var arrowHead = getPosAlongLine(posAlongLine / lineLen);
+	          var arrowTail = getPosAlongLine((posAlongLine - arrowLength) / lineLen);
+
+	          ['x', 'y', 'z'].forEach(function (dim) {
+	            return arrowObj.position[dim] = arrowTail[dim];
+	          });
+	          arrowObj.lookAt(arrowHead.x, arrowHead.y, arrowHead.z);
 	        });
 	      }
 
@@ -844,6 +923,8 @@
 	      var customLinkMaterialAccessor = accessorFn(state.linkMaterial);
 	      var linkColorAccessor = accessorFn(state.linkColor);
 	      var linkWidthAccessor = accessorFn(state.linkWidth);
+	      var linkArrowLengthAccessor = accessorFn(state.linkDirectionalArrowLength);
+	      var linkArrowColorAccessor = accessorFn(state.linkDirectionalArrowColor);
 	      var linkParticlesAccessor = accessorFn(state.linkDirectionalParticles);
 	      var linkParticleWidthAccessor = accessorFn(state.linkDirectionalParticleWidth);
 	      var linkParticleColorAccessor = accessorFn(state.linkDirectionalParticleColor);
@@ -896,6 +977,25 @@
 	        line.__data = link; // Attach link data
 
 	        state.graphScene.add(link.__lineObj = line);
+
+	        // Add arrow
+	        var arrowLength = linkArrowLengthAccessor(link);
+	        if (arrowLength && arrowLength > 0) {
+	          var arrowColor = linkArrowColorAccessor(link) || color || '#f0f0f0';
+
+	          var coneGeometry = new three$1.ConeGeometry(arrowLength * 0.25, arrowLength, state.linkDirectionalArrowResolution);
+	          // Correct orientation
+	          coneGeometry.translate(0, arrowLength / 2, 0);
+	          coneGeometry.rotateX(Math.PI / 2);
+
+	          var arrowObj = new three$1.Mesh(coneGeometry, new three$1.MeshLambertMaterial({
+	            color: colorStr2Hex(arrowColor),
+	            transparent: true,
+	            opacity: state.linkOpacity * 3
+	          }));
+
+	          state.graphScene.add(link.__arrowObj = arrowObj);
+	        }
 
 	        // Add photon particles
 	        var numPhotons = Math.round(Math.abs(linkParticlesAccessor(link)));

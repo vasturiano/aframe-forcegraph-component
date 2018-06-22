@@ -43,7 +43,7 @@
   "homepage": "https://github.com/vasturiano/aframe-forcegraph-component#readme",
   "dependencies": {
     "accessor-fn": "^1.2.2",
-    "three-forcegraph": "^1.12.3"
+    "three-forcegraph": "^1.13.0"
   },
   "devDependencies": {
     "aframe": "*",
