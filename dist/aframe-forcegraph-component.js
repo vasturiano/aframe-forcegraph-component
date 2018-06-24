@@ -863,7 +863,9 @@
 	          obj.geometry.dispose();
 	        }
 	        if (obj.material) {
-	          obj.material.dispose();
+	          obj.material instanceof Array ? obj.material.forEach(function (m) {
+	            return m.dispose();
+	          }) : obj.material.dispose();
 	        }
 	        if (obj.texture) {
 	          obj.texture.dispose();
