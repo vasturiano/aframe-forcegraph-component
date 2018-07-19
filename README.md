@@ -62,6 +62,8 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | warmup-ticks         | How many times to tick the force simulation engine at ignition before starting to render.                                  | 0             |
 | cooldown-ticks       | How many times to tick the force simulation engine after rendering begins before stopping and freezing the engine.         | Infinity      |
 | cooldown-time        | How long (ms) to tick the force simulation engine for after rendering begins before stopping and freezing the engine.      | 15000         |
+| on-engine-tick       | Callback function invoked at every tick of the simulation engine. ||
+| on-engine-stop       | Callback function invoked when the simulation engine stops and the layout is frozen. ||
 
 ### Installation
 

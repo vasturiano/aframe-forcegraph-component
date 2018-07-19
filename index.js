@@ -76,7 +76,9 @@ AFRAME.registerComponent('forcegraph', {
     d3VelocityDecay: {type: 'number', default: 0.4},
     warmupTicks: {type: 'int', default: 0}, // how many times to tick the force engine at init before starting to render
     cooldownTicks: {type: 'int', default: 1e18}, // Simulate infinity (int parser doesn't accept Infinity object)
-    cooldownTime: {type: 'int', default: 15000} // ms
+    cooldownTime: {type: 'int', default: 15000}, // ms
+    onEngineTick: {parse: parseFn, default: function() {}},
+    onEngineStop: {parse: parseFn, default: function() {}}
   },
 
   init: function () {
@@ -181,7 +183,9 @@ AFRAME.registerComponent('forcegraph', {
       'd3VelocityDecay',
       'warmupTicks',
       'cooldownTicks',
-      'cooldownTime'
+      'cooldownTime',
+      'onEngineTick',
+      'onEngineStop'
     ];
 
     fgProps
