@@ -1017,14 +1017,14 @@
 	        }
 	        var particleGeometry = particleGeometries[photonR];
 
-	        if (!particleMaterials.hasOwnProperty(color)) {
-	          particleMaterials[color] = new three$1.MeshLambertMaterial({
+	        if (!particleMaterials.hasOwnProperty(photonColor)) {
+	          particleMaterials[photonColor] = new three$1.MeshLambertMaterial({
 	            color: colorStr2Hex(photonColor),
 	            transparent: true,
 	            opacity: state.linkOpacity * 3
 	          });
 	        }
-	        var particleMaterial = particleMaterials[color];
+	        var particleMaterial = particleMaterials[photonColor];
 
 	        var photons = [].concat(toConsumableArray(Array(numPhotons))).map(function () {
 	          return new three$1.Mesh(particleGeometry, particleMaterial);
