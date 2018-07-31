@@ -98,6 +98,7 @@
 	    linkLabel: {parse: parseAccessor, default: 'name'},
 	    linkDesc: {parse: parseAccessor, default: 'desc'},
 	    linkHoverPrecision: {type: 'number', default: 2},
+	    linkVisibility: {parse: parseAccessor, default: true},
 	    linkColor: {parse: parseAccessor, default: 'color'},
 	    linkAutoColorBy: {parse: parseAccessor, default: ''}, // color links with the same field equally
 	    linkOpacity: {type: 'number', default: 0.2},
@@ -207,6 +208,7 @@
 	      'nodeThreeObject',
 	      'linkSource',
 	      'linkTarget',
+	      'linkVisibility',
 	      'linkColor',
 	      'linkAutoColorBy',
 	      'linkOpacity',
@@ -511,6 +513,10 @@
 	    },
 	    linkTarget: { default: 'target', onChange: function onChange(_, state) {
 	        state.simulationNeedsReheating = true;
+	      }
+	    },
+	    linkVisibility: { default: true, onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
 	    linkColor: { default: 'color', onChange: function onChange(_, state) {
@@ -866,14 +872,22 @@
 	      }
 
 	      // Clear the scene
+	      var materialDispose = function materialDispose(material) {
+	        if (material instanceof Array) {
+	          material.forEach(materialDispose);
+	        } else {
+	          if (material.map) {
+	            material.map.dispose();
+	          }
+	          material.dispose();
+	        }
+	      };
 	      var deallocate = function deallocate(obj) {
 	        if (obj.geometry) {
 	          obj.geometry.dispose();
 	        }
 	        if (obj.material) {
-	          obj.material instanceof Array ? obj.material.forEach(function (m) {
-	            return m.dispose();
-	          }) : obj.material.dispose();
+	          materialDispose(obj.material);
 	        }
 	        if (obj.texture) {
 	          obj.texture.dispose();
@@ -931,6 +945,7 @@
 	      });
 
 	      var customLinkMaterialAccessor = accessorFn(state.linkMaterial);
+	      var linkVisibilityAccessor = accessorFn(state.linkVisibility);
 	      var linkColorAccessor = accessorFn(state.linkColor);
 	      var linkWidthAccessor = accessorFn(state.linkWidth);
 	      var linkArrowLengthAccessor = accessorFn(state.linkDirectionalArrowLength);
@@ -944,6 +959,12 @@
 	      var particleMaterials = {}; // indexed by link color
 	      var particleGeometries = {}; // indexed by particle width
 	      state.graphData.links.forEach(function (link) {
+	        if (!linkVisibilityAccessor(link)) {
+	          // Exclude non-visible links
+	          link.__lineObj = link.__arrowObj = link.__photonObjs = null;
+	          return;
+	        }
+
 	        // Add line
 	        var color = linkColorAccessor(link);
 	        var linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;

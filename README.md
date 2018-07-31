@@ -34,6 +34,7 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | node-three-object    | Node object accessor function or attribute for generating a custom 3d object to render as graph nodes. Should return an instance of [ThreeJS Object3d](https://threejs.org/docs/index.html#api/core/Object3D). If a <i>falsy</i> value is returned, the default 3d object type will be used instead for that node.  | *default node object is a sphere, sized according to `val` and styled according to `color`.* |
 | link-source          | Link object accessor attribute referring to id of source node.                                                             | source        |
 | link-target          | Link object accessor attribute referring to id of target node.                                                             | target        |
+| link-visibility      | Link object accessor function, attribute or a boolean constant for whether to display the link line. A value of `false` maintains the link force without rendering it. | true          |
 | link-label           | Link object accessor function or attribute for name (shown in label).                                                      | name          |
 | link-desc            | Link object accessor function or attribute for description (shown under label).                                            | desc          |
 | link-hover-precision | Whether to display the link label when gazing the link closely (low value) or from far away (high value).                  | 2             |

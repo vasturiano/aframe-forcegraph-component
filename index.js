@@ -52,6 +52,7 @@ AFRAME.registerComponent('forcegraph', {
     linkLabel: {parse: parseAccessor, default: 'name'},
     linkDesc: {parse: parseAccessor, default: 'desc'},
     linkHoverPrecision: {type: 'number', default: 2},
+    linkVisibility: {parse: parseAccessor, default: true},
     linkColor: {parse: parseAccessor, default: 'color'},
     linkAutoColorBy: {parse: parseAccessor, default: ''}, // color links with the same field equally
     linkOpacity: {type: 'number', default: 0.2},
@@ -161,6 +162,7 @@ AFRAME.registerComponent('forcegraph', {
       'nodeThreeObject',
       'linkSource',
       'linkTarget',
+      'linkVisibility',
       'linkColor',
       'linkAutoColorBy',
       'linkOpacity',
