@@ -37,6 +37,8 @@ AFRAME.registerComponent('forcegraph', {
     nodes: {parse: JSON.parse, default: '[]'},
     links: {parse: JSON.parse, default: '[]'},
     numDimensions: {type: 'number', default: 3},
+    dagMode: {type: 'string', default: ''},
+    dagLevelDistance: {type: 'number', default: 0},
     nodeRelSize: {type: 'number', default: 4}, // volume per val unit
     nodeId: {type: 'string', default: 'id'},
     nodeLabel: {parse: parseAccessor, default: 'name'},
@@ -152,6 +154,8 @@ AFRAME.registerComponent('forcegraph', {
     var fgProps = [
       'jsonUrl',
       'numDimensions',
+      'dagMode',
+      'dagLevelDistance',
       'nodeRelSize',
       'nodeId',
       'nodeVal',

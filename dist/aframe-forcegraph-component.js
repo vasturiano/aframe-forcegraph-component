@@ -83,6 +83,8 @@
 	    nodes: {parse: JSON.parse, default: '[]'},
 	    links: {parse: JSON.parse, default: '[]'},
 	    numDimensions: {type: 'number', default: 3},
+	    dagMode: {type: 'string', default: ''},
+	    dagLevelDistance: {type: 'number', default: 0},
 	    nodeRelSize: {type: 'number', default: 4}, // volume per val unit
 	    nodeId: {type: 'string', default: 'id'},
 	    nodeLabel: {parse: parseAccessor, default: 'name'},
@@ -198,6 +200,8 @@
 	    var fgProps = [
 	      'jsonUrl',
 	      'numDimensions',
+	      'dagMode',
+	      'dagLevelDistance',
 	      'nodeRelSize',
 	      'nodeId',
 	      'nodeVal',
@@ -318,77 +322,176 @@
 	var Kapsule = _interopDefault(__webpack_require__(57));
 	var accessorFn = _interopDefault(__webpack_require__(1));
 
+	function _typeof(obj) {
+	  if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
+	    _typeof = function (obj) {
+	      return typeof obj;
+	    };
+	  } else {
+	    _typeof = function (obj) {
+	      return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+	    };
+	  }
+
+	  return _typeof(obj);
+	}
+
+	function _classCallCheck(instance, Constructor) {
+	  if (!(instance instanceof Constructor)) {
+	    throw new TypeError("Cannot call a class as a function");
+	  }
+	}
+
+	function _inherits(subClass, superClass) {
+	  if (typeof superClass !== "function" && superClass !== null) {
+	    throw new TypeError("Super expression must either be null or a function");
+	  }
+
+	  subClass.prototype = Object.create(superClass && superClass.prototype, {
+	    constructor: {
+	      value: subClass,
+	      writable: true,
+	      configurable: true
+	    }
+	  });
+	  if (superClass) _setPrototypeOf(subClass, superClass);
+	}
+
+	function _getPrototypeOf(o) {
+	  _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) {
+	    return o.__proto__ || Object.getPrototypeOf(o);
+	  };
+	  return _getPrototypeOf(o);
+	}
+
+	function _setPrototypeOf(o, p) {
+	  _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) {
+	    o.__proto__ = p;
+	    return o;
+	  };
+
+	  return _setPrototypeOf(o, p);
+	}
+
+	function _assertThisInitialized(self) {
+	  if (self === void 0) {
+	    throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+	  }
+
+	  return self;
+	}
+
+	function _possibleConstructorReturn(self, call) {
+	  if (call && (typeof call === "object" || typeof call === "function")) {
+	    return call;
+	  }
+
+	  return _assertThisInitialized(self);
+	}
+
+	function _toConsumableArray(arr) {
+	  return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread();
+	}
+
+	function _arrayWithoutHoles(arr) {
+	  if (Array.isArray(arr)) {
+	    for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) arr2[i] = arr[i];
+
+	    return arr2;
+	  }
+	}
+
+	function _iterableToArray(iter) {
+	  if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter);
+	}
+
+	function _nonIterableSpread() {
+	  throw new TypeError("Invalid attempt to spread non-iterable instance");
+	}
+
 	var colorStr2Hex = function colorStr2Hex(str) {
 	  return isNaN(str) ? parseInt(tinyColor(str).toHex(), 16) : str;
 	};
+
 	var colorAlpha = function colorAlpha(str) {
 	  return isNaN(str) ? tinyColor(str).getAlpha() : 1;
-	};
-
-	// Autoset attribute colorField by colorByAccessor property
+	}; // Autoset attribute colorField by colorByAccessor property
 	// If an object has already a color, don't set it
 	// Objects can be nodes or links
+
+
 	function autoColorObjects(objects, colorByAccessor, colorField) {
 	  if (!colorByAccessor || typeof colorField !== 'string') return;
-
 	  var colors = d3ScaleChromatic.schemePaired; // Paired color set from color brewer
 
 	  var uncoloredObjects = objects.filter(function (obj) {
 	    return !obj[colorField];
 	  });
 	  var objGroups = {};
-
 	  uncoloredObjects.forEach(function (obj) {
 	    objGroups[colorByAccessor(obj)] = null;
 	  });
 	  Object.keys(objGroups).forEach(function (group, idx) {
 	    objGroups[group] = idx;
 	  });
-
 	  uncoloredObjects.forEach(function (obj) {
 	    obj[colorField] = colors[objGroups[colorByAccessor(obj)] % colors.length];
 	  });
 	}
 
-	var classCallCheck = function (instance, Constructor) {
-	  if (!(instance instanceof Constructor)) {
-	    throw new TypeError("Cannot call a class as a function");
-	  }
-	};
+	function getDagDepths (_ref, idAccessor) {
+	  var nodes = _ref.nodes,
+	      links = _ref.links;
+	  // linked graph
+	  var graph$$1 = {};
+	  nodes.forEach(function (node) {
+	    return graph$$1[idAccessor(node)] = {
+	      data: node,
+	      out: [],
+	      depth: -1
+	    };
+	  });
+	  links.forEach(function (_ref2) {
+	    var source = _ref2.source,
+	        target = _ref2.target;
+	    var sourceId = getNodeId(source);
+	    var targetId = getNodeId(target);
+	    if (!graph$$1.hasOwnProperty(sourceId)) throw "Missing source node with id: ".concat(sourceId);
+	    if (!graph$$1.hasOwnProperty(targetId)) throw "Missing target node with id: ".concat(targetId);
+	    var sourceNode = graph$$1[sourceId];
+	    var targetNode = graph$$1[targetId];
+	    sourceNode.out.push(targetNode);
 
-	var inherits = function (subClass, superClass) {
-	  if (typeof superClass !== "function" && superClass !== null) {
-	    throw new TypeError("Super expression must either be null or a function, not " + typeof superClass);
-	  }
-
-	  subClass.prototype = Object.create(superClass && superClass.prototype, {
-	    constructor: {
-	      value: subClass,
-	      enumerable: false,
-	      writable: true,
-	      configurable: true
+	    function getNodeId(node) {
+	      return _typeof(node) === 'object' ? idAccessor(node) : node;
 	    }
 	  });
-	  if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass;
-	};
+	  traverse(Object.values(graph$$1)); // cleanup
 
-	var possibleConstructorReturn = function (self, call) {
-	  if (!self) {
-	    throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
+	  Object.keys(graph$$1).forEach(function (id) {
+	    return graph$$1[id] = graph$$1[id].depth;
+	  });
+	  return graph$$1;
+
+	  function traverse(nodes) {
+	    var nodeStack = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+	    var currentDepth = nodeStack.length;
+
+	    for (var i = 0, l = nodes.length; i < l; i++) {
+	      var node = nodes[i];
+
+	      if (nodeStack.indexOf(node) !== -1) {
+	        throw "Invalid DAG structure! Found cycle from node ".concat(idAccessor(nodeStack[nodeStack.length - 1].data), " to ").concat(idAccessor(node.data));
+	      }
+
+	      if (currentDepth > node.depth) {
+	        // Don't unnecessarily revisit chunks of the graph
+	        node.depth = currentDepth;
+	        traverse(node.out, _toConsumableArray(nodeStack).concat([node]));
+	      }
+	    }
 	  }
-
-	  return call && (typeof call === "object" || typeof call === "function") ? call : self;
-	};
-
-	var toConsumableArray = function (arr) {
-	  if (Array.isArray(arr)) {
-	    for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) arr2[i] = arr[i];
-
-	    return arr2;
-	  } else {
-	    return Array.from(arr);
-	  }
-	};
+	}
 
 	var three$1 = window.THREE ? window.THREE // Prefer consumption from global THREE, if exists
 	: {
@@ -406,12 +509,14 @@
 	  QuadraticBezierCurve3: three.QuadraticBezierCurve3,
 	  CubicBezierCurve3: three.CubicBezierCurve3
 	};
-	var ngraph = { graph: graph, forcelayout: forcelayout, forcelayout3d: forcelayout3d };
+	var ngraph = {
+	  graph: graph,
+	  forcelayout: forcelayout,
+	  forcelayout3d: forcelayout3d
+	};
 
-	//
-
+	var DAG_LEVEL_NODE_RATIO = 2;
 	var ForceGraph = Kapsule({
-
 	  props: {
 	    jsonUrl: {
 	      onChange: function onChange(jsonUrl, state) {
@@ -421,11 +526,11 @@
 	          // Load data asynchronously
 	          state.fetchingJson = true;
 	          state.onLoading();
-
 	          fetch(jsonUrl).then(function (r) {
 	            return r.json();
 	          }).then(function (json) {
 	            state.fetchingJson = false;
+
 	            _this.graphData(json);
 	          });
 	        }
@@ -443,6 +548,7 @@
 	        }
 
 	        state.engineRunning = false; // Pause simulation immediately
+
 	        state.sceneNeedsRepopulating = true;
 	        state.simulationNeedsReheating = true;
 	      }
@@ -451,9 +557,8 @@
 	      default: 3,
 	      onChange: function onChange(numDim, state) {
 	        state.simulationNeedsReheating = true;
+	        var chargeForce = state.d3ForceLayout.force('charge'); // Increase repulsion on 3D mode for improved spatial separation
 
-	        var chargeForce = state.d3ForceLayout.force('charge');
-	        // Increase repulsion on 3D mode for improved spatial separation
 	        if (chargeForce) {
 	          chargeForce.strength(numDim > 2 ? -60 : -30);
 	        }
@@ -461,6 +566,7 @@
 	        if (numDim < 3) {
 	          eraseDimension(state.graphData.nodes, 'z');
 	        }
+
 	        if (numDim < 2) {
 	          eraseDimension(state.graphData.nodes, 'y');
 	        }
@@ -468,28 +574,52 @@
 	        function eraseDimension(nodes, dim) {
 	          nodes.forEach(function (d) {
 	            delete d[dim]; // position
-	            delete d['v' + dim]; // velocity
+
+	            delete d["v".concat(dim)]; // velocity
 	          });
 	        }
 	      }
 	    },
-	    nodeRelSize: { default: 4, onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
-	    }, // volume per val unit
-	    nodeId: { default: 'id', onChange: function onChange(_, state) {
+	    dagMode: {
+	      onChange: function onChange(_, state) {
 	        state.simulationNeedsReheating = true;
 	      }
 	    },
-	    nodeVal: { default: 'val', onChange: function onChange(_, state) {
+	    // td, bu, lr, rl, zin, zout, radialin, radialout
+	    dagLevelDistance: {
+	      onChange: function onChange(_, state) {
+	        state.simulationNeedsReheating = true;
+	      }
+	    },
+	    nodeRelSize: {
+	      default: 4,
+	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
-	    nodeResolution: { default: 8, onChange: function onChange(_, state) {
+	    // volume per val unit
+	    nodeId: {
+	      default: 'id',
+	      onChange: function onChange(_, state) {
+	        state.simulationNeedsReheating = true;
+	      }
+	    },
+	    nodeVal: {
+	      default: 'val',
+	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
-	    }, // how many slice segments in the sphere's circumference
-	    nodeColor: { default: 'color', onChange: function onChange(_, state) {
+	    },
+	    nodeResolution: {
+	      default: 8,
+	      onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    // how many slice segments in the sphere's circumference
+	    nodeColor: {
+	      default: 'color',
+	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
@@ -498,7 +628,9 @@
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
-	    nodeOpacity: { default: 0.75, onChange: function onChange(_, state) {
+	    nodeOpacity: {
+	      default: 0.75,
+	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
@@ -507,19 +639,27 @@
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
-	    linkSource: { default: 'source', onChange: function onChange(_, state) {
+	    linkSource: {
+	      default: 'source',
+	      onChange: function onChange(_, state) {
 	        state.simulationNeedsReheating = true;
 	      }
 	    },
-	    linkTarget: { default: 'target', onChange: function onChange(_, state) {
+	    linkTarget: {
+	      default: 'target',
+	      onChange: function onChange(_, state) {
 	        state.simulationNeedsReheating = true;
 	      }
 	    },
-	    linkVisibility: { default: true, onChange: function onChange(_, state) {
+	    linkVisibility: {
+	      default: true,
+	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
-	    linkColor: { default: 'color', onChange: function onChange(_, state) {
+	    linkColor: {
+	      default: 'color',
+	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
@@ -528,7 +668,9 @@
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
-	    linkOpacity: { default: 0.2, onChange: function onChange(_, state) {
+	    linkOpacity: {
+	      default: 0.2,
+	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
@@ -536,19 +678,33 @@
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
-	    }, // Rounded to nearest decimal. For falsy values use dimensionless line with 1px regardless of distance.
-	    linkResolution: { default: 6, onChange: function onChange(_, state) {
+	    },
+	    // Rounded to nearest decimal. For falsy values use dimensionless line with 1px regardless of distance.
+	    linkResolution: {
+	      default: 6,
+	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
-	    }, // how many radial segments in each line tube's geometry
-	    linkCurvature: { default: 0, triggerUpdate: false }, // line curvature radius (0: straight, 1: semi-circle)
-	    linkCurveRotation: { default: 0, triggerUpdate: false }, // line curve rotation along the line axis (0: interection with XY plane, PI: upside down)
+	    },
+	    // how many radial segments in each line tube's geometry
+	    linkCurvature: {
+	      default: 0,
+	      triggerUpdate: false
+	    },
+	    // line curvature radius (0: straight, 1: semi-circle)
+	    linkCurveRotation: {
+	      default: 0,
+	      triggerUpdate: false
+	    },
+	    // line curve rotation along the line axis (0: interection with XY plane, PI: upside down)
 	    linkMaterial: {
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
-	    linkDirectionalArrowLength: { default: 0, onChange: function onChange(_, state) {
+	    linkDirectionalArrowLength: {
+	      default: 0,
+	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
@@ -557,17 +713,33 @@
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
-	    linkDirectionalArrowRelPos: { default: 0.5, triggerUpdate: false }, // value between 0<>1 indicating the relative pos along the (exposed) line
-	    linkDirectionalArrowResolution: { default: 8, onChange: function onChange(_, state) {
+	    linkDirectionalArrowRelPos: {
+	      default: 0.5,
+	      triggerUpdate: false
+	    },
+	    // value between 0<>1 indicating the relative pos along the (exposed) line
+	    linkDirectionalArrowResolution: {
+	      default: 8,
+	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
-	    }, // how many slice segments in the arrow's conic circumference
-	    linkDirectionalParticles: { default: 0, onChange: function onChange(_, state) {
+	    },
+	    // how many slice segments in the arrow's conic circumference
+	    linkDirectionalParticles: {
+	      default: 0,
+	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
-	    }, // animate photons travelling in the link direction
-	    linkDirectionalParticleSpeed: { default: 0.01, triggerUpdate: false }, // in link length ratio per frame
-	    linkDirectionalParticleWidth: { default: 0.5, onChange: function onChange(_, state) {
+	    },
+	    // animate photons travelling in the link direction
+	    linkDirectionalParticleSpeed: {
+	      default: 0.01,
+	      triggerUpdate: false
+	    },
+	    // in link length ratio per frame
+	    linkDirectionalParticleWidth: {
+	      default: 0.5,
+	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
@@ -576,46 +748,84 @@
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
-	    linkDirectionalParticleResolution: { default: 4, onChange: function onChange(_, state) {
+	    linkDirectionalParticleResolution: {
+	      default: 4,
+	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
-	    }, // how many slice segments in the particle sphere's circumference
-	    forceEngine: { default: 'd3', onChange: function onChange(_, state) {
+	    },
+	    // how many slice segments in the particle sphere's circumference
+	    forceEngine: {
+	      default: 'd3',
+	      onChange: function onChange(_, state) {
 	        state.simulationNeedsReheating = true;
 	      }
-	    }, // d3 or ngraph
-	    d3AlphaDecay: { default: 0.0228, triggerUpdate: false, onChange: function onChange(alphaDecay, state) {
+	    },
+	    // d3 or ngraph
+	    d3AlphaDecay: {
+	      default: 0.0228,
+	      triggerUpdate: false,
+	      onChange: function onChange(alphaDecay, state) {
 	        state.d3ForceLayout.alphaDecay(alphaDecay);
 	      }
 	    },
-	    d3AlphaTarget: { default: 0, triggerUpdate: false, onChange: function onChange(alphaTarget, state) {
+	    d3AlphaTarget: {
+	      default: 0,
+	      triggerUpdate: false,
+	      onChange: function onChange(alphaTarget, state) {
 	        state.d3ForceLayout.alphaTarget(alphaTarget);
 	      }
 	    },
-	    d3VelocityDecay: { default: 0.4, triggerUpdate: false, onChange: function onChange(velocityDecay, state) {
+	    d3VelocityDecay: {
+	      default: 0.4,
+	      triggerUpdate: false,
+	      onChange: function onChange(velocityDecay, state) {
 	        state.d3ForceLayout.velocityDecay(velocityDecay);
 	      }
 	    },
-	    warmupTicks: { default: 0, triggerUpdate: false }, // how many times to tick the force engine at init before starting to render
-	    cooldownTicks: { default: Infinity, triggerUpdate: false },
-	    cooldownTime: { default: 15000, triggerUpdate: false }, // ms
-	    onLoading: { default: function _default() {}, triggerUpdate: false },
-	    onFinishLoading: { default: function _default() {}, triggerUpdate: false },
-	    onEngineTick: { default: function _default() {}, triggerUpdate: false },
-	    onEngineStop: { default: function _default() {}, triggerUpdate: false }
+	    warmupTicks: {
+	      default: 0,
+	      triggerUpdate: false
+	    },
+	    // how many times to tick the force engine at init before starting to render
+	    cooldownTicks: {
+	      default: Infinity,
+	      triggerUpdate: false
+	    },
+	    cooldownTime: {
+	      default: 15000,
+	      triggerUpdate: false
+	    },
+	    // ms
+	    onLoading: {
+	      default: function _default() {},
+	      triggerUpdate: false
+	    },
+	    onFinishLoading: {
+	      default: function _default() {},
+	      triggerUpdate: false
+	    },
+	    onEngineTick: {
+	      default: function _default() {},
+	      triggerUpdate: false
+	    },
+	    onEngineStop: {
+	      default: function _default() {},
+	      triggerUpdate: false
+	    }
 	  },
-
 	  aliases: {
 	    autoColorBy: 'nodeAutoColorBy'
 	  },
-
 	  methods: {
 	    // Expose d3 forces for external manipulation
 	    d3Force: function d3Force(state, forceName, forceFn) {
 	      if (forceFn === undefined) {
 	        return state.d3ForceLayout.force(forceName); // Force getter
 	      }
+
 	      state.d3ForceLayout.force(forceName, forceFn); // Force setter
+
 	      return this;
 	    },
 	    _updateScene: function _updateScene(state) {},
@@ -632,45 +842,40 @@
 	      if (state.engineRunning) {
 	        layoutTick();
 	      }
+
 	      updateArrows();
 	      updatePhotons();
-
-	      return this;
-
-	      //
+	      return this; //
 
 	      function layoutTick() {
 	        if (++state.cntTicks > state.cooldownTicks || new Date() - state.startTickTime > state.cooldownTime) {
 	          state.engineRunning = false; // Stop ticking graph
+
 	          state.onEngineStop();
 	        } else {
 	          state.layout[isD3Sim ? 'tick' : 'step'](); // Tick it
-	          state.onEngineTick();
-	        }
 
-	        // Update nodes position
+	          state.onEngineTick();
+	        } // Update nodes position
+
+
 	        state.graphData.nodes.forEach(function (node) {
 	          var obj = node.__threeObj;
 	          if (!obj) return;
-
 	          var pos = isD3Sim ? node : state.layout.getNodePosition(node[state.nodeId]);
-
 	          obj.position.x = pos.x;
 	          obj.position.y = pos.y || 0;
 	          obj.position.z = pos.z || 0;
-	        });
+	        }); // Update links position
 
-	        // Update links position
 	        var linkCurvatureAccessor = accessorFn(state.linkCurvature);
 	        var linkCurveRotationAccessor = accessorFn(state.linkCurveRotation);
 	        state.graphData.links.forEach(function (link) {
 	          var line = link.__lineObj;
 	          if (!line) return;
-
 	          var pos = isD3Sim ? link : state.layout.getLinkPosition(state.layout.graph.getLink(link.source, link.target).id);
 	          var start = pos[isD3Sim ? 'source' : 'from'];
 	          var end = pos[isD3Sim ? 'target' : 'to'];
-
 	          if (!start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
 
 	          link.__curve = null; // Wipe curve ref from object
@@ -682,6 +887,7 @@
 
 	            if (!curvature) {
 	              var linePos = line.geometry.getAttribute('position');
+
 	              if (!linePos || !linePos.array || linePos.array.length !== 6) {
 	                line.geometry.addAttribute('position', linePos = new three$1.BufferAttribute(new Float32Array(2 * 3), 3));
 	              }
@@ -692,48 +898,45 @@
 	              linePos.array[3] = end.x;
 	              linePos.array[4] = end.y || 0;
 	              linePos.array[5] = end.z || 0;
-
 	              linePos.needsUpdate = true;
 	            } else {
 	              // bezier curve line
 	              var vStart = new three$1.Vector3(start.x, start.y || 0, start.z || 0);
 	              var vEnd = new three$1.Vector3(end.x, end.y || 0, end.z || 0);
-
 	              var l = vStart.distanceTo(vEnd); // line length
 
-	              var curve = void 0;
+	              var curve;
 	              var curveRotation = linkCurveRotationAccessor(link);
 
 	              if (l > 0) {
 	                var dx = end.x - start.x;
 	                var dy = end.y - start.y || 0;
-
 	                var vLine = new three$1.Vector3().subVectors(vEnd, vStart);
-
 	                var cp = vLine.clone().multiplyScalar(curvature).cross(dx !== 0 || dy !== 0 ? new three$1.Vector3(0, 0, 1) : new three$1.Vector3(0, 1, 0)) // avoid cross-product of parallel vectors (prefer Z, fallback to Y)
 	                .applyAxisAngle(vLine.normalize(), curveRotation) // rotate along line axis according to linkCurveRotation
 	                .add(new three$1.Vector3().addVectors(vStart, vEnd).divideScalar(2));
-
 	                curve = new three$1.QuadraticBezierCurve3(vStart, cp, vEnd);
 	              } else {
 	                // Same point, draw a loop
 	                var d = curvature * 70;
 	                var endAngle = -curveRotation; // Rotate clockwise (from Z angle perspective)
-	                var startAngle = endAngle + Math.PI / 2;
 
+	                var startAngle = endAngle + Math.PI / 2;
 	                curve = new three$1.CubicBezierCurve3(vStart, new three$1.Vector3(d * Math.cos(startAngle), d * Math.sin(startAngle), 0).add(vStart), new three$1.Vector3(d * Math.cos(endAngle), d * Math.sin(endAngle), 0).add(vStart), vEnd);
 	              }
 
 	              line.geometry.setFromPoints(curve.getPoints(curveResolution));
 	              link.__curve = curve;
 	            }
+
 	            line.geometry.computeBoundingSphere();
 	          } else {
 	            // Update cylinder geometry
 	            // links with width ignore linkCurvature because TubeGeometries can't be updated
-
 	            var _vStart = new three$1.Vector3(start.x, start.y || 0, start.z || 0);
+
 	            var _vEnd = new three$1.Vector3(end.x, end.y || 0, end.z || 0);
+
 	            var distance = _vStart.distanceTo(_vEnd);
 
 	            line.position.x = _vStart.x;
@@ -750,23 +953,18 @@
 	        var arrowRelPosAccessor = accessorFn(state.linkDirectionalArrowRelPos);
 	        var arrowLengthAccessor = accessorFn(state.linkDirectionalArrowLength);
 	        var nodeValAccessor = accessorFn(state.nodeVal);
-
 	        state.graphData.links.forEach(function (link) {
 	          var arrowObj = link.__arrowObj;
 	          if (!arrowObj) return;
-
 	          var pos = isD3Sim ? link : state.layout.getLinkPosition(state.layout.graph.getLink(link.source, link.target).id);
 	          var start = pos[isD3Sim ? 'source' : 'from'];
 	          var end = pos[isD3Sim ? 'target' : 'to'];
-
 	          if (!start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
 
 	          var startR = Math.sqrt(Math.max(0, nodeValAccessor(start) || 1)) * state.nodeRelSize;
 	          var endR = Math.sqrt(Math.max(0, nodeValAccessor(end) || 1)) * state.nodeRelSize;
-
 	          var arrowLength = arrowLengthAccessor(link);
 	          var arrowRelPos = arrowRelPosAccessor(link);
-
 	          var getPosAlongLine = link.__curve ? function (t) {
 	            return link.__curve.getPoint(t);
 	          } // interpolate along bezier curve
@@ -775,24 +973,21 @@
 	            var iplt = function iplt(dim, start, end, t) {
 	              return start[dim] + (end[dim] - start[dim]) * t || 0;
 	            };
+
 	            return {
 	              x: iplt('x', start, end, t),
 	              y: iplt('y', start, end, t),
 	              z: iplt('z', start, end, t)
 	            };
 	          };
-
 	          var lineLen = link.__curve ? link.__curve.getLength() : Math.sqrt(['x', 'y', 'z'].map(function (dim) {
 	            return Math.pow((end[dim] || 0) - (start[dim] || 0), 2);
 	          }).reduce(function (acc, v) {
 	            return acc + v;
 	          }, 0));
-
 	          var posAlongLine = startR + arrowLength + (lineLen - startR - endR - arrowLength) * arrowRelPos;
-
 	          var arrowHead = getPosAlongLine(posAlongLine / lineLen);
 	          var arrowTail = getPosAlongLine((posAlongLine - arrowLength) / lineLen);
-
 	          ['x', 'y', 'z'].forEach(function (dim) {
 	            return arrowObj.position[dim] = arrowTail[dim];
 	          });
@@ -806,15 +1001,12 @@
 	        state.graphData.links.forEach(function (link) {
 	          var photons = link.__photonObjs;
 	          if (!photons || !photons.length) return;
-
 	          var pos = isD3Sim ? link : state.layout.getLinkPosition(state.layout.graph.getLink(link.source, link.target).id);
 	          var start = pos[isD3Sim ? 'source' : 'from'];
 	          var end = pos[isD3Sim ? 'target' : 'to'];
-
 	          if (!start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
 
 	          var particleSpeed = particleSpeedAccessor(link);
-
 	          var getPhotonPos = link.__curve ? function (t) {
 	            return link.__curve.getPoint(t);
 	          } // interpolate along bezier curve
@@ -823,16 +1015,15 @@
 	            var iplt = function iplt(dim, start, end, t) {
 	              return start[dim] + (end[dim] - start[dim]) * t || 0;
 	            };
+
 	            return {
 	              x: iplt('x', start, end, t),
 	              y: iplt('y', start, end, t),
 	              z: iplt('z', start, end, t)
 	            };
 	          };
-
 	          photons.forEach(function (photon, idx) {
 	            var photonPosRatio = photon.__progressRatio = ((photon.__progressRatio || idx / photons.length) + particleSpeed) % 1;
-
 	            var pos = getPhotonPos(photonPosRatio);
 	            ['x', 'y', 'z'].forEach(function (dim) {
 	              return photon.position[dim] = pos[dim];
@@ -842,16 +1033,14 @@
 	      }
 	    }
 	  },
-
 	  stateInit: function stateInit() {
 	    return {
-	      d3ForceLayout: d3Force3d.forceSimulation().force('link', d3Force3d.forceLink()).force('charge', d3Force3d.forceManyBody()).force('center', d3Force3d.forceCenter()).stop(),
+	      d3ForceLayout: d3Force3d.forceSimulation().force('link', d3Force3d.forceLink()).force('charge', d3Force3d.forceManyBody()).force('center', d3Force3d.forceCenter()).force('dagRadial', null).stop(),
 	      engineRunning: false,
 	      sceneNeedsRepopulating: true,
 	      simulationNeedsReheating: true
 	    };
 	  },
-
 	  init: function init(threeObj, state) {
 	    // Main three object to manipulate
 	    state.graphScene = threeObj;
@@ -866,12 +1055,13 @@
 	        // Auto add color to uncolored nodes
 	        autoColorObjects(state.graphData.nodes, accessorFn(state.nodeAutoColorBy), state.nodeColor);
 	      }
+
 	      if (state.linkAutoColorBy !== null) {
 	        // Auto add color to uncolored links
 	        autoColorObjects(state.graphData.links, accessorFn(state.linkAutoColorBy), state.linkColor);
-	      }
+	      } // Clear the scene
 
-	      // Clear the scene
+
 	      var materialDispose = function materialDispose(material) {
 	        if (material instanceof Array) {
 	          material.forEach(materialDispose);
@@ -879,39 +1069,47 @@
 	          if (material.map) {
 	            material.map.dispose();
 	          }
+
 	          material.dispose();
 	        }
 	      };
+
 	      var deallocate = function deallocate(obj) {
 	        if (obj.geometry) {
 	          obj.geometry.dispose();
 	        }
+
 	        if (obj.material) {
 	          materialDispose(obj.material);
 	        }
+
 	        if (obj.texture) {
 	          obj.texture.dispose();
 	        }
+
 	        if (obj.children) {
 	          obj.children.forEach(deallocate);
 	        }
 	      };
+
 	      while (state.graphScene.children.length) {
 	        var obj = state.graphScene.children[0];
 	        state.graphScene.remove(obj);
 	        deallocate(obj);
-	      }
+	      } // Add WebGL objects
 
-	      // Add WebGL objects
+
 	      var customNodeObjectAccessor = accessorFn(state.nodeThreeObject);
 	      var valAccessor = accessorFn(state.nodeVal);
 	      var colorAccessor = accessorFn(state.nodeColor);
 	      var sphereGeometries = {}; // indexed by node value
+
 	      var sphereMaterials = {}; // indexed by color
+
 	      state.graphData.nodes.forEach(function (node) {
 	        var customObj = customNodeObjectAccessor(node);
+	        var obj;
 
-	        var obj = void 0;
 	        if (customObj) {
 	          obj = customObj;
 
@@ -922,11 +1120,13 @@
 	        } else {
 	          // Default object (sphere mesh)
 	          var val = valAccessor(node) || 1;
+
 	          if (!sphereGeometries.hasOwnProperty(val)) {
 	            sphereGeometries[val] = new three$1.SphereGeometry(Math.cbrt(val) * state.nodeRelSize, state.nodeResolution, state.nodeResolution);
 	          }
 
 	          var color = colorAccessor(node);
+
 	          if (!sphereMaterials.hasOwnProperty(color)) {
 	            sphereMaterials[color] = new three$1.MeshLambertMaterial({
 	              color: colorStr2Hex(color || '#ffffaa'),
@@ -939,11 +1139,11 @@
 	        }
 
 	        obj.__graphObjType = 'node'; // Add object type
+
 	        obj.__data = node; // Attach node data
 
 	        state.graphScene.add(node.__threeObj = obj);
 	      });
-
 	      var customLinkMaterialAccessor = accessorFn(state.linkMaterial);
 	      var linkVisibilityAccessor = accessorFn(state.linkVisibility);
 	      var linkColorAccessor = accessorFn(state.linkColor);
@@ -953,25 +1153,27 @@
 	      var linkParticlesAccessor = accessorFn(state.linkDirectionalParticles);
 	      var linkParticleWidthAccessor = accessorFn(state.linkDirectionalParticleWidth);
 	      var linkParticleColorAccessor = accessorFn(state.linkDirectionalParticleColor);
-
 	      var lineMaterials = {}; // indexed by link color
+
 	      var cylinderGeometries = {}; // indexed by link width
+
 	      var particleMaterials = {}; // indexed by link color
+
 	      var particleGeometries = {}; // indexed by particle width
+
 	      state.graphData.links.forEach(function (link) {
 	        if (!linkVisibilityAccessor(link)) {
 	          // Exclude non-visible links
 	          link.__lineObj = link.__arrowObj = link.__photonObjs = null;
 	          return;
-	        }
+	        } // Add line
 
-	        // Add line
+
 	        var color = linkColorAccessor(link);
 	        var linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
-
 	        var useCylinder = !!linkWidth;
+	        var geometry;
 
-	        var geometry = void 0;
 	        if (useCylinder) {
 	          if (!cylinderGeometries.hasOwnProperty(linkWidth)) {
 	            var r = linkWidth / 2;
@@ -980,6 +1182,7 @@
 	            geometry.applyMatrix(new three$1.Matrix4().makeRotationX(Math.PI / 2));
 	            cylinderGeometries[linkWidth] = geometry;
 	          }
+
 	          geometry = cylinderGeometries[linkWidth];
 	        } else {
 	          // Use plain line (constant width)
@@ -987,6 +1190,7 @@
 	        }
 
 	        var lineMaterial = customLinkMaterialAccessor(link);
+
 	        if (!lineMaterial) {
 	          if (!lineMaterials.hasOwnProperty(color)) {
 	            var lineOpacity = state.linkOpacity * colorAlpha(color);
@@ -995,40 +1199,39 @@
 	              transparent: lineOpacity < 1,
 	              opacity: lineOpacity,
 	              depthWrite: lineOpacity >= 1 // Prevent transparency issues
+
 	            });
 	          }
+
 	          lineMaterial = lineMaterials[color];
 	        }
 
 	        var line = new three$1[useCylinder ? 'Mesh' : 'Line'](geometry, lineMaterial);
-
 	        line.renderOrder = 10; // Prevent visual glitches of dark lines on top of nodes by rendering them last
 
 	        line.__graphObjType = 'link'; // Add object type
+
 	        line.__data = link; // Attach link data
 
-	        state.graphScene.add(link.__lineObj = line);
+	        state.graphScene.add(link.__lineObj = line); // Add arrow
 
-	        // Add arrow
 	        var arrowLength = linkArrowLengthAccessor(link);
+
 	        if (arrowLength && arrowLength > 0) {
 	          var arrowColor = linkArrowColorAccessor(link) || color || '#f0f0f0';
+	          var coneGeometry = new three$1.ConeGeometry(arrowLength * 0.25, arrowLength, state.linkDirectionalArrowResolution); // Correct orientation
 
-	          var coneGeometry = new three$1.ConeGeometry(arrowLength * 0.25, arrowLength, state.linkDirectionalArrowResolution);
-	          // Correct orientation
 	          coneGeometry.translate(0, arrowLength / 2, 0);
 	          coneGeometry.rotateX(Math.PI / 2);
-
 	          var arrowObj = new three$1.Mesh(coneGeometry, new three$1.MeshLambertMaterial({
 	            color: colorStr2Hex(arrowColor),
 	            transparent: true,
 	            opacity: state.linkOpacity * 3
 	          }));
-
 	          state.graphScene.add(link.__arrowObj = arrowObj);
-	        }
+	        } // Add photon particles
 
-	        // Add photon particles
+
 	        var numPhotons = Math.round(Math.abs(linkParticlesAccessor(link)));
 	        var photonR = Math.ceil(linkParticleWidthAccessor(link) * 10) / 10 / 2;
 	        var photonColor = linkParticleColorAccessor(link) || color || '#f0f0f0';
@@ -1036,6 +1239,7 @@
 	        if (!particleGeometries.hasOwnProperty(photonR)) {
 	          particleGeometries[photonR] = new three$1.SphereGeometry(photonR, state.linkDirectionalParticleResolution, state.linkDirectionalParticleResolution);
 	        }
+
 	        var particleGeometry = particleGeometries[photonR];
 
 	        if (!particleMaterials.hasOwnProperty(photonColor)) {
@@ -1045,11 +1249,13 @@
 	            opacity: state.linkOpacity * 3
 	          });
 	        }
+
 	        var particleMaterial = particleMaterials[photonColor];
 
-	        var photons = [].concat(toConsumableArray(Array(numPhotons))).map(function () {
+	        var photons = _toConsumableArray(Array(numPhotons)).map(function () {
 	          return new three$1.Mesh(particleGeometry, particleMaterial);
 	        });
+
 	        photons.forEach(function (photon) {
 	          return state.graphScene.add(photon);
 	        });
@@ -1060,31 +1266,61 @@
 	    if (state.simulationNeedsReheating) {
 	      state.simulationNeedsReheating = false;
 	      state.engineRunning = false; // Pause simulation
-
 	      // parse links
+
 	      state.graphData.links.forEach(function (link) {
 	        link.source = link[state.linkSource];
 	        link.target = link[state.linkTarget];
-	      });
+	      }); // Feed data to force-directed layout
 
-	      // Feed data to force-directed layout
 	      var isD3Sim = state.forceEngine !== 'ngraph';
-	      var layout = void 0;
+	      var layout;
+
 	      if (isD3Sim) {
 	        // D3-force
 	        (layout = state.d3ForceLayout).stop().alpha(1) // re-heat the simulation
-	        .numDimensions(state.numDimensions).nodes(state.graphData.nodes);
+	        .numDimensions(state.numDimensions).nodes(state.graphData.nodes); // add links (if link force is still active)
 
-	        // add links (if link force is still active)
 	        var linkForce = state.d3ForceLayout.force('link');
+
 	        if (linkForce) {
 	          linkForce.id(function (d) {
 	            return d[state.nodeId];
 	          }).links(state.graphData.links);
+	        } // setup dag force constraints
+
+
+	        var nodeDepths = state.dagMode && getDagDepths(state.graphData, function (node) {
+	          return node[state.nodeId];
+	        });
+	        var maxDepth = Math.max.apply(Math, _toConsumableArray(Object.values(nodeDepths || [])));
+	        var dagLevelDistance = state.dagLevelDistance || state.graphData.nodes.length / (maxDepth || 1) * DAG_LEVEL_NODE_RATIO * (['radialin', 'radialout'].indexOf(state.dagMode) !== -1 ? 0.7 : 1); // Fix nodes to x,y,z for dag mode
+
+	        if (state.dagMode) {
+	          var getFFn = function getFFn(fix, invert) {
+	            return function (node) {
+	              return !fix ? undefined : (nodeDepths[node[state.nodeId]] - maxDepth / 2) * dagLevelDistance * (invert ? -1 : 1);
+	            };
+	          };
+
+	          var fxFn = getFFn(['lr', 'rl'].indexOf(state.dagMode) !== -1, state.dagMode === 'rl');
+	          var fyFn = getFFn(['td', 'bu'].indexOf(state.dagMode) !== -1, state.dagMode === 'td');
+	          var fzFn = getFFn(['zin', 'zout'].indexOf(state.dagMode) !== -1, state.dagMode === 'zout');
+	          state.graphData.nodes.forEach(function (node) {
+	            node.fx = fxFn(node);
+	            node.fy = fyFn(node);
+	            node.fz = fzFn(node);
+	          });
 	        }
+
+	        state.d3ForceLayout.force('dagRadial', ['radialin', 'radialout'].indexOf(state.dagMode) !== -1 ? d3Force3d.forceRadial(function (node) {
+	          var nodeDepth = nodeDepths[node[state.nodeId]];
+	          return (state.dagMode === 'radialin' ? maxDepth - nodeDepth : nodeDepth) * dagLevelDistance;
+	        }).strength(1) : null);
 	      } else {
 	        // ngraph
 	        var _graph = ngraph.graph();
+
 	        state.graphData.nodes.forEach(function (node) {
 	          _graph.addNode(node[state.nodeId]);
 	        });
@@ -1099,9 +1335,9 @@
 	        layout[isD3Sim ? 'tick' : 'step']();
 	      } // Initial ticks before starting to render
 
+
 	      state.layout = layout;
 	      this.resetCountdown();
-
 	      state.onFinishLoading();
 	    }
 
@@ -1113,41 +1349,41 @@
 	  var baseClass = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : Object;
 	  var initKapsuleWithSelf = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
 
-	  var FromKapsule = function (_baseClass) {
-	    inherits(FromKapsule, _baseClass);
+	  var FromKapsule =
+	  /*#__PURE__*/
+	  function (_baseClass) {
+	    _inherits(FromKapsule, _baseClass);
 
 	    function FromKapsule() {
-	      var _ref;
+	      var _getPrototypeOf2;
 
-	      classCallCheck(this, FromKapsule);
+	      var _this;
 
-	      for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
+	      _classCallCheck(this, FromKapsule);
+
+	      for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
 	        args[_key] = arguments[_key];
 	      }
 
-	      var _this = possibleConstructorReturn(this, (_ref = FromKapsule.__proto__ || Object.getPrototypeOf(FromKapsule)).call.apply(_ref, [this].concat(args)));
-
-	      _this.__kapsuleInstance = kapsule().apply(undefined, [].concat(toConsumableArray(initKapsuleWithSelf ? [_this] : []), args));
+	      _this = _possibleConstructorReturn(this, (_getPrototypeOf2 = _getPrototypeOf(FromKapsule)).call.apply(_getPrototypeOf2, [this].concat(args)));
+	      _this.__kapsuleInstance = kapsule().apply(void 0, _toConsumableArray(initKapsuleWithSelf ? [_assertThisInitialized(_assertThisInitialized(_this))] : []).concat(args));
 	      return _this;
 	    }
 
 	    return FromKapsule;
-	  }(baseClass);
-
-	  // attach kapsule props/methods to class prototype
+	  }(baseClass); // attach kapsule props/methods to class prototype
 
 
 	  Object.keys(kapsule()).forEach(function (m) {
 	    return FromKapsule.prototype[m] = function () {
-	      var _kapsuleInstance;
+	      var _this$__kapsuleInstan;
 
-	      var returnVal = (_kapsuleInstance = this.__kapsuleInstance)[m].apply(_kapsuleInstance, arguments);
+	      var returnVal = (_this$__kapsuleInstan = this.__kapsuleInstance)[m].apply(_this$__kapsuleInstan, arguments);
 
 	      return returnVal === this.__kapsuleInstance ? this // chain based on this class, not the kapsule obj
 	      : returnVal;
 	    };
 	  });
-
 	  return FromKapsule;
 	}
 
@@ -1160,11 +1396,11 @@
 /* 3 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-scale-chromatic/ Version 1.3.0. Copyright 2018 Mike Bostock.
+	// https://d3js.org/d3-scale-chromatic/ v1.3.3 Copyright 2018 Mike Bostock
 	(function (global, factory) {
-		 true ? factory(exports, __webpack_require__(4), __webpack_require__(5)) :
-		typeof define === 'function' && define.amd ? define(['exports', 'd3-interpolate', 'd3-color'], factory) :
-		(factory((global.d3 = global.d3 || {}),global.d3,global.d3));
+	 true ? factory(exports, __webpack_require__(4), __webpack_require__(5)) :
+	typeof define === 'function' && define.amd ? define(['exports', 'd3-interpolate', 'd3-color'], factory) :
+	(factory((global.d3 = global.d3 || {}),global.d3,global.d3));
 	}(this, (function (exports,d3Interpolate,d3Color) { 'use strict';
 
 	function colors(specifier) {
@@ -1333,7 +1569,7 @@
 
 	var BuGn = ramp(scheme$9);
 
-	var scheme$10 = new Array(3).concat(
+	var scheme$a = new Array(3).concat(
 	  "e0ecf49ebcda8856a7",
 	  "edf8fbb3cde38c96c688419d",
 	  "edf8fbb3cde38c96c68856a7810f7c",
@@ -1343,9 +1579,9 @@
 	  "f7fcfde0ecf4bfd3e69ebcda8c96c68c6bb188419d810f7c4d004b"
 	).map(colors);
 
-	var BuPu = ramp(scheme$10);
+	var BuPu = ramp(scheme$a);
 
-	var scheme$11 = new Array(3).concat(
+	var scheme$b = new Array(3).concat(
 	  "e0f3dba8ddb543a2ca",
 	  "f0f9e8bae4bc7bccc42b8cbe",
 	  "f0f9e8bae4bc7bccc443a2ca0868ac",
@@ -1355,9 +1591,9 @@
 	  "f7fcf0e0f3dbccebc5a8ddb57bccc44eb3d32b8cbe0868ac084081"
 	).map(colors);
 
-	var GnBu = ramp(scheme$11);
+	var GnBu = ramp(scheme$b);
 
-	var scheme$12 = new Array(3).concat(
+	var scheme$c = new Array(3).concat(
 	  "fee8c8fdbb84e34a33",
 	  "fef0d9fdcc8afc8d59d7301f",
 	  "fef0d9fdcc8afc8d59e34a33b30000",
@@ -1367,9 +1603,9 @@
 	  "fff7ecfee8c8fdd49efdbb84fc8d59ef6548d7301fb300007f0000"
 	).map(colors);
 
-	var OrRd = ramp(scheme$12);
+	var OrRd = ramp(scheme$c);
 
-	var scheme$13 = new Array(3).concat(
+	var scheme$d = new Array(3).concat(
 	  "ece2f0a6bddb1c9099",
 	  "f6eff7bdc9e167a9cf02818a",
 	  "f6eff7bdc9e167a9cf1c9099016c59",
@@ -1379,9 +1615,9 @@
 	  "fff7fbece2f0d0d1e6a6bddb67a9cf3690c002818a016c59014636"
 	).map(colors);
 
-	var PuBuGn = ramp(scheme$13);
+	var PuBuGn = ramp(scheme$d);
 
-	var scheme$14 = new Array(3).concat(
+	var scheme$e = new Array(3).concat(
 	  "ece7f2a6bddb2b8cbe",
 	  "f1eef6bdc9e174a9cf0570b0",
 	  "f1eef6bdc9e174a9cf2b8cbe045a8d",
@@ -1391,9 +1627,9 @@
 	  "fff7fbece7f2d0d1e6a6bddb74a9cf3690c00570b0045a8d023858"
 	).map(colors);
 
-	var PuBu = ramp(scheme$14);
+	var PuBu = ramp(scheme$e);
 
-	var scheme$15 = new Array(3).concat(
+	var scheme$f = new Array(3).concat(
 	  "e7e1efc994c7dd1c77",
 	  "f1eef6d7b5d8df65b0ce1256",
 	  "f1eef6d7b5d8df65b0dd1c77980043",
@@ -1403,9 +1639,9 @@
 	  "f7f4f9e7e1efd4b9dac994c7df65b0e7298ace125698004367001f"
 	).map(colors);
 
-	var PuRd = ramp(scheme$15);
+	var PuRd = ramp(scheme$f);
 
-	var scheme$16 = new Array(3).concat(
+	var scheme$g = new Array(3).concat(
 	  "fde0ddfa9fb5c51b8a",
 	  "feebe2fbb4b9f768a1ae017e",
 	  "feebe2fbb4b9f768a1c51b8a7a0177",
@@ -1415,9 +1651,9 @@
 	  "fff7f3fde0ddfcc5c0fa9fb5f768a1dd3497ae017e7a017749006a"
 	).map(colors);
 
-	var RdPu = ramp(scheme$16);
+	var RdPu = ramp(scheme$g);
 
-	var scheme$17 = new Array(3).concat(
+	var scheme$h = new Array(3).concat(
 	  "edf8b17fcdbb2c7fb8",
 	  "ffffcca1dab441b6c4225ea8",
 	  "ffffcca1dab441b6c42c7fb8253494",
@@ -1427,9 +1663,9 @@
 	  "ffffd9edf8b1c7e9b47fcdbb41b6c41d91c0225ea8253494081d58"
 	).map(colors);
 
-	var YlGnBu = ramp(scheme$17);
+	var YlGnBu = ramp(scheme$h);
 
-	var scheme$18 = new Array(3).concat(
+	var scheme$i = new Array(3).concat(
 	  "f7fcb9addd8e31a354",
 	  "ffffccc2e69978c679238443",
 	  "ffffccc2e69978c67931a354006837",
@@ -1439,9 +1675,9 @@
 	  "ffffe5f7fcb9d9f0a3addd8e78c67941ab5d238443006837004529"
 	).map(colors);
 
-	var YlGn = ramp(scheme$18);
+	var YlGn = ramp(scheme$i);
 
-	var scheme$19 = new Array(3).concat(
+	var scheme$j = new Array(3).concat(
 	  "fff7bcfec44fd95f0e",
 	  "ffffd4fed98efe9929cc4c02",
 	  "ffffd4fed98efe9929d95f0e993404",
@@ -1451,9 +1687,9 @@
 	  "ffffe5fff7bcfee391fec44ffe9929ec7014cc4c02993404662506"
 	).map(colors);
 
-	var YlOrBr = ramp(scheme$19);
+	var YlOrBr = ramp(scheme$j);
 
-	var scheme$20 = new Array(3).concat(
+	var scheme$k = new Array(3).concat(
 	  "ffeda0feb24cf03b20",
 	  "ffffb2fecc5cfd8d3ce31a1c",
 	  "ffffb2fecc5cfd8d3cf03b20bd0026",
@@ -1463,9 +1699,9 @@
 	  "ffffccffeda0fed976feb24cfd8d3cfc4e2ae31a1cbd0026800026"
 	).map(colors);
 
-	var YlOrRd = ramp(scheme$20);
+	var YlOrRd = ramp(scheme$k);
 
-	var scheme$21 = new Array(3).concat(
+	var scheme$l = new Array(3).concat(
 	  "deebf79ecae13182bd",
 	  "eff3ffbdd7e76baed62171b5",
 	  "eff3ffbdd7e76baed63182bd08519c",
@@ -1475,9 +1711,9 @@
 	  "f7fbffdeebf7c6dbef9ecae16baed64292c62171b508519c08306b"
 	).map(colors);
 
-	var Blues = ramp(scheme$21);
+	var Blues = ramp(scheme$l);
 
-	var scheme$22 = new Array(3).concat(
+	var scheme$m = new Array(3).concat(
 	  "e5f5e0a1d99b31a354",
 	  "edf8e9bae4b374c476238b45",
 	  "edf8e9bae4b374c47631a354006d2c",
@@ -1487,9 +1723,9 @@
 	  "f7fcf5e5f5e0c7e9c0a1d99b74c47641ab5d238b45006d2c00441b"
 	).map(colors);
 
-	var Greens = ramp(scheme$22);
+	var Greens = ramp(scheme$m);
 
-	var scheme$23 = new Array(3).concat(
+	var scheme$n = new Array(3).concat(
 	  "f0f0f0bdbdbd636363",
 	  "f7f7f7cccccc969696525252",
 	  "f7f7f7cccccc969696636363252525",
@@ -1499,9 +1735,9 @@
 	  "fffffff0f0f0d9d9d9bdbdbd969696737373525252252525000000"
 	).map(colors);
 
-	var Greys = ramp(scheme$23);
+	var Greys = ramp(scheme$n);
 
-	var scheme$24 = new Array(3).concat(
+	var scheme$o = new Array(3).concat(
 	  "efedf5bcbddc756bb1",
 	  "f2f0f7cbc9e29e9ac86a51a3",
 	  "f2f0f7cbc9e29e9ac8756bb154278f",
@@ -1511,9 +1747,9 @@
 	  "fcfbfdefedf5dadaebbcbddc9e9ac8807dba6a51a354278f3f007d"
 	).map(colors);
 
-	var Purples = ramp(scheme$24);
+	var Purples = ramp(scheme$o);
 
-	var scheme$25 = new Array(3).concat(
+	var scheme$p = new Array(3).concat(
 	  "fee0d2fc9272de2d26",
 	  "fee5d9fcae91fb6a4acb181d",
 	  "fee5d9fcae91fb6a4ade2d26a50f15",
@@ -1523,9 +1759,9 @@
 	  "fff5f0fee0d2fcbba1fc9272fb6a4aef3b2ccb181da50f1567000d"
 	).map(colors);
 
-	var Reds = ramp(scheme$25);
+	var Reds = ramp(scheme$p);
 
-	var scheme$26 = new Array(3).concat(
+	var scheme$q = new Array(3).concat(
 	  "fee6cefdae6be6550d",
 	  "feeddefdbe85fd8d3cd94701",
 	  "feeddefdbe85fd8d3ce6550da63603",
@@ -1535,9 +1771,9 @@
 	  "fff5ebfee6cefdd0a2fdae6bfd8d3cf16913d94801a636037f2704"
 	).map(colors);
 
-	var Oranges = ramp(scheme$26);
+	var Oranges = ramp(scheme$q);
 
-	var cubehelix$1 = d3Interpolate.interpolateCubehelixLong(d3Color.cubehelix(300, 0.5, 0.0), d3Color.cubehelix(-240, 0.5, 1.0));
+	var cubehelix = d3Interpolate.interpolateCubehelixLong(d3Color.cubehelix(300, 0.5, 0.0), d3Color.cubehelix(-240, 0.5, 1.0));
 
 	var warm = d3Interpolate.interpolateCubehelixLong(d3Color.cubehelix(-100, 0.75, 0.35), d3Color.cubehelix(80, 1.50, 0.8));
 
@@ -1554,9 +1790,9 @@
 	  return c + "";
 	}
 
-	var c$1 = d3Color.rgb();
-	var pi_1_3 = Math.PI / 3;
-	var pi_2_3 = Math.PI * 2 / 3;
+	var c$1 = d3Color.rgb(),
+	    pi_1_3 = Math.PI / 3,
+	    pi_2_3 = Math.PI * 2 / 3;
 
 	function sinebow(t) {
 	  var x;
@@ -1612,40 +1848,40 @@
 	exports.interpolateBuGn = BuGn;
 	exports.schemeBuGn = scheme$9;
 	exports.interpolateBuPu = BuPu;
-	exports.schemeBuPu = scheme$10;
+	exports.schemeBuPu = scheme$a;
 	exports.interpolateGnBu = GnBu;
-	exports.schemeGnBu = scheme$11;
+	exports.schemeGnBu = scheme$b;
 	exports.interpolateOrRd = OrRd;
-	exports.schemeOrRd = scheme$12;
+	exports.schemeOrRd = scheme$c;
 	exports.interpolatePuBuGn = PuBuGn;
-	exports.schemePuBuGn = scheme$13;
+	exports.schemePuBuGn = scheme$d;
 	exports.interpolatePuBu = PuBu;
-	exports.schemePuBu = scheme$14;
+	exports.schemePuBu = scheme$e;
 	exports.interpolatePuRd = PuRd;
-	exports.schemePuRd = scheme$15;
+	exports.schemePuRd = scheme$f;
 	exports.interpolateRdPu = RdPu;
-	exports.schemeRdPu = scheme$16;
+	exports.schemeRdPu = scheme$g;
 	exports.interpolateYlGnBu = YlGnBu;
-	exports.schemeYlGnBu = scheme$17;
+	exports.schemeYlGnBu = scheme$h;
 	exports.interpolateYlGn = YlGn;
-	exports.schemeYlGn = scheme$18;
+	exports.schemeYlGn = scheme$i;
 	exports.interpolateYlOrBr = YlOrBr;
-	exports.schemeYlOrBr = scheme$19;
+	exports.schemeYlOrBr = scheme$j;
 	exports.interpolateYlOrRd = YlOrRd;
-	exports.schemeYlOrRd = scheme$20;
+	exports.schemeYlOrRd = scheme$k;
 	exports.interpolateBlues = Blues;
-	exports.schemeBlues = scheme$21;
+	exports.schemeBlues = scheme$l;
 	exports.interpolateGreens = Greens;
-	exports.schemeGreens = scheme$22;
+	exports.schemeGreens = scheme$m;
 	exports.interpolateGreys = Greys;
-	exports.schemeGreys = scheme$23;
+	exports.schemeGreys = scheme$n;
 	exports.interpolatePurples = Purples;
-	exports.schemePurples = scheme$24;
+	exports.schemePurples = scheme$o;
 	exports.interpolateReds = Reds;
-	exports.schemeReds = scheme$25;
+	exports.schemeReds = scheme$p;
 	exports.interpolateOranges = Oranges;
-	exports.schemeOranges = scheme$26;
-	exports.interpolateCubehelixDefault = cubehelix$1;
+	exports.schemeOranges = scheme$q;
+	exports.interpolateCubehelixDefault = cubehelix;
 	exports.interpolateRainbow = rainbow;
 	exports.interpolateWarm = warm;
 	exports.interpolateCool = cool;
@@ -3987,14 +4223,14 @@
 /* 8 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://github.com/vasturiano/d3-force-3d Version 1.1.0. Copyright 2018 Vasco Asturiano.
+	// https://github.com/vasturiano/d3-force-3d v1.1.2 Copyright 2018 Vasco Asturiano
 	(function (global, factory) {
-		 true ? factory(exports, __webpack_require__(9), __webpack_require__(10), __webpack_require__(11), __webpack_require__(12), __webpack_require__(13), __webpack_require__(14)) :
-		typeof define === 'function' && define.amd ? define(['exports', 'd3-binarytree', 'd3-quadtree', 'd3-octree', 'd3-collection', 'd3-dispatch', 'd3-timer'], factory) :
-		(factory((global.d3 = global.d3 || {}),global.d3,global.d3,global.d3,global.d3,global.d3,global.d3));
+	 true ? factory(exports, __webpack_require__(9), __webpack_require__(10), __webpack_require__(11), __webpack_require__(12), __webpack_require__(13), __webpack_require__(14)) :
+	typeof define === 'function' && define.amd ? define(['exports', 'd3-binarytree', 'd3-quadtree', 'd3-octree', 'd3-collection', 'd3-dispatch', 'd3-timer'], factory) :
+	(factory((global.d3 = global.d3 || {}),global.d3,global.d3,global.d3,global.d3,global.d3,global.d3));
 	}(this, (function (exports,d3Binarytree,d3Quadtree,d3Octree,d3Collection,d3Dispatch,d3Timer) { 'use strict';
 
-	var center = function(x, y, z) {
+	function center(x, y, z) {
 	  var nodes;
 
 	  if (x == null) x = 0;
@@ -4038,17 +4274,17 @@
 	  };
 
 	  return force;
-	};
+	}
 
-	var constant = function(x) {
+	function constant(x) {
 	  return function() {
 	    return x;
 	  };
-	};
+	}
 
-	var jiggle = function() {
+	function jiggle() {
 	  return (Math.random() - 0.5) * 1e-6;
-	};
+	}
 
 	function x(d) {
 	  return d.x + d.vx;
@@ -4062,7 +4298,7 @@
 	  return d.z + d.vz;
 	}
 
-	var collide = function(radius) {
+	function collide(radius) {
 	  var nodes,
 	      nDim,
 	      radii,
@@ -4173,7 +4409,7 @@
 	  };
 
 	  return force;
-	};
+	}
 
 	function index(d) {
 	  return d.index;
@@ -4185,7 +4421,7 @@
 	  return node;
 	}
 
-	var link = function(links) {
+	function link(links) {
 	  var id = index,
 	      strength = defaultStrength,
 	      strengths,
@@ -4293,7 +4529,7 @@
 	  };
 
 	  return force;
-	};
+	}
 
 	var MAX_DIMENSIONS = 3;
 
@@ -4309,11 +4545,11 @@
 	  return d.z;
 	}
 
-	var initialRadius = 10;
-	var initialAngleRoll = Math.PI * (3 - Math.sqrt(5));
-	var initialAngleYaw = Math.PI / 24; // Sequential
+	var initialRadius = 10,
+	    initialAngleRoll = Math.PI * (3 - Math.sqrt(5)), // Golden angle
+	    initialAngleYaw = Math.PI / 24; // Sequential
 
-	var simulation = function(nodes, numDimensions) {
+	function simulation(nodes, numDimensions) {
 	  numDimensions = numDimensions || 2;
 
 	  var nDim = Math.min(MAX_DIMENSIONS, Math.max(1, Math.round(numDimensions))),
@@ -4430,7 +4666,7 @@
 	    },
 
 	    force: function(name, _) {
-	      return arguments.length > 1 ? (_ == null ? forces.remove(name) : forces.set(name, initializeForce(_)), simulation) : forces.get(name);
+	      return arguments.length > 1 ? ((_ == null ? forces.remove(name) : forces.set(name, initializeForce(_))), simulation) : forces.get(name);
 	    },
 
 	    find: function() {
@@ -4467,9 +4703,9 @@
 	      return arguments.length > 1 ? (event.on(name, _), simulation) : event.on(name);
 	    }
 	  };
-	};
+	}
 
-	var manyBody = function() {
+	function manyBody() {
 	  var nodes,
 	      nDim,
 	      node,
@@ -4595,9 +4831,9 @@
 	  };
 
 	  return force;
-	};
+	}
 
-	var radial = function(radius, x, y, z) {
+	function radial(radius, x, y, z) {
 	  var nodes,
 	      nDim,
 	      strength = constant(0.1),
@@ -4661,9 +4897,9 @@
 	  };
 
 	  return force;
-	};
+	}
 
-	var x$2 = function(x) {
+	function x$2(x) {
 	  var strength = constant(0.1),
 	      nodes,
 	      strengths,
@@ -4701,9 +4937,9 @@
 	  };
 
 	  return force;
-	};
+	}
 
-	var y$2 = function(y) {
+	function y$2(y) {
 	  var strength = constant(0.1),
 	      nodes,
 	      strengths,
@@ -4741,9 +4977,9 @@
 	  };
 
 	  return force;
-	};
+	}
 
-	var z$2 = function(z) {
+	function z$2(z) {
 	  var strength = constant(0.1),
 	      nodes,
 	      strengths,
@@ -4781,7 +5017,7 @@
 	  };
 
 	  return force;
-	};
+	}
 
 	exports.forceCenter = center;
 	exports.forceCollide = collide;
@@ -11128,7 +11364,7 @@
 /* 57 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	!function(n,t){ true?module.exports=t():"function"==typeof define&&define.amd?define([],t):"object"==typeof exports?exports.Kapsule=t():n.Kapsule=t()}("undefined"!=typeof self?self:this,function(){return function(n){var t={};function e(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return n[r].call(o.exports,o,o.exports,e),o.l=!0,o.exports}return e.m=n,e.c=t,e.d=function(n,t,r){e.o(n,t)||Object.defineProperty(n,t,{configurable:!1,enumerable:!0,get:r})},e.n=function(n){var t=n&&n.__esModule?function(){return n.default}:function(){return n};return e.d(t,"a",t),t},e.o=function(n,t){return Object.prototype.hasOwnProperty.call(n,t)},e.p="",e(e.s=0)}([function(n,t,e){var r,o,i;u=function(n,t,e){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.default=function(n){var t=n.stateInit,e=void 0===t?function(){return{}}:t,r=n.props,a=void 0===r?{}:r,f=n.methods,l=void 0===f?{}:f,c=n.aliases,s=void 0===c?{}:c,d=n.init,p=void 0===d?function(){}:d,v=n.update,h=void 0===v?function(){}:v,y=Object.keys(a).map(function(n){return new u(n,a[n])});return function(){var n=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},t=Object.assign({},e instanceof Function?e():e,{initialised:!1});function r(t){return u(t,n),a(),r}var u=function(n,e){p.call(r,n,t,e),t.initialised=!0},a=(0,o.default)(function(){t.initialised&&h.call(r,t)},1);return y.forEach(function(n){r[n.name]=function(n){var e=arguments.length>1&&void 0!==arguments[1]&&arguments[1],o=arguments.length>2&&void 0!==arguments[2]?arguments[2]:function(n,t){};return function(i){return arguments.length?(t[n]=i,o.call(r,i,t),e&&a(),r):t[n]}}(n.name,n.triggerUpdate,n.onChange)}),Object.keys(l).forEach(function(n){r[n]=function(){for(var e,o=arguments.length,i=Array(o),u=0;u<o;u++)i[u]=arguments[u];return(e=l[n]).call.apply(e,[r,t].concat(i))}}),Object.entries(s).forEach(function(n){var t=i(n,2),e=t[0],o=t[1];return r[e]=r[o]}),r.resetProps=function(){return y.forEach(function(n){r[n.name](n.defaultVal)}),r},r.resetProps(),t._rerender=a,r}};var r,o=(r=e,r&&r.__esModule?r:{default:r});var i=function(){return function(n,t){if(Array.isArray(n))return n;if(Symbol.iterator in Object(n))return function(n,t){var e=[],r=!0,o=!1,i=void 0;try{for(var u,a=n[Symbol.iterator]();!(r=(u=a.next()).done)&&(e.push(u.value),!t||e.length!==t);r=!0);}catch(n){o=!0,i=n}finally{try{!r&&a.return&&a.return()}finally{if(o)throw i}}return e}(n,t);throw new TypeError("Invalid attempt to destructure non-iterable instance")}}();var u=function n(t,e){var r=e.default,o=void 0===r?null:r,i=e.triggerUpdate,u=void 0===i||i,a=e.onChange,f=void 0===a?function(n,t){}:a;!function(n,t){if(!(n instanceof t))throw new TypeError("Cannot call a class as a function")}(this,n),this.name=t,this.defaultVal=o,this.triggerUpdate=u,this.onChange=f};n.exports=t.default},o=[n,t,e(1)],void 0===(i="function"==typeof(r=u)?r.apply(t,o):r)||(n.exports=i);var u},function(n,t){n.exports=function(n,t,e){var r,o,i,u,a;null==t&&(t=100);function f(){var l=Date.now()-u;l<t&&l>=0?r=setTimeout(f,t-l):(r=null,e||(a=n.apply(i,o),i=o=null))}var l=function(){i=this,o=arguments,u=Date.now();var l=e&&!r;return r||(r=setTimeout(f,t)),l&&(a=n.apply(i,o),i=o=null),a};return l.clear=function(){r&&(clearTimeout(r),r=null)},l.flush=function(){r&&(a=n.apply(i,o),i=o=null,clearTimeout(r),r=null)},l}}])});
+	!function(n,t){ true?module.exports=t():"function"==typeof define&&define.amd?define([],t):"object"==typeof exports?exports.Kapsule=t():n.Kapsule=t()}("undefined"!=typeof self?self:this,function(){return function(n){var t={};function e(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return n[r].call(o.exports,o,o.exports,e),o.l=!0,o.exports}return e.m=n,e.c=t,e.d=function(n,t,r){e.o(n,t)||Object.defineProperty(n,t,{configurable:!1,enumerable:!0,get:r})},e.n=function(n){var t=n&&n.__esModule?function(){return n.default}:function(){return n};return e.d(t,"a",t),t},e.o=function(n,t){return Object.prototype.hasOwnProperty.call(n,t)},e.p="",e(e.s=0)}([function(n,t,e){var r,o,i;u=function(n,t,e){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.default=function(n){var t=n.stateInit,e=void 0===t?function(){return{}}:t,r=n.props,a=void 0===r?{}:r,f=n.methods,l=void 0===f?{}:f,c=n.aliases,s=void 0===c?{}:c,d=n.init,p=void 0===d?function(){}:d,v=n.update,h=void 0===v?function(){}:v,y=Object.keys(a).map(function(n){return new u(n,a[n])});return function(){var n=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},t=Object.assign({},e instanceof Function?e(n):e,{initialised:!1});function r(t){return u(t,n),a(),r}var u=function(n,e){p.call(r,n,t,e),t.initialised=!0},a=(0,o.default)(function(){t.initialised&&h.call(r,t)},1);return y.forEach(function(n){r[n.name]=function(n){var e=arguments.length>1&&void 0!==arguments[1]&&arguments[1],o=arguments.length>2&&void 0!==arguments[2]?arguments[2]:function(n,t){};return function(i){return arguments.length?(t[n]=i,o.call(r,i,t),e&&a(),r):t[n]}}(n.name,n.triggerUpdate,n.onChange)}),Object.keys(l).forEach(function(n){r[n]=function(){for(var e,o=arguments.length,i=Array(o),u=0;u<o;u++)i[u]=arguments[u];return(e=l[n]).call.apply(e,[r,t].concat(i))}}),Object.entries(s).forEach(function(n){var t=i(n,2),e=t[0],o=t[1];return r[e]=r[o]}),r.resetProps=function(){return y.forEach(function(n){r[n.name](n.defaultVal)}),r},r.resetProps(),t._rerender=a,r}};var r,o=(r=e,r&&r.__esModule?r:{default:r});var i=function(){return function(n,t){if(Array.isArray(n))return n;if(Symbol.iterator in Object(n))return function(n,t){var e=[],r=!0,o=!1,i=void 0;try{for(var u,a=n[Symbol.iterator]();!(r=(u=a.next()).done)&&(e.push(u.value),!t||e.length!==t);r=!0);}catch(n){o=!0,i=n}finally{try{!r&&a.return&&a.return()}finally{if(o)throw i}}return e}(n,t);throw new TypeError("Invalid attempt to destructure non-iterable instance")}}();var u=function n(t,e){var r=e.default,o=void 0===r?null:r,i=e.triggerUpdate,u=void 0===i||i,a=e.onChange,f=void 0===a?function(n,t){}:a;!function(n,t){if(!(n instanceof t))throw new TypeError("Cannot call a class as a function")}(this,n),this.name=t,this.defaultVal=o,this.triggerUpdate=u,this.onChange=f};n.exports=t.default},o=[n,t,e(1)],void 0===(i="function"==typeof(r=u)?r.apply(t,o):r)||(n.exports=i);var u},function(n,t){n.exports=function(n,t,e){var r,o,i,u,a;null==t&&(t=100);function f(){var l=Date.now()-u;l<t&&l>=0?r=setTimeout(f,t-l):(r=null,e||(a=n.apply(i,o),i=o=null))}var l=function(){i=this,o=arguments,u=Date.now();var l=e&&!r;return r||(r=setTimeout(f,t)),l&&(a=n.apply(i,o),i=o=null),a};return l.clear=function(){r&&(clearTimeout(r),r=null)},l.flush=function(){r&&(a=n.apply(i,o),i=o=null,clearTimeout(r),r=null)},l}}])});
 
 /***/ })
 /******/ ]);

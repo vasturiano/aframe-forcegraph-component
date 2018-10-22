@@ -22,6 +22,8 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | nodes                | List of node objects. *Example*: ```[{"id": 1, "name": "first"}, {"id": 2, "name": "second"}]```                           | []            |
 | links                | List of link objects. *Example*: ```[{"source": 1, "target": 2}]```                                                        | []            |
 | num-dimensions       | Number of dimensions to run the force simulation on (1, 2 or 3).                                                           | 3             |
+| dag-mode             | Apply layout constraints based on the graph directionality. Only works for [DAG](https://en.wikipedia.org/wiki/Directed_acyclic_graph) graph structures (without cycles). Choice between `td` (top-down), `bu` (bottom-up), `lr` (left-to-right), `rl` (right-to-left), `zout` (near-to-far), `zin` (far-to-near), `radialout` (outwards-radially) or `radialin` (inwards-radially). | |
+| dag-level-distance   | If `dag-mode` is engaged, this specifies the distance between the different graph depths.                                  | *auto-derived from the number of nodes* |
 | node-rel-size        | Node sphere volume per value unit.                                                                                         | 4             |
 | node-id              | Node object accessor attribute for unique node id (used in link objects source/target).                                    | id            |
 | node-label           | Node object accessor function or attribute for name (shown in label).                                                      | name          |
