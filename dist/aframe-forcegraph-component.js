@@ -130,6 +130,21 @@
 	    onEngineStop: {parse: parseFn, default: function() {}}
 	  },
 
+	  // Bind component methods
+	  d3Force: function() {
+	    if (!this.forceGraph) {
+	      // Got here before component init -> initialize forceGraph
+	      this.forceGraph = new ThreeForceGraph();
+	    }
+
+	    const forceGraph = this.forceGraph;
+	    const returnVal = forceGraph.d3Force.apply(forceGraph, arguments);
+
+	    return returnVal === forceGraph
+	      ? this // return self, not the inner forcegraph component
+	      : returnVal;
+	  },
+
 	  init: function () {
 	    var state = this.state = {}; // Internal state
 
@@ -173,9 +188,10 @@
 	    });
 
 	    // setup FG object
-	    this.el.object3D.add(state.forceGraph = new ThreeForceGraph());
+	    if (!this.forceGraph) this.forceGraph = new ThreeForceGraph(); // initialize forceGraph if it doesn't exist yet
+	    this.el.object3D.add(this.forceGraph);
 
-	    state.forceGraph
+	    this.forceGraph
 	      .onLoading(function() {
 	        state.infoEl.setAttribute('value', 'Loading...'); // Add loading msg
 	      })
@@ -242,10 +258,10 @@
 
 	    fgProps
 	      .filter(function(p) { return p in diff; })
-	      .forEach(function(p) { comp.state.forceGraph[p](elData[p] !== '' ? elData[p] : null); }); // Convert blank values into nulls
+	      .forEach(function(p) { comp.forceGraph[p](elData[p] !== '' ? elData[p] : null); }); // Convert blank values into nulls
 
 	    if ('nodes' in diff || 'links' in diff) {
-	      comp.state.forceGraph.graphData({
+	      comp.forceGraph.graphData({
 	        nodes: elData.nodes,
 	        links: elData.links
 	      });
@@ -261,7 +277,7 @@
 	      this.state.cameraObj
 	    );
 
-	    var intersects = centerRaycaster.intersectObjects(this.state.forceGraph.children)
+	    var intersects = centerRaycaster.intersectObjects(this.forceGraph.children)
 	      .filter(function(o) { // Check only node/link objects
 	        return ['node', 'link'].indexOf(o.object.__graphObjType) !== -1;
 	      })
@@ -293,7 +309,7 @@
 	    }
 
 	    // Run force-graph ticker
-	    this.state.forceGraph.tickFrame();
+	    this.forceGraph.tickFrame();
 	  }
 	});
 
