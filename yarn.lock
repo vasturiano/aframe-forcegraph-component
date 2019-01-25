@@ -1671,10 +1671,10 @@ d3-dispatch@1:
   resolved "https://registry.yarnpkg.com/d3-dispatch/-/d3-dispatch-1.0.5.tgz#e25c10a186517cd6c82dd19ea018f07e01e39015"
   integrity sha512-vwKx+lAqB1UuCeklr6Jh1bvC4SZgbSqbkGBLClItFBIYH4vqDJCA7qfoy14lXmJdnBOdxndAMxjCbImJYW7e6g==
 
-d3-force-3d@^2.0.0:
-  version "2.0.0"
-  resolved "https://registry.yarnpkg.com/d3-force-3d/-/d3-force-3d-2.0.0.tgz#ff7c06ad20b205436d8ef7ac463aee3ff4b3b22a"
-  integrity sha512-he4jap4vs3QBXgkOwk45/mnTOsGNZrEVEaWgtIaC1zyTYYKx26/OjwjcF7x1XgQsmyqVAJj6Mjt1dJlRgzzWCQ==
+d3-force-3d@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/d3-force-3d/-/d3-force-3d-2.0.1.tgz#bf01a4361ed63f06b539ecc40e609988ff83f2e4"
+  integrity sha512-xRrmxNfVsy509qp6gwp3Bk1EDhbuFXmhajI1Egv/dZtwDj0t1tmdrp8w7nLqN1KPrOJKzMNTOhYT20W5CAjKeA==
   dependencies:
     d3-binarytree "~0.1"
     d3-dispatch "1"
@@ -1739,7 +1739,7 @@ debug-log@^1.0.0:
   resolved "https://registry.yarnpkg.com/debug-log/-/debug-log-1.0.1.tgz#2307632d4c04382b8df8a32f70b895046d52745f"
   integrity sha1-IwdjLUwEOCuN+KMvcLiVBG1SdF8=
 
-debug@2.2.0, "debug@github:ngokevin/debug#noTimestamp", debug@~2.2.0:
+debug@2.2.0, debug@ngokevin/debug#noTimestamp, debug@~2.2.0:
   version "2.2.0"
   resolved "https://codeload.github.com/ngokevin/debug/tar.gz/ef5f8e66d49ce8bc64c6f282c15f8b7164409e3a"
 
@@ -1984,7 +1984,7 @@ doctrine@^1.2.1, doctrine@^1.2.2:
     esutils "^2.0.2"
     isarray "^1.0.0"
 
-"document-register-element@github:dmarcos/document-register-element#8ccc532b7":
+document-register-element@dmarcos/document-register-element#8ccc532b7:
   version "0.5.4"
   resolved "https://codeload.github.com/dmarcos/document-register-element/tar.gz/8ccc532b7f3744be954574caf3072a5fd260ca90"
 
@@ -6882,13 +6882,13 @@ three-buffer-vertex-data@^1.0.0:
   dependencies:
     flatten-vertex-data "^1.0.0"
 
-three-forcegraph@^1.16.3:
-  version "1.16.3"
-  resolved "https://registry.yarnpkg.com/three-forcegraph/-/three-forcegraph-1.16.3.tgz#9fef234407df62c31c62fd83dbd833c7dd53d9fb"
-  integrity sha512-qWWdrpvGAw8V7u0RH44cokh/6qwYq5B37psjyhOB3gq/T5Oc4tkc1f97kIY15sm/41jTuZ4iUqgPSeP4McvAXA==
+three-forcegraph@^1.17.1:
+  version "1.17.1"
+  resolved "https://registry.yarnpkg.com/three-forcegraph/-/three-forcegraph-1.17.1.tgz#164aa88fc89c22d6cd16076eeefcdf4177218253"
+  integrity sha512-D/KDiQVRLbS65MrIntalIAx8LTHYxAXlJjBH7nbwaJzd3jjcBCs/LNa6L6bk5TZbQmNfgiw5CtsXZON3gvCDCA==
   dependencies:
     accessor-fn "^1.2.2"
-    d3-force-3d "^2.0.0"
+    d3-force-3d "^2.0.1"
     d3-scale-chromatic "^1.3.3"
     kapsule "^1.9.2"
     ngraph.forcelayout "^0.5.0"

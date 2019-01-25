@@ -63,6 +63,8 @@ AFRAME.registerComponent('forcegraph', {
     linkCurvature: {parse: parseAccessor, default: 0},
     linkCurveRotation: {parse: parseAccessor, default: 0},
     linkMaterial: {parse: parseAccessor, default: null},
+    linkThreeObject: {parse: parseAccessor, default: null},
+    linkPositionUpdate: {parse: parseFn, default: null},
     linkDirectionalArrowLength: {parse: parseAccessor, default: 0},
     linkDirectionalArrowColor: {parse: parseAccessor, default: null},
     linkDirectionalArrowRelPos: {parse: parseAccessor,  default: 0.5}, // value between 0<>1 indicating the relative pos along the (exposed) line
@@ -191,6 +193,8 @@ AFRAME.registerComponent('forcegraph', {
       'linkCurvature',
       'linkCurveRotation',
       'linkMaterial',
+      'linkThreeObject',
+      'linkPositionUpdate',
       'linkDirectionalArrowLength',
       'linkDirectionalArrowColor',
       'linkDirectionalArrowRelPos',

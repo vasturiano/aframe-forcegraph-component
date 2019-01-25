@@ -109,6 +109,8 @@
 	    linkCurvature: {parse: parseAccessor, default: 0},
 	    linkCurveRotation: {parse: parseAccessor, default: 0},
 	    linkMaterial: {parse: parseAccessor, default: null},
+	    linkThreeObject: {parse: parseAccessor, default: null},
+	    linkPositionUpdate: {parse: parseFn, default: null},
 	    linkDirectionalArrowLength: {parse: parseAccessor, default: 0},
 	    linkDirectionalArrowColor: {parse: parseAccessor, default: null},
 	    linkDirectionalArrowRelPos: {parse: parseAccessor,  default: 0.5}, // value between 0<>1 indicating the relative pos along the (exposed) line
@@ -237,6 +239,8 @@
 	      'linkCurvature',
 	      'linkCurveRotation',
 	      'linkMaterial',
+	      'linkThreeObject',
+	      'linkPositionUpdate',
 	      'linkDirectionalArrowLength',
 	      'linkDirectionalArrowColor',
 	      'linkDirectionalArrowRelPos',
@@ -718,6 +722,15 @@
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
+	    linkThreeObject: {
+	      onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    linkPositionUpdate: {
+	      triggerUpdate: false
+	    },
+	    // custom function to call for updating the link's position. Signature: (threeObj, { start: { x, y, z},  end: { x, y, z }}, link). If the function returns a truthy value, the regular link position update will not run.
 	    linkDirectionalArrowLength: {
 	      default: 0,
 	      onChange: function onChange(_, state) {
@@ -894,6 +907,22 @@
 	          var end = pos[isD3Sim ? 'target' : 'to'];
 	          if (!start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
 
+	          if (state.linkPositionUpdate && state.linkPositionUpdate(line, {
+	            start: {
+	              x: start.x,
+	              y: start.y,
+	              z: start.z
+	            },
+	            end: {
+	              x: end.x,
+	              y: end.y,
+	              z: end.z
+	            }
+	          }, link)) {
+	            // exit if successfully custom updated position
+	            return;
+	          }
+
 	          link.__curve = null; // Wipe curve ref from object
 
 	          if (line.type === 'Line') {
@@ -946,7 +975,7 @@
 	            }
 
 	            line.geometry.computeBoundingSphere();
-	          } else {
+	          } else if (line.type === 'Mesh') {
 	            // Update cylinder geometry
 	            // links with width ignore linkCurvature because TubeGeometries can't be updated
 	            var _vStart = new three$1.Vector3(start.x, start.y || 0, start.z || 0);
@@ -1160,6 +1189,7 @@
 
 	        state.graphScene.add(node.__threeObj = obj);
 	      });
+	      var customLinkObjectAccessor = accessorFn(state.linkThreeObject);
 	      var customLinkMaterialAccessor = accessorFn(state.linkMaterial);
 	      var linkVisibilityAccessor = accessorFn(state.linkVisibility);
 	      var linkColorAccessor = accessorFn(state.linkColor);
@@ -1182,54 +1212,67 @@
 	          // Exclude non-visible links
 	          link.__lineObj = link.__arrowObj = link.__photonObjs = null;
 	          return;
-	        } // Add line
-
+	        }
 
 	        var color = linkColorAccessor(link);
-	        var linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
-	        var useCylinder = !!linkWidth;
-	        var geometry;
+	        var customObj = customLinkObjectAccessor(link);
+	        var lineObj;
 
-	        if (useCylinder) {
-	          if (!cylinderGeometries.hasOwnProperty(linkWidth)) {
-	            var r = linkWidth / 2;
-	            geometry = new three$1.CylinderGeometry(r, r, 1, state.linkResolution, 1, false);
-	            geometry.applyMatrix(new three$1.Matrix4().makeTranslation(0, 1 / 2, 0));
-	            geometry.applyMatrix(new three$1.Matrix4().makeRotationX(Math.PI / 2));
-	            cylinderGeometries[linkWidth] = geometry;
+	        if (customObj) {
+	          lineObj = customObj;
+
+	          if (state.linkThreeObject === lineObj) {
+	            // clone object if it's a shared object among all links
+	            lineObj = lineObj.clone();
 	          }
-
-	          geometry = cylinderGeometries[linkWidth];
 	        } else {
-	          // Use plain line (constant width)
-	          geometry = new three$1.BufferGeometry();
-	        }
+	          // Add default line object
+	          var linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
+	          var useCylinder = !!linkWidth;
+	          var geometry;
 
-	        var lineMaterial = customLinkMaterialAccessor(link);
+	          if (useCylinder) {
+	            if (!cylinderGeometries.hasOwnProperty(linkWidth)) {
+	              var r = linkWidth / 2;
+	              geometry = new three$1.CylinderGeometry(r, r, 1, state.linkResolution, 1, false);
+	              geometry.applyMatrix(new three$1.Matrix4().makeTranslation(0, 1 / 2, 0));
+	              geometry.applyMatrix(new three$1.Matrix4().makeRotationX(Math.PI / 2));
+	              cylinderGeometries[linkWidth] = geometry;
+	            }
 
-	        if (!lineMaterial) {
-	          if (!lineMaterials.hasOwnProperty(color)) {
-	            var lineOpacity = state.linkOpacity * colorAlpha(color);
-	            lineMaterials[color] = new three$1.MeshLambertMaterial({
-	              color: colorStr2Hex(color || '#f0f0f0'),
-	              transparent: lineOpacity < 1,
-	              opacity: lineOpacity,
-	              depthWrite: lineOpacity >= 1 // Prevent transparency issues
-
-	            });
+	            geometry = cylinderGeometries[linkWidth];
+	          } else {
+	            // Use plain line (constant width)
+	            geometry = new three$1.BufferGeometry();
 	          }
 
-	          lineMaterial = lineMaterials[color];
+	          var lineMaterial = customLinkMaterialAccessor(link);
+
+	          if (!lineMaterial) {
+	            if (!lineMaterials.hasOwnProperty(color)) {
+	              var lineOpacity = state.linkOpacity * colorAlpha(color);
+	              lineMaterials[color] = new three$1.MeshLambertMaterial({
+	                color: colorStr2Hex(color || '#f0f0f0'),
+	                transparent: lineOpacity < 1,
+	                opacity: lineOpacity,
+	                depthWrite: lineOpacity >= 1 // Prevent transparency issues
+
+	              });
+	            }
+
+	            lineMaterial = lineMaterials[color];
+	          }
+
+	          lineObj = new three$1[useCylinder ? 'Mesh' : 'Line'](geometry, lineMaterial);
 	        }
 
-	        var line = new three$1[useCylinder ? 'Mesh' : 'Line'](geometry, lineMaterial);
-	        line.renderOrder = 10; // Prevent visual glitches of dark lines on top of nodes by rendering them last
+	        lineObj.renderOrder = 10; // Prevent visual glitches of dark lines on top of nodes by rendering them last
 
-	        line.__graphObjType = 'link'; // Add object type
+	        lineObj.__graphObjType = 'link'; // Add object type
 
-	        line.__data = link; // Attach link data
+	        lineObj.__data = link; // Attach link data
 
-	        state.graphScene.add(link.__lineObj = line); // Add arrow
+	        state.graphScene.add(link.__lineObj = lineObj); // Add arrow
 
 	        var arrowLength = linkArrowLengthAccessor(link);
 
@@ -1418,7 +1461,7 @@
 /* 4 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://github.com/vasturiano/d3-force-3d v2.0.0 Copyright 2018 Vasco Asturiano
+	// https://github.com/vasturiano/d3-force-3d v2.0.1 Copyright 2018 Vasco Asturiano
 	(function (global, factory) {
 	 true ? factory(exports, __webpack_require__(5), __webpack_require__(6), __webpack_require__(7), __webpack_require__(8), __webpack_require__(9)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-binarytree', 'd3-quadtree', 'd3-octree', 'd3-dispatch', 'd3-timer'], factory) :
