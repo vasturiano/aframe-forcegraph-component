@@ -101,6 +101,11 @@ AFRAME.registerComponent('forcegraph', {
       : returnVal;
   },
 
+  refresh: function() {
+    this.forceGraph && this.forceGraph.refresh();
+    return this;
+  },
+
   init: function () {
     var state = this.state = {}; // Internal state
 

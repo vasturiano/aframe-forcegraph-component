@@ -147,6 +147,11 @@
 	      : returnVal;
 	  },
 
+	  refresh: function() {
+	    this.forceGraph && this.forceGraph.refresh();
+	    return this;
+	  },
+
 	  init: function () {
 	    var state = this.state = {}; // Internal state
 
@@ -332,7 +337,7 @@
 
 	function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-	var three = __webpack_require__(3);
+	var three$1 = __webpack_require__(3);
 	var d3Force3d = __webpack_require__(4);
 	var graph = _interopDefault(__webpack_require__(10));
 	var forcelayout = _interopDefault(__webpack_require__(12));
@@ -391,6 +396,36 @@
 	  };
 
 	  return _setPrototypeOf(o, p);
+	}
+
+	function isNativeReflectConstruct() {
+	  if (typeof Reflect === "undefined" || !Reflect.construct) return false;
+	  if (Reflect.construct.sham) return false;
+	  if (typeof Proxy === "function") return true;
+
+	  try {
+	    Date.prototype.toString.call(Reflect.construct(Date, [], function () {}));
+	    return true;
+	  } catch (e) {
+	    return false;
+	  }
+	}
+
+	function _construct(Parent, args, Class) {
+	  if (isNativeReflectConstruct()) {
+	    _construct = Reflect.construct;
+	  } else {
+	    _construct = function _construct(Parent, args, Class) {
+	      var a = [null];
+	      a.push.apply(a, args);
+	      var Constructor = Function.bind.apply(Parent, a);
+	      var instance = new Constructor();
+	      if (Class) _setPrototypeOf(instance, Class.prototype);
+	      return instance;
+	    };
+	  }
+
+	  return _construct.apply(null, arguments);
 	}
 
 	function _assertThisInitialized(self) {
@@ -463,9 +498,9 @@
 	  var nodes = _ref.nodes,
 	      links = _ref.links;
 	  // linked graph
-	  var graph$$1 = {};
+	  var graph = {};
 	  nodes.forEach(function (node) {
-	    return graph$$1[idAccessor(node)] = {
+	    return graph[idAccessor(node)] = {
 	      data: node,
 	      out: [],
 	      depth: -1
@@ -476,22 +511,22 @@
 	        target = _ref2.target;
 	    var sourceId = getNodeId(source);
 	    var targetId = getNodeId(target);
-	    if (!graph$$1.hasOwnProperty(sourceId)) throw "Missing source node with id: ".concat(sourceId);
-	    if (!graph$$1.hasOwnProperty(targetId)) throw "Missing target node with id: ".concat(targetId);
-	    var sourceNode = graph$$1[sourceId];
-	    var targetNode = graph$$1[targetId];
+	    if (!graph.hasOwnProperty(sourceId)) throw "Missing source node with id: ".concat(sourceId);
+	    if (!graph.hasOwnProperty(targetId)) throw "Missing target node with id: ".concat(targetId);
+	    var sourceNode = graph[sourceId];
+	    var targetNode = graph[targetId];
 	    sourceNode.out.push(targetNode);
 
 	    function getNodeId(node) {
 	      return _typeof(node) === 'object' ? idAccessor(node) : node;
 	    }
 	  });
-	  traverse(Object.values(graph$$1)); // cleanup
+	  traverse(Object.values(graph)); // cleanup
 
-	  Object.keys(graph$$1).forEach(function (id) {
-	    return graph$$1[id] = graph$$1[id].depth;
+	  Object.keys(graph).forEach(function (id) {
+	    return graph[id] = graph[id].depth;
 	  });
-	  return graph$$1;
+	  return graph;
 
 	  function traverse(nodes) {
 	    var nodeStack = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
@@ -501,7 +536,10 @@
 	      var node = nodes[i];
 
 	      if (nodeStack.indexOf(node) !== -1) {
-	        throw "Invalid DAG structure! Found cycle from node ".concat(idAccessor(nodeStack[nodeStack.length - 1].data), " to ").concat(idAccessor(node.data));
+	        var loop = [].concat(_toConsumableArray(nodeStack.slice(nodeStack.indexOf(node))), [node]).map(function (d) {
+	          return idAccessor(d.data);
+	        });
+	        throw "Invalid DAG structure! Found cycle in node path: ".concat(loop.join(' -> '), ".");
 	      }
 
 	      if (currentDepth > node.depth) {
@@ -513,21 +551,21 @@
 	  }
 	}
 
-	var three$1 = window.THREE ? window.THREE // Prefer consumption from global THREE, if exists
+	var three = window.THREE ? window.THREE // Prefer consumption from global THREE, if exists
 	: {
-	  Mesh: three.Mesh,
-	  MeshLambertMaterial: three.MeshLambertMaterial,
-	  BufferGeometry: three.BufferGeometry,
-	  BufferAttribute: three.BufferAttribute,
-	  Matrix4: three.Matrix4,
-	  Vector3: three.Vector3,
-	  SphereGeometry: three.SphereGeometry,
-	  CylinderGeometry: three.CylinderGeometry,
-	  ConeGeometry: three.ConeGeometry,
-	  Line: three.Line,
-	  LineBasicMaterial: three.LineBasicMaterial,
-	  QuadraticBezierCurve3: three.QuadraticBezierCurve3,
-	  CubicBezierCurve3: three.CubicBezierCurve3
+	  Mesh: three$1.Mesh,
+	  MeshLambertMaterial: three$1.MeshLambertMaterial,
+	  BufferGeometry: three$1.BufferGeometry,
+	  BufferAttribute: three$1.BufferAttribute,
+	  Matrix4: three$1.Matrix4,
+	  Vector3: three$1.Vector3,
+	  SphereGeometry: three$1.SphereGeometry,
+	  CylinderGeometry: three$1.CylinderGeometry,
+	  ConeGeometry: three$1.ConeGeometry,
+	  Line: three$1.Line,
+	  LineBasicMaterial: three$1.LineBasicMaterial,
+	  QuadraticBezierCurve3: three$1.QuadraticBezierCurve3,
+	  CubicBezierCurve3: three$1.CubicBezierCurve3
 	};
 	var ngraph = {
 	  graph: graph,
@@ -558,7 +596,7 @@
 	      triggerUpdate: false
 	    },
 	    graphData: {
-	      default: {
+	      "default": {
 	        nodes: [],
 	        links: []
 	      },
@@ -574,7 +612,7 @@
 	      }
 	    },
 	    numDimensions: {
-	      default: 3,
+	      "default": 3,
 	      onChange: function onChange(numDim, state) {
 	        state.simulationNeedsReheating = true;
 	        var chargeForce = state.d3ForceLayout.force('charge'); // Increase repulsion on 3D mode for improved spatial separation
@@ -601,44 +639,48 @@
 	      }
 	    },
 	    dagMode: {
-	      onChange: function onChange(_, state) {
+	      onChange: function onChange(dagMode, state) {
+	        // td, bu, lr, rl, zin, zout, radialin, radialout
+	        !dagMode && state.forceEngine === 'd3' && (state.graphData.nodes || []).forEach(function (n) {
+	          return n.fx = n.fy = n.fz = undefined;
+	        }); // unfix nodes when disabling dag mode
+
 	        state.simulationNeedsReheating = true;
 	      }
 	    },
-	    // td, bu, lr, rl, zin, zout, radialin, radialout
 	    dagLevelDistance: {
 	      onChange: function onChange(_, state) {
 	        state.simulationNeedsReheating = true;
 	      }
 	    },
 	    nodeRelSize: {
-	      default: 4,
+	      "default": 4,
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
 	    // volume per val unit
 	    nodeId: {
-	      default: 'id',
+	      "default": 'id',
 	      onChange: function onChange(_, state) {
 	        state.simulationNeedsReheating = true;
 	      }
 	    },
 	    nodeVal: {
-	      default: 'val',
+	      "default": 'val',
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
 	    nodeResolution: {
-	      default: 8,
+	      "default": 8,
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
 	    // how many slice segments in the sphere's circumference
 	    nodeColor: {
-	      default: 'color',
+	      "default": 'color',
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
@@ -649,7 +691,7 @@
 	      }
 	    },
 	    nodeOpacity: {
-	      default: 0.75,
+	      "default": 0.75,
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
@@ -660,25 +702,25 @@
 	      }
 	    },
 	    linkSource: {
-	      default: 'source',
+	      "default": 'source',
 	      onChange: function onChange(_, state) {
 	        state.simulationNeedsReheating = true;
 	      }
 	    },
 	    linkTarget: {
-	      default: 'target',
+	      "default": 'target',
 	      onChange: function onChange(_, state) {
 	        state.simulationNeedsReheating = true;
 	      }
 	    },
 	    linkVisibility: {
-	      default: true,
+	      "default": true,
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
 	    linkColor: {
-	      default: 'color',
+	      "default": 'color',
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
@@ -689,7 +731,7 @@
 	      }
 	    },
 	    linkOpacity: {
-	      default: 0.2,
+	      "default": 0.2,
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
@@ -701,19 +743,19 @@
 	    },
 	    // Rounded to nearest decimal. For falsy values use dimensionless line with 1px regardless of distance.
 	    linkResolution: {
-	      default: 6,
+	      "default": 6,
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
 	    // how many radial segments in each line tube's geometry
 	    linkCurvature: {
-	      default: 0,
+	      "default": 0,
 	      triggerUpdate: false
 	    },
 	    // line curvature radius (0: straight, 1: semi-circle)
 	    linkCurveRotation: {
-	      default: 0,
+	      "default": 0,
 	      triggerUpdate: false
 	    },
 	    // line curve rotation along the line axis (0: interection with XY plane, PI: upside down)
@@ -732,7 +774,7 @@
 	    },
 	    // custom function to call for updating the link's position. Signature: (threeObj, { start: { x, y, z},  end: { x, y, z }}, link). If the function returns a truthy value, the regular link position update will not run.
 	    linkDirectionalArrowLength: {
-	      default: 0,
+	      "default": 0,
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
@@ -743,31 +785,31 @@
 	      }
 	    },
 	    linkDirectionalArrowRelPos: {
-	      default: 0.5,
+	      "default": 0.5,
 	      triggerUpdate: false
 	    },
 	    // value between 0<>1 indicating the relative pos along the (exposed) line
 	    linkDirectionalArrowResolution: {
-	      default: 8,
+	      "default": 8,
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
 	    // how many slice segments in the arrow's conic circumference
 	    linkDirectionalParticles: {
-	      default: 0,
+	      "default": 0,
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
 	    // animate photons travelling in the link direction
 	    linkDirectionalParticleSpeed: {
-	      default: 0.01,
+	      "default": 0.01,
 	      triggerUpdate: false
 	    },
 	    // in link length ratio per frame
 	    linkDirectionalParticleWidth: {
-	      default: 0.5,
+	      "default": 0.5,
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
@@ -778,68 +820,68 @@
 	      }
 	    },
 	    linkDirectionalParticleResolution: {
-	      default: 4,
+	      "default": 4,
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
 	    // how many slice segments in the particle sphere's circumference
 	    forceEngine: {
-	      default: 'd3',
+	      "default": 'd3',
 	      onChange: function onChange(_, state) {
 	        state.simulationNeedsReheating = true;
 	      }
 	    },
 	    // d3 or ngraph
 	    d3AlphaDecay: {
-	      default: 0.0228,
+	      "default": 0.0228,
 	      triggerUpdate: false,
 	      onChange: function onChange(alphaDecay, state) {
 	        state.d3ForceLayout.alphaDecay(alphaDecay);
 	      }
 	    },
 	    d3AlphaTarget: {
-	      default: 0,
+	      "default": 0,
 	      triggerUpdate: false,
 	      onChange: function onChange(alphaTarget, state) {
 	        state.d3ForceLayout.alphaTarget(alphaTarget);
 	      }
 	    },
 	    d3VelocityDecay: {
-	      default: 0.4,
+	      "default": 0.4,
 	      triggerUpdate: false,
 	      onChange: function onChange(velocityDecay, state) {
 	        state.d3ForceLayout.velocityDecay(velocityDecay);
 	      }
 	    },
 	    warmupTicks: {
-	      default: 0,
+	      "default": 0,
 	      triggerUpdate: false
 	    },
 	    // how many times to tick the force engine at init before starting to render
 	    cooldownTicks: {
-	      default: Infinity,
+	      "default": Infinity,
 	      triggerUpdate: false
 	    },
 	    cooldownTime: {
-	      default: 15000,
+	      "default": 15000,
 	      triggerUpdate: false
 	    },
 	    // ms
 	    onLoading: {
-	      default: function _default() {},
+	      "default": function _default() {},
 	      triggerUpdate: false
 	    },
 	    onFinishLoading: {
-	      default: function _default() {},
+	      "default": function _default() {},
 	      triggerUpdate: false
 	    },
 	    onEngineTick: {
-	      default: function _default() {},
+	      "default": function _default() {},
 	      triggerUpdate: false
 	    },
 	    onEngineStop: {
-	      default: function _default() {},
+	      "default": function _default() {},
 	      triggerUpdate: false
 	    }
 	  },
@@ -847,6 +889,14 @@
 	    autoColorBy: 'nodeAutoColorBy'
 	  },
 	  methods: {
+	    refresh: function refresh(state) {
+	      state.sceneNeedsRepopulating = true;
+	      state.simulationNeedsReheating = true;
+
+	      state._rerender();
+
+	      return this;
+	    },
 	    // Expose d3 forces for external manipulation
 	    d3Force: function d3Force(state, forceName, forceFn) {
 	      if (forceFn === undefined) {
@@ -934,7 +984,7 @@
 	              var linePos = line.geometry.getAttribute('position');
 
 	              if (!linePos || !linePos.array || linePos.array.length !== 6) {
-	                line.geometry.addAttribute('position', linePos = new three$1.BufferAttribute(new Float32Array(2 * 3), 3));
+	                line.geometry.addAttribute('position', linePos = new three.BufferAttribute(new Float32Array(2 * 3), 3));
 	              }
 
 	              linePos.array[0] = start.x;
@@ -946,8 +996,8 @@
 	              linePos.needsUpdate = true;
 	            } else {
 	              // bezier curve line
-	              var vStart = new three$1.Vector3(start.x, start.y || 0, start.z || 0);
-	              var vEnd = new three$1.Vector3(end.x, end.y || 0, end.z || 0);
+	              var vStart = new three.Vector3(start.x, start.y || 0, start.z || 0);
+	              var vEnd = new three.Vector3(end.x, end.y || 0, end.z || 0);
 	              var l = vStart.distanceTo(vEnd); // line length
 
 	              var curve;
@@ -956,18 +1006,18 @@
 	              if (l > 0) {
 	                var dx = end.x - start.x;
 	                var dy = end.y - start.y || 0;
-	                var vLine = new three$1.Vector3().subVectors(vEnd, vStart);
-	                var cp = vLine.clone().multiplyScalar(curvature).cross(dx !== 0 || dy !== 0 ? new three$1.Vector3(0, 0, 1) : new three$1.Vector3(0, 1, 0)) // avoid cross-product of parallel vectors (prefer Z, fallback to Y)
+	                var vLine = new three.Vector3().subVectors(vEnd, vStart);
+	                var cp = vLine.clone().multiplyScalar(curvature).cross(dx !== 0 || dy !== 0 ? new three.Vector3(0, 0, 1) : new three.Vector3(0, 1, 0)) // avoid cross-product of parallel vectors (prefer Z, fallback to Y)
 	                .applyAxisAngle(vLine.normalize(), curveRotation) // rotate along line axis according to linkCurveRotation
-	                .add(new three$1.Vector3().addVectors(vStart, vEnd).divideScalar(2));
-	                curve = new three$1.QuadraticBezierCurve3(vStart, cp, vEnd);
+	                .add(new three.Vector3().addVectors(vStart, vEnd).divideScalar(2));
+	                curve = new three.QuadraticBezierCurve3(vStart, cp, vEnd);
 	              } else {
 	                // Same point, draw a loop
 	                var d = curvature * 70;
 	                var endAngle = -curveRotation; // Rotate clockwise (from Z angle perspective)
 
 	                var startAngle = endAngle + Math.PI / 2;
-	                curve = new three$1.CubicBezierCurve3(vStart, new three$1.Vector3(d * Math.cos(startAngle), d * Math.sin(startAngle), 0).add(vStart), new three$1.Vector3(d * Math.cos(endAngle), d * Math.sin(endAngle), 0).add(vStart), vEnd);
+	                curve = new three.CubicBezierCurve3(vStart, new three.Vector3(d * Math.cos(startAngle), d * Math.sin(startAngle), 0).add(vStart), new three.Vector3(d * Math.cos(endAngle), d * Math.sin(endAngle), 0).add(vStart), vEnd);
 	              }
 
 	              line.geometry.setFromPoints(curve.getPoints(curveResolution));
@@ -978,17 +1028,19 @@
 	          } else if (line.type === 'Mesh') {
 	            // Update cylinder geometry
 	            // links with width ignore linkCurvature because TubeGeometries can't be updated
-	            var _vStart = new three$1.Vector3(start.x, start.y || 0, start.z || 0);
+	            var _vStart = new three.Vector3(start.x, start.y || 0, start.z || 0);
 
-	            var _vEnd = new three$1.Vector3(end.x, end.y || 0, end.z || 0);
+	            var _vEnd = new three.Vector3(end.x, end.y || 0, end.z || 0);
 
 	            var distance = _vStart.distanceTo(_vEnd);
 
 	            line.position.x = _vStart.x;
 	            line.position.y = _vStart.y;
 	            line.position.z = _vStart.z;
-	            line.lookAt(_vEnd);
 	            line.scale.z = distance;
+	            line.parent.localToWorld(_vEnd); // lookAt requires world coords
+
+	            line.lookAt(_vEnd);
 	          }
 	        });
 	      }
@@ -1036,7 +1088,14 @@
 	          ['x', 'y', 'z'].forEach(function (dim) {
 	            return arrowObj.position[dim] = arrowTail[dim];
 	          });
-	          arrowObj.lookAt(arrowHead.x, arrowHead.y, arrowHead.z);
+
+	          var headVec = _construct(THREE.Vector3, _toConsumableArray(['x', 'y', 'z'].map(function (c) {
+	            return arrowHead[c];
+	          })));
+
+	          arrowObj.parent.localToWorld(headVec); // lookAt requires world coords
+
+	          arrowObj.lookAt(headVec);
 	        });
 	      }
 
@@ -1167,20 +1226,20 @@
 	          var val = valAccessor(node) || 1;
 
 	          if (!sphereGeometries.hasOwnProperty(val)) {
-	            sphereGeometries[val] = new three$1.SphereGeometry(Math.cbrt(val) * state.nodeRelSize, state.nodeResolution, state.nodeResolution);
+	            sphereGeometries[val] = new three.SphereGeometry(Math.cbrt(val) * state.nodeRelSize, state.nodeResolution, state.nodeResolution);
 	          }
 
 	          var color = colorAccessor(node);
 
 	          if (!sphereMaterials.hasOwnProperty(color)) {
-	            sphereMaterials[color] = new three$1.MeshLambertMaterial({
+	            sphereMaterials[color] = new three.MeshLambertMaterial({
 	              color: colorStr2Hex(color || '#ffffaa'),
 	              transparent: true,
 	              opacity: state.nodeOpacity * colorAlpha(color)
 	            });
 	          }
 
-	          obj = new three$1.Mesh(sphereGeometries[val], sphereMaterials[color]);
+	          obj = new three.Mesh(sphereGeometries[val], sphereMaterials[color]);
 	        }
 
 	        obj.__graphObjType = 'node'; // Add object type
@@ -1234,16 +1293,16 @@
 	          if (useCylinder) {
 	            if (!cylinderGeometries.hasOwnProperty(linkWidth)) {
 	              var r = linkWidth / 2;
-	              geometry = new three$1.CylinderGeometry(r, r, 1, state.linkResolution, 1, false);
-	              geometry.applyMatrix(new three$1.Matrix4().makeTranslation(0, 1 / 2, 0));
-	              geometry.applyMatrix(new three$1.Matrix4().makeRotationX(Math.PI / 2));
+	              geometry = new three.CylinderGeometry(r, r, 1, state.linkResolution, 1, false);
+	              geometry.applyMatrix(new three.Matrix4().makeTranslation(0, 1 / 2, 0));
+	              geometry.applyMatrix(new three.Matrix4().makeRotationX(Math.PI / 2));
 	              cylinderGeometries[linkWidth] = geometry;
 	            }
 
 	            geometry = cylinderGeometries[linkWidth];
 	          } else {
 	            // Use plain line (constant width)
-	            geometry = new three$1.BufferGeometry();
+	            geometry = new three.BufferGeometry();
 	          }
 
 	          var lineMaterial = customLinkMaterialAccessor(link);
@@ -1251,7 +1310,7 @@
 	          if (!lineMaterial) {
 	            if (!lineMaterials.hasOwnProperty(color)) {
 	              var lineOpacity = state.linkOpacity * colorAlpha(color);
-	              lineMaterials[color] = new three$1.MeshLambertMaterial({
+	              lineMaterials[color] = new three.MeshLambertMaterial({
 	                color: colorStr2Hex(color || '#f0f0f0'),
 	                transparent: lineOpacity < 1,
 	                opacity: lineOpacity,
@@ -1263,7 +1322,7 @@
 	            lineMaterial = lineMaterials[color];
 	          }
 
-	          lineObj = new three$1[useCylinder ? 'Mesh' : 'Line'](geometry, lineMaterial);
+	          lineObj = new three[useCylinder ? 'Mesh' : 'Line'](geometry, lineMaterial);
 	        }
 
 	        lineObj.renderOrder = 10; // Prevent visual glitches of dark lines on top of nodes by rendering them last
@@ -1278,11 +1337,11 @@
 
 	        if (arrowLength && arrowLength > 0) {
 	          var arrowColor = linkArrowColorAccessor(link) || color || '#f0f0f0';
-	          var coneGeometry = new three$1.ConeGeometry(arrowLength * 0.25, arrowLength, state.linkDirectionalArrowResolution); // Correct orientation
+	          var coneGeometry = new three.ConeGeometry(arrowLength * 0.25, arrowLength, state.linkDirectionalArrowResolution); // Correct orientation
 
 	          coneGeometry.translate(0, arrowLength / 2, 0);
 	          coneGeometry.rotateX(Math.PI / 2);
-	          var arrowObj = new three$1.Mesh(coneGeometry, new three$1.MeshLambertMaterial({
+	          var arrowObj = new three.Mesh(coneGeometry, new three.MeshLambertMaterial({
 	            color: colorStr2Hex(arrowColor),
 	            transparent: true,
 	            opacity: state.linkOpacity * 3
@@ -1296,13 +1355,13 @@
 	        var photonColor = linkParticleColorAccessor(link) || color || '#f0f0f0';
 
 	        if (!particleGeometries.hasOwnProperty(photonR)) {
-	          particleGeometries[photonR] = new three$1.SphereGeometry(photonR, state.linkDirectionalParticleResolution, state.linkDirectionalParticleResolution);
+	          particleGeometries[photonR] = new three.SphereGeometry(photonR, state.linkDirectionalParticleResolution, state.linkDirectionalParticleResolution);
 	        }
 
 	        var particleGeometry = particleGeometries[photonR];
 
 	        if (!particleMaterials.hasOwnProperty(photonColor)) {
-	          particleMaterials[photonColor] = new three$1.MeshLambertMaterial({
+	          particleMaterials[photonColor] = new three.MeshLambertMaterial({
 	            color: colorStr2Hex(photonColor),
 	            transparent: true,
 	            opacity: state.linkOpacity * 3
@@ -1312,7 +1371,7 @@
 	        var particleMaterial = particleMaterials[photonColor];
 
 	        var photons = _toConsumableArray(Array(numPhotons)).map(function () {
-	          return new three$1.Mesh(particleGeometry, particleMaterial);
+	          return new three.Mesh(particleGeometry, particleMaterial);
 	        });
 
 	        photons.forEach(function (photon) {
@@ -1425,7 +1484,7 @@
 	      }
 
 	      _this = _possibleConstructorReturn(this, (_getPrototypeOf2 = _getPrototypeOf(FromKapsule)).call.apply(_getPrototypeOf2, [this].concat(args)));
-	      _this.__kapsuleInstance = kapsule().apply(void 0, [].concat(_toConsumableArray(initKapsuleWithSelf ? [_assertThisInitialized(_assertThisInitialized(_this))] : []), args));
+	      _this.__kapsuleInstance = kapsule().apply(void 0, [].concat(_toConsumableArray(initKapsuleWithSelf ? [_assertThisInitialized(_this)] : []), args));
 	      return _this;
 	    }
 
@@ -1446,7 +1505,7 @@
 	  return FromKapsule;
 	}
 
-	var threeForcegraph = fromKapsule(ForceGraph, three.Group, true);
+	var threeForcegraph = fromKapsule(ForceGraph, three$1.Group, true);
 
 	module.exports = threeForcegraph;
 
@@ -8388,7 +8447,7 @@
 /* 52 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	!function(n,t){ true?module.exports=t():"function"==typeof define&&define.amd?define([],t):"object"==typeof exports?exports.Kapsule=t():n.Kapsule=t()}("undefined"!=typeof self?self:this,function(){return function(n){var t={};function e(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return n[r].call(o.exports,o,o.exports,e),o.l=!0,o.exports}return e.m=n,e.c=t,e.d=function(n,t,r){e.o(n,t)||Object.defineProperty(n,t,{configurable:!1,enumerable:!0,get:r})},e.n=function(n){var t=n&&n.__esModule?function(){return n.default}:function(){return n};return e.d(t,"a",t),t},e.o=function(n,t){return Object.prototype.hasOwnProperty.call(n,t)},e.p="",e(e.s=0)}([function(n,t,e){var r,o,i;u=function(n,t,e){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.default=function(n){var t=n.stateInit,e=void 0===t?function(){return{}}:t,r=n.props,a=void 0===r?{}:r,f=n.methods,l=void 0===f?{}:f,c=n.aliases,s=void 0===c?{}:c,d=n.init,p=void 0===d?function(){}:d,v=n.update,h=void 0===v?function(){}:v,y=Object.keys(a).map(function(n){return new u(n,a[n])});return function(){var n=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},t=Object.assign({},e instanceof Function?e(n):e,{initialised:!1});function r(t){return u(t,n),a(),r}var u=function(n,e){p.call(r,n,t,e),t.initialised=!0},a=(0,o.default)(function(){t.initialised&&h.call(r,t)},1);return y.forEach(function(n){r[n.name]=function(n){var e=arguments.length>1&&void 0!==arguments[1]&&arguments[1],o=arguments.length>2&&void 0!==arguments[2]?arguments[2]:function(n,t){};return function(i){return arguments.length?(t[n]=i,o.call(r,i,t),e&&a(),r):t[n]}}(n.name,n.triggerUpdate,n.onChange)}),Object.keys(l).forEach(function(n){r[n]=function(){for(var e,o=arguments.length,i=Array(o),u=0;u<o;u++)i[u]=arguments[u];return(e=l[n]).call.apply(e,[r,t].concat(i))}}),Object.entries(s).forEach(function(n){var t=i(n,2),e=t[0],o=t[1];return r[e]=r[o]}),r.resetProps=function(){return y.forEach(function(n){r[n.name](n.defaultVal)}),r},r.resetProps(),t._rerender=a,r}};var r,o=(r=e,r&&r.__esModule?r:{default:r});var i=function(){return function(n,t){if(Array.isArray(n))return n;if(Symbol.iterator in Object(n))return function(n,t){var e=[],r=!0,o=!1,i=void 0;try{for(var u,a=n[Symbol.iterator]();!(r=(u=a.next()).done)&&(e.push(u.value),!t||e.length!==t);r=!0);}catch(n){o=!0,i=n}finally{try{!r&&a.return&&a.return()}finally{if(o)throw i}}return e}(n,t);throw new TypeError("Invalid attempt to destructure non-iterable instance")}}();var u=function n(t,e){var r=e.default,o=void 0===r?null:r,i=e.triggerUpdate,u=void 0===i||i,a=e.onChange,f=void 0===a?function(n,t){}:a;!function(n,t){if(!(n instanceof t))throw new TypeError("Cannot call a class as a function")}(this,n),this.name=t,this.defaultVal=o,this.triggerUpdate=u,this.onChange=f};n.exports=t.default},o=[n,t,e(1)],void 0===(i="function"==typeof(r=u)?r.apply(t,o):r)||(n.exports=i);var u},function(n,t){n.exports=function(n,t,e){var r,o,i,u,a;null==t&&(t=100);function f(){var l=Date.now()-u;l<t&&l>=0?r=setTimeout(f,t-l):(r=null,e||(a=n.apply(i,o),i=o=null))}var l=function(){i=this,o=arguments,u=Date.now();var l=e&&!r;return r||(r=setTimeout(f,t)),l&&(a=n.apply(i,o),i=o=null),a};return l.clear=function(){r&&(clearTimeout(r),r=null)},l.flush=function(){r&&(a=n.apply(i,o),i=o=null,clearTimeout(r),r=null)},l}}])});
+	!function(n,t){ true?module.exports=t():"function"==typeof define&&define.amd?define([],t):"object"==typeof exports?exports.Kapsule=t():n.Kapsule=t()}("undefined"!=typeof self?self:this,function(){return function(n){var t={};function e(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return n[r].call(o.exports,o,o.exports,e),o.l=!0,o.exports}return e.m=n,e.c=t,e.d=function(n,t,r){e.o(n,t)||Object.defineProperty(n,t,{configurable:!1,enumerable:!0,get:r})},e.n=function(n){var t=n&&n.__esModule?function(){return n.default}:function(){return n};return e.d(t,"a",t),t},e.o=function(n,t){return Object.prototype.hasOwnProperty.call(n,t)},e.p="",e(e.s=0)}([function(n,t,e){var r,o,i;u=function(n,t,e){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.default=function(n){var t=n.stateInit,e=void 0===t?function(){return{}}:t,r=n.props,a=void 0===r?{}:r,f=n.methods,l=void 0===f?{}:f,c=n.aliases,s=void 0===c?{}:c,d=n.init,p=void 0===d?function(){}:d,v=n.update,h=void 0===v?function(){}:v,y=Object.keys(a).map(function(n){return new u(n,a[n])});return function(){var n=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},t=Object.assign({},e instanceof Function?e(n):e,{initialised:!1});function r(t){return u(t,n),a(),r}var u=function(n,e){p.call(r,n,t,e),t.initialised=!0},a=(0,o.default)(function(){t.initialised&&h.call(r,t)},1);return y.forEach(function(n){r[n.name]=function(n){var e=arguments.length>1&&void 0!==arguments[1]&&arguments[1],o=arguments.length>2&&void 0!==arguments[2]?arguments[2]:function(n,t){};return function(i){var u=t[n];return arguments.length?(t[n]=i,o.call(r,i,t,u),e&&a(),r):u}}(n.name,n.triggerUpdate,n.onChange)}),Object.keys(l).forEach(function(n){r[n]=function(){for(var e,o=arguments.length,i=Array(o),u=0;u<o;u++)i[u]=arguments[u];return(e=l[n]).call.apply(e,[r,t].concat(i))}}),Object.entries(s).forEach(function(n){var t=i(n,2),e=t[0],o=t[1];return r[e]=r[o]}),r.resetProps=function(){return y.forEach(function(n){r[n.name](n.defaultVal)}),r},r.resetProps(),t._rerender=a,r}};var r,o=(r=e,r&&r.__esModule?r:{default:r});var i=function(){return function(n,t){if(Array.isArray(n))return n;if(Symbol.iterator in Object(n))return function(n,t){var e=[],r=!0,o=!1,i=void 0;try{for(var u,a=n[Symbol.iterator]();!(r=(u=a.next()).done)&&(e.push(u.value),!t||e.length!==t);r=!0);}catch(n){o=!0,i=n}finally{try{!r&&a.return&&a.return()}finally{if(o)throw i}}return e}(n,t);throw new TypeError("Invalid attempt to destructure non-iterable instance")}}();var u=function n(t,e){var r=e.default,o=void 0===r?null:r,i=e.triggerUpdate,u=void 0===i||i,a=e.onChange,f=void 0===a?function(n,t){}:a;!function(n,t){if(!(n instanceof t))throw new TypeError("Cannot call a class as a function")}(this,n),this.name=t,this.defaultVal=o,this.triggerUpdate=u,this.onChange=f};n.exports=t.default},o=[n,t,e(1)],void 0===(i="function"==typeof(r=u)?r.apply(t,o):r)||(n.exports=i);var u},function(n,t){n.exports=function(n,t,e){var r,o,i,u,a;null==t&&(t=100);function f(){var l=Date.now()-u;l<t&&l>=0?r=setTimeout(f,t-l):(r=null,e||(a=n.apply(i,o),i=o=null))}var l=function(){i=this,o=arguments,u=Date.now();var l=e&&!r;return r||(r=setTimeout(f,t)),l&&(a=n.apply(i,o),i=o=null),a};return l.clear=function(){r&&(clearTimeout(r),r=null)},l.flush=function(){r&&(a=n.apply(i,o),i=o=null,clearTimeout(r),r=null)},l}}])});
 
 /***/ }),
 /* 53 */
