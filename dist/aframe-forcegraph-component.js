@@ -1089,7 +1089,7 @@
 	            return arrowObj.position[dim] = arrowTail[dim];
 	          });
 
-	          var headVec = _construct(THREE.Vector3, _toConsumableArray(['x', 'y', 'z'].map(function (c) {
+	          var headVec = _construct(three.Vector3, _toConsumableArray(['x', 'y', 'z'].map(function (c) {
 	            return arrowHead[c];
 	          })));
 
