@@ -1303,6 +1303,7 @@
 	          } else {
 	            // Use plain line (constant width)
 	            geometry = new three.BufferGeometry();
+	            geometry.addAttribute('position', new three.BufferAttribute(new Float32Array(2 * 3), 3));
 	          }
 
 	          var lineMaterial = customLinkMaterialAccessor(link);
