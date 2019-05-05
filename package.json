@@ -49,7 +49,7 @@
   ],
   "dependencies": {
     "accessor-fn": "^1.2.2",
-    "three-forcegraph": "^1.18.1"
+    "three-forcegraph": "^1.18.2"
   },
   "devDependencies": {
     "aframe": "*",

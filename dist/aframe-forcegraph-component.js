@@ -337,7 +337,7 @@
 
 	function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-	var three$1 = __webpack_require__(3);
+	var three$2 = __webpack_require__(3);
 	var d3Force3d = __webpack_require__(4);
 	var graph = _interopDefault(__webpack_require__(10));
 	var forcelayout = _interopDefault(__webpack_require__(12));
@@ -553,19 +553,19 @@
 
 	var three = window.THREE ? window.THREE // Prefer consumption from global THREE, if exists
 	: {
-	  Mesh: three$1.Mesh,
-	  MeshLambertMaterial: three$1.MeshLambertMaterial,
-	  BufferGeometry: three$1.BufferGeometry,
-	  BufferAttribute: three$1.BufferAttribute,
-	  Matrix4: three$1.Matrix4,
-	  Vector3: three$1.Vector3,
-	  SphereGeometry: three$1.SphereGeometry,
-	  CylinderGeometry: three$1.CylinderGeometry,
-	  ConeGeometry: three$1.ConeGeometry,
-	  Line: three$1.Line,
-	  LineBasicMaterial: three$1.LineBasicMaterial,
-	  QuadraticBezierCurve3: three$1.QuadraticBezierCurve3,
-	  CubicBezierCurve3: three$1.CubicBezierCurve3
+	  Mesh: three$2.Mesh,
+	  MeshLambertMaterial: three$2.MeshLambertMaterial,
+	  BufferGeometry: three$2.BufferGeometry,
+	  BufferAttribute: three$2.BufferAttribute,
+	  Matrix4: three$2.Matrix4,
+	  Vector3: three$2.Vector3,
+	  SphereGeometry: three$2.SphereGeometry,
+	  CylinderGeometry: three$2.CylinderGeometry,
+	  ConeGeometry: three$2.ConeGeometry,
+	  Line: three$2.Line,
+	  LineBasicMaterial: three$2.LineBasicMaterial,
+	  QuadraticBezierCurve3: three$2.QuadraticBezierCurve3,
+	  CubicBezierCurve3: three$2.CubicBezierCurve3
 	};
 	var ngraph = {
 	  graph: graph,
@@ -1505,6 +1505,9 @@
 	  return FromKapsule;
 	}
 
+	var three$1 = window.THREE ? window.THREE : {
+	  Group: three$2.Group
+	}; // Prefer consumption from global THREE, if exists
 	var threeForcegraph = fromKapsule(ForceGraph, three$1.Group, true);
 
 	module.exports = threeForcegraph;
