@@ -95,6 +95,7 @@
 	    nodeAutoColorBy: {parse: parseAccessor, default: ''}, // color nodes with the same field equally
 	    nodeOpacity: {type: 'number', default: 0.75},
 	    nodeThreeObject: {parse: parseAccessor, default: null},
+	    nodeThreeObjectExtend: {parse: parseAccessor, default: false},
 	    linkSource: {type: 'string', default: 'source'},
 	    linkTarget: {type: 'string', default: 'target'},
 	    linkLabel: {parse: parseAccessor, default: 'name'},
@@ -110,6 +111,7 @@
 	    linkCurveRotation: {parse: parseAccessor, default: 0},
 	    linkMaterial: {parse: parseAccessor, default: null},
 	    linkThreeObject: {parse: parseAccessor, default: null},
+	    linkThreeObjectExtend: {parse: parseAccessor, default: false},
 	    linkPositionUpdate: {parse: parseFn, default: null},
 	    linkDirectionalArrowLength: {parse: parseAccessor, default: 0},
 	    linkDirectionalArrowColor: {parse: parseAccessor, default: null},
@@ -233,6 +235,7 @@
 	      'nodeAutoColorBy',
 	      'nodeOpacity',
 	      'nodeThreeObject',
+	      'nodeThreeObjectExtend',
 	      'linkSource',
 	      'linkTarget',
 	      'linkVisibility',
@@ -245,6 +248,7 @@
 	      'linkCurveRotation',
 	      'linkMaterial',
 	      'linkThreeObject',
+	      'linkThreeObjectExtend',
 	      'linkPositionUpdate',
 	      'linkDirectionalArrowLength',
 	      'linkDirectionalArrowColor',
@@ -701,6 +705,12 @@
 	        state.sceneNeedsRepopulating = true;
 	      }
 	    },
+	    nodeThreeObjectExtend: {
+	      "default": false,
+	      onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
 	    linkSource: {
 	      "default": 'source',
 	      onChange: function onChange(_, state) {
@@ -765,6 +775,12 @@
 	      }
 	    },
 	    linkThreeObject: {
+	      onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    linkThreeObjectExtend: {
+	      "default": false,
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
@@ -885,9 +901,6 @@
 	      triggerUpdate: false
 	    }
 	  },
-	  aliases: {
-	    autoColorBy: 'nodeAutoColorBy'
-	  },
 	  methods: {
 	    refresh: function refresh(state) {
 	      state.sceneNeedsRepopulating = true;
@@ -949,6 +962,7 @@
 
 	        var linkCurvatureAccessor = accessorFn(state.linkCurvature);
 	        var linkCurveRotationAccessor = accessorFn(state.linkCurveRotation);
+	        var linkThreeObjectExtendAccessor = accessorFn(state.linkThreeObjectExtend);
 	        state.graphData.links.forEach(function (link) {
 	          var line = link.__lineObj;
 	          if (!line) return;
@@ -957,7 +971,10 @@
 	          var end = pos[isD3Sim ? 'target' : 'to'];
 	          if (!start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
 
-	          if (state.linkPositionUpdate && state.linkPositionUpdate(line, {
+	          var extendedObj = linkThreeObjectExtendAccessor(link);
+
+	          if (state.linkPositionUpdate && state.linkPositionUpdate(extendedObj ? line.children[0] : line, // pass child custom object if extending the default
+	          {
 	            start: {
 	              x: start.x,
 	              y: start.y,
@@ -968,8 +985,8 @@
 	              y: end.y,
 	              z: end.z
 	            }
-	          }, link)) {
-	            // exit if successfully custom updated position
+	          }, link) && !extendedObj) {
+	            // exit if successfully custom updated position of non-extended obj
 	            return;
 	          }
 
@@ -1204,6 +1221,7 @@
 
 
 	      var customNodeObjectAccessor = accessorFn(state.nodeThreeObject);
+	      var customNodeObjectExtendAccessor = accessorFn(state.nodeThreeObjectExtend);
 	      var valAccessor = accessorFn(state.nodeVal);
 	      var colorAccessor = accessorFn(state.nodeColor);
 	      var sphereGeometries = {}; // indexed by node value
@@ -1212,17 +1230,19 @@
 
 	      state.graphData.nodes.forEach(function (node) {
 	        var customObj = customNodeObjectAccessor(node);
+	        var extendObj = customNodeObjectExtendAccessor(node);
+
+	        if (customObj && state.nodeThreeObject === customObj) {
+	          // clone object if it's a shared object among all nodes
+	          customObj = customObj.clone();
+	        }
+
 	        var obj;
 
-	        if (customObj) {
+	        if (customObj && !extendObj) {
 	          obj = customObj;
-
-	          if (state.nodeThreeObject === obj) {
-	            // clone object if it's a shared object among all nodes
-	            obj = obj.clone();
-	          }
 	        } else {
-	          // Default object (sphere mesh)
+	          // Add default object (sphere mesh)
 	          var val = valAccessor(node) || 1;
 
 	          if (!sphereGeometries.hasOwnProperty(val)) {
@@ -1240,6 +1260,10 @@
 	          }
 
 	          obj = new three.Mesh(sphereGeometries[val], sphereMaterials[color]);
+
+	          if (customObj && extendObj) {
+	            obj.add(customObj); // extend default with custom
+	          }
 	        }
 
 	        obj.__graphObjType = 'node'; // Add object type
@@ -1249,6 +1273,7 @@
 	        state.graphScene.add(node.__threeObj = obj);
 	      });
 	      var customLinkObjectAccessor = accessorFn(state.linkThreeObject);
+	      var customLinkObjectExtendAccessor = accessorFn(state.linkThreeObjectExtend);
 	      var customLinkMaterialAccessor = accessorFn(state.linkMaterial);
 	      var linkVisibilityAccessor = accessorFn(state.linkVisibility);
 	      var linkColorAccessor = accessorFn(state.linkColor);
@@ -1275,15 +1300,17 @@
 
 	        var color = linkColorAccessor(link);
 	        var customObj = customLinkObjectAccessor(link);
+	        var extendObj = customLinkObjectExtendAccessor(link);
+
+	        if (customObj && state.linkThreeObject === customObj) {
+	          // clone object if it's a shared object among all links
+	          customObj = customObj.clone();
+	        }
+
 	        var lineObj;
 
-	        if (customObj) {
+	        if (customObj && !extendObj) {
 	          lineObj = customObj;
-
-	          if (state.linkThreeObject === lineObj) {
-	            // clone object if it's a shared object among all links
-	            lineObj = lineObj.clone();
-	          }
 	        } else {
 	          // Add default line object
 	          var linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
@@ -1324,6 +1351,10 @@
 	          }
 
 	          lineObj = new three[useCylinder ? 'Mesh' : 'Line'](geometry, lineMaterial);
+
+	          if (customObj && extendObj) {
+	            lineObj.add(customObj); // extend default with custom
+	          }
 	        }
 
 	        lineObj.renderOrder = 10; // Prevent visual glitches of dark lines on top of nodes by rendering them last
