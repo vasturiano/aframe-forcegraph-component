@@ -1735,7 +1735,7 @@ debug-log@^1.0.0:
   resolved "https://registry.yarnpkg.com/debug-log/-/debug-log-1.0.1.tgz#2307632d4c04382b8df8a32f70b895046d52745f"
   integrity sha1-IwdjLUwEOCuN+KMvcLiVBG1SdF8=
 
-debug@2.2.0, "debug@github:ngokevin/debug#noTimestamp", debug@~2.2.0:
+debug@2.2.0, debug@ngokevin/debug#noTimestamp, debug@~2.2.0:
   version "2.2.0"
   resolved "https://codeload.github.com/ngokevin/debug/tar.gz/ef5f8e66d49ce8bc64c6f282c15f8b7164409e3a"
 
@@ -1994,7 +1994,7 @@ doctrine@^1.2.1, doctrine@^1.2.2:
     esutils "^2.0.2"
     isarray "^1.0.0"
 
-"document-register-element@github:dmarcos/document-register-element#8ccc532b7f3744be954574caf3072a5fd260ca90":
+document-register-element@dmarcos/document-register-element#8ccc532b7f3744be954574caf3072a5fd260ca90:
   version "0.5.4"
   resolved "https://codeload.github.com/dmarcos/document-register-element/tar.gz/8ccc532b7f3744be954574caf3072a5fd260ca90"
 
@@ -6987,6 +6987,11 @@ three-forcegraph@^1.21.0:
     ngraph.forcelayout3d "^0.0.16"
     ngraph.graph "^18.0.0"
     tinycolor2 "^1.4.1"
+
+three@*:
+  version "0.105.2"
+  resolved "https://registry.yarnpkg.com/three/-/three-0.105.2.tgz#d135f1549bdcf5a9acd904ba3dbf9198a0268984"
+  integrity sha512-L3Al37k4g3hVbgFFS251UVtIc25chhyN0/RvXzR0C+uIBToV6EKDG+MZzEXm9L2miGUVMK27W46/VkP6WUZXMg==
 
 through2@0.6.x, through2@~0.6.1, through2@~0.6.3:
   version "0.6.5"
