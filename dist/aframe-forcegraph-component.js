@@ -345,11 +345,12 @@
 	var d3Force3d = __webpack_require__(4);
 	var graph = _interopDefault(__webpack_require__(10));
 	var forcelayout = _interopDefault(__webpack_require__(12));
-	var forcelayout3d = _interopDefault(__webpack_require__(29));
-	var Kapsule = _interopDefault(__webpack_require__(52));
+	var forcelayout3d = _interopDefault(__webpack_require__(31));
+	var Kapsule = _interopDefault(__webpack_require__(58));
 	var accessorFn = _interopDefault(__webpack_require__(1));
-	var d3ScaleChromatic = __webpack_require__(53);
-	var tinyColor = _interopDefault(__webpack_require__(56));
+	var d3Scale = __webpack_require__(60);
+	var d3ScaleChromatic = __webpack_require__(67);
+	var tinyColor = _interopDefault(__webpack_require__(68));
 
 	function _typeof(obj) {
 	  if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
@@ -474,27 +475,18 @@
 
 	var colorAlpha = function colorAlpha(str) {
 	  return isNaN(str) ? tinyColor(str).getAlpha() : 1;
-	}; // Autoset attribute colorField by colorByAccessor property
+	};
+
+	var autoColorScale = d3Scale.scaleOrdinal(d3ScaleChromatic.schemePaired); // Autoset attribute colorField by colorByAccessor property
 	// If an object has already a color, don't set it
 	// Objects can be nodes or links
 
-
 	function autoColorObjects(objects, colorByAccessor, colorField) {
 	  if (!colorByAccessor || typeof colorField !== 'string') return;
-	  var colors = d3ScaleChromatic.schemePaired; // Paired color set from color brewer
-
-	  var uncoloredObjects = objects.filter(function (obj) {
+	  objects.filter(function (obj) {
 	    return !obj[colorField];
-	  });
-	  var objGroups = {};
-	  uncoloredObjects.forEach(function (obj) {
-	    objGroups[colorByAccessor(obj)] = null;
-	  });
-	  Object.keys(objGroups).forEach(function (group, idx) {
-	    objGroups[group] = idx;
-	  });
-	  uncoloredObjects.forEach(function (obj) {
-	    obj[colorField] = colors[objGroups[colorByAccessor(obj)] % colors.length];
+	  }).forEach(function (obj) {
+	    obj[colorField] = autoColorScale(colorByAccessor(obj));
 	  });
 	}
 
@@ -563,9 +555,9 @@
 	  BufferAttribute: three$2.BufferAttribute,
 	  Matrix4: three$2.Matrix4,
 	  Vector3: three$2.Vector3,
-	  SphereGeometry: three$2.SphereGeometry,
-	  CylinderGeometry: three$2.CylinderGeometry,
-	  ConeGeometry: three$2.ConeGeometry,
+	  SphereBufferGeometry: three$2.SphereBufferGeometry,
+	  CylinderBufferGeometry: three$2.CylinderBufferGeometry,
+	  ConeBufferGeometry: three$2.ConeBufferGeometry,
 	  Line: three$2.Line,
 	  LineBasicMaterial: three$2.LineBasicMaterial,
 	  QuadraticBezierCurve3: three$2.QuadraticBezierCurve3,
@@ -971,6 +963,8 @@
 	          var end = pos[isD3Sim ? 'target' : 'to'];
 	          if (!start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
 
+	          calcLinkCurve(link); // calculate link curve for all links, including custom replaced, so it can be used in directional functionality
+
 	          var extendedObj = linkThreeObjectExtendAccessor(link);
 
 	          if (state.linkPositionUpdate && state.linkPositionUpdate(extendedObj ? line.children[0] : line, // pass child custom object if extending the default
@@ -990,14 +984,14 @@
 	            return;
 	          }
 
-	          link.__curve = null; // Wipe curve ref from object
-
 	          if (line.type === 'Line') {
 	            // Update line geometry
-	            var curvature = linkCurvatureAccessor(link);
 	            var curveResolution = 30; // # line segments
 
-	            if (!curvature) {
+	            var curve = link.__curve;
+
+	            if (!curve) {
+	              // straight line
 	              var linePos = line.geometry.getAttribute('position');
 
 	              if (!linePos || !linePos.array || linePos.array.length !== 6) {
@@ -1013,53 +1007,67 @@
 	              linePos.needsUpdate = true;
 	            } else {
 	              // bezier curve line
-	              var vStart = new three.Vector3(start.x, start.y || 0, start.z || 0);
-	              var vEnd = new three.Vector3(end.x, end.y || 0, end.z || 0);
-	              var l = vStart.distanceTo(vEnd); // line length
-
-	              var curve;
-	              var curveRotation = linkCurveRotationAccessor(link);
-
-	              if (l > 0) {
-	                var dx = end.x - start.x;
-	                var dy = end.y - start.y || 0;
-	                var vLine = new three.Vector3().subVectors(vEnd, vStart);
-	                var cp = vLine.clone().multiplyScalar(curvature).cross(dx !== 0 || dy !== 0 ? new three.Vector3(0, 0, 1) : new three.Vector3(0, 1, 0)) // avoid cross-product of parallel vectors (prefer Z, fallback to Y)
-	                .applyAxisAngle(vLine.normalize(), curveRotation) // rotate along line axis according to linkCurveRotation
-	                .add(new three.Vector3().addVectors(vStart, vEnd).divideScalar(2));
-	                curve = new three.QuadraticBezierCurve3(vStart, cp, vEnd);
-	              } else {
-	                // Same point, draw a loop
-	                var d = curvature * 70;
-	                var endAngle = -curveRotation; // Rotate clockwise (from Z angle perspective)
-
-	                var startAngle = endAngle + Math.PI / 2;
-	                curve = new three.CubicBezierCurve3(vStart, new three.Vector3(d * Math.cos(startAngle), d * Math.sin(startAngle), 0).add(vStart), new three.Vector3(d * Math.cos(endAngle), d * Math.sin(endAngle), 0).add(vStart), vEnd);
-	              }
-
 	              line.geometry.setFromPoints(curve.getPoints(curveResolution));
-	              link.__curve = curve;
 	            }
 
 	            line.geometry.computeBoundingSphere();
 	          } else if (line.type === 'Mesh') {
 	            // Update cylinder geometry
 	            // links with width ignore linkCurvature because TubeGeometries can't be updated
-	            var _vStart = new three.Vector3(start.x, start.y || 0, start.z || 0);
+	            link.__curve = null; // force reset link curve
 
-	            var _vEnd = new three.Vector3(end.x, end.y || 0, end.z || 0);
-
-	            var distance = _vStart.distanceTo(_vEnd);
-
-	            line.position.x = _vStart.x;
-	            line.position.y = _vStart.y;
-	            line.position.z = _vStart.z;
+	            var vStart = new three.Vector3(start.x, start.y || 0, start.z || 0);
+	            var vEnd = new three.Vector3(end.x, end.y || 0, end.z || 0);
+	            var distance = vStart.distanceTo(vEnd);
+	            line.position.x = vStart.x;
+	            line.position.y = vStart.y;
+	            line.position.z = vStart.z;
 	            line.scale.z = distance;
-	            line.parent.localToWorld(_vEnd); // lookAt requires world coords
+	            line.parent.localToWorld(vEnd); // lookAt requires world coords
 
-	            line.lookAt(_vEnd);
+	            line.lookAt(vEnd);
 	          }
-	        });
+	        }); //
+
+	        function calcLinkCurve(link) {
+	          var pos = isD3Sim ? link : state.layout.getLinkPosition(state.layout.graph.getLink(link.source, link.target).id);
+	          var start = pos[isD3Sim ? 'source' : 'from'];
+	          var end = pos[isD3Sim ? 'target' : 'to'];
+	          if (!start.hasOwnProperty('x') || !end.hasOwnProperty('x')) return; // skip invalid link
+
+	          var curvature = linkCurvatureAccessor(link);
+
+	          if (!curvature) {
+	            link.__curve = null; // Straight line
+	          } else {
+	            // bezier curve line (only for line types)
+	            var vStart = new three.Vector3(start.x, start.y || 0, start.z || 0);
+	            var vEnd = new three.Vector3(end.x, end.y || 0, end.z || 0);
+	            var l = vStart.distanceTo(vEnd); // line length
+
+	            var curve;
+	            var curveRotation = linkCurveRotationAccessor(link);
+
+	            if (l > 0) {
+	              var dx = end.x - start.x;
+	              var dy = end.y - start.y || 0;
+	              var vLine = new three.Vector3().subVectors(vEnd, vStart);
+	              var cp = vLine.clone().multiplyScalar(curvature).cross(dx !== 0 || dy !== 0 ? new three.Vector3(0, 0, 1) : new three.Vector3(0, 1, 0)) // avoid cross-product of parallel vectors (prefer Z, fallback to Y)
+	              .applyAxisAngle(vLine.normalize(), curveRotation) // rotate along line axis according to linkCurveRotation
+	              .add(new three.Vector3().addVectors(vStart, vEnd).divideScalar(2));
+	              curve = new three.QuadraticBezierCurve3(vStart, cp, vEnd);
+	            } else {
+	              // Same point, draw a loop
+	              var d = curvature * 70;
+	              var endAngle = -curveRotation; // Rotate clockwise (from Z angle perspective)
+
+	              var startAngle = endAngle + Math.PI / 2;
+	              curve = new three.CubicBezierCurve3(vStart, new three.Vector3(d * Math.cos(startAngle), d * Math.sin(startAngle), 0).add(vStart), new three.Vector3(d * Math.cos(endAngle), d * Math.sin(endAngle), 0).add(vStart), vEnd);
+	            }
+
+	            link.__curve = curve;
+	          }
+	        }
 	      }
 
 	      function updateArrows() {
@@ -1246,7 +1254,7 @@
 	          var val = valAccessor(node) || 1;
 
 	          if (!sphereGeometries.hasOwnProperty(val)) {
-	            sphereGeometries[val] = new three.SphereGeometry(Math.cbrt(val) * state.nodeRelSize, state.nodeResolution, state.nodeResolution);
+	            sphereGeometries[val] = new three.SphereBufferGeometry(Math.cbrt(val) * state.nodeRelSize, state.nodeResolution, state.nodeResolution);
 	          }
 
 	          var color = colorAccessor(node);
@@ -1320,7 +1328,7 @@
 	          if (useCylinder) {
 	            if (!cylinderGeometries.hasOwnProperty(linkWidth)) {
 	              var r = linkWidth / 2;
-	              geometry = new three.CylinderGeometry(r, r, 1, state.linkResolution, 1, false);
+	              geometry = new three.CylinderBufferGeometry(r, r, 1, state.linkResolution, 1, false);
 	              geometry.applyMatrix(new three.Matrix4().makeTranslation(0, 1 / 2, 0));
 	              geometry.applyMatrix(new three.Matrix4().makeRotationX(Math.PI / 2));
 	              cylinderGeometries[linkWidth] = geometry;
@@ -1369,7 +1377,7 @@
 
 	        if (arrowLength && arrowLength > 0) {
 	          var arrowColor = linkArrowColorAccessor(link) || color || '#f0f0f0';
-	          var coneGeometry = new three.ConeGeometry(arrowLength * 0.25, arrowLength, state.linkDirectionalArrowResolution); // Correct orientation
+	          var coneGeometry = new three.ConeBufferGeometry(arrowLength * 0.25, arrowLength, state.linkDirectionalArrowResolution); // Correct orientation
 
 	          coneGeometry.translate(0, arrowLength / 2, 0);
 	          coneGeometry.rotateX(Math.PI / 2);
@@ -1387,7 +1395,7 @@
 	        var photonColor = linkParticleColorAccessor(link) || color || '#f0f0f0';
 
 	        if (!particleGeometries.hasOwnProperty(photonR)) {
-	          particleGeometries[photonR] = new three.SphereGeometry(photonR, state.linkDirectionalParticleResolution, state.linkDirectionalParticleResolution);
+	          particleGeometries[photonR] = new three.SphereBufferGeometry(photonR, state.linkDirectionalParticleResolution, state.linkDirectionalParticleResolution);
 	        }
 
 	        var particleGeometry = particleGeometries[photonR];
@@ -4660,7 +4668,7 @@
 	module.exports = createLayout;
 	module.exports.simulator = __webpack_require__(13);
 
-	var eventify = __webpack_require__(28);
+	var eventify = __webpack_require__(30);
 
 	/**
 	 * Creates force based layout for a given graph.
@@ -4699,7 +4707,7 @@
 	    /**
 	     * Performs one step of iterative layout algorithm
 	     *
-	     * @returns {boolean} true if the system should be considered stable; Flase otherwise.
+	     * @returns {boolean} true if the system should be considered stable; False otherwise.
 	     * The system is stable if no further call to `step()` can improve the layout.
 	     */
 	    step: function() {
@@ -4811,7 +4819,7 @@
 	     * @param {string} linkId link identifer. If two arguments are passed then
 	     * this argument is treated as formNodeId
 	     * @param {string=} toId when defined this parameter denotes head of the link
-	     * and first argument is trated as tail of the link (fromId)
+	     * and first argument is treated as tail of the link (fromId)
 	     */
 	    getSpring: getSpring,
 
@@ -4826,7 +4834,7 @@
 	    graph: graph,
 
 	    /**
-	     * Gets amount of movement performed during last step opeartion
+	     * Gets amount of movement performed during last step operation
 	     */
 	    lastMove: 0
 	  };
@@ -4999,7 +5007,7 @@
 
 	  /**
 	   * Checks whether graph node has in its settings pinned attribute,
-	   * which means layout algorithm cannot move it. Node can be preconfigured
+	   * which means layout algorithm cannot move it. Node can be marked
 	   * as pinned, if it has "isPinned" attribute, or when node.data has it.
 	   *
 	   * @param {Object} node a graph node to check
@@ -5047,7 +5055,7 @@
 	  var Spring = __webpack_require__(14);
 	  var expose = __webpack_require__(15);
 	  var merge = __webpack_require__(16);
-	  var eventify = __webpack_require__(11);
+	  var eventify = __webpack_require__(17);
 
 	  settings = merge(settings, {
 	      /**
@@ -5087,12 +5095,12 @@
 	  });
 
 	  // We allow clients to override basic factory methods:
-	  var createQuadTree = settings.createQuadTree || __webpack_require__(17);
-	  var createBounds = settings.createBounds || __webpack_require__(22);
-	  var createDragForce = settings.createDragForce || __webpack_require__(23);
-	  var createSpringForce = settings.createSpringForce || __webpack_require__(24);
-	  var integrate = settings.integrator || __webpack_require__(25);
-	  var createBody = settings.createBody || __webpack_require__(26);
+	  var createQuadTree = settings.createQuadTree || __webpack_require__(18);
+	  var createBounds = settings.createBounds || __webpack_require__(23);
+	  var createDragForce = settings.createDragForce || __webpack_require__(25);
+	  var createSpringForce = settings.createSpringForce || __webpack_require__(26);
+	  var integrate = settings.integrator || __webpack_require__(27);
+	  var createBody = settings.createBody || __webpack_require__(28);
 
 	  var bodies = [], // Bodies in this simulation.
 	      springs = [], // Springs in this simulation.
@@ -5425,6 +5433,100 @@
 
 /***/ }),
 /* 17 */
+/***/ (function(module, exports) {
+
+	module.exports = function(subject) {
+	  validateSubject(subject);
+
+	  var eventsStorage = createEventsStorage(subject);
+	  subject.on = eventsStorage.on;
+	  subject.off = eventsStorage.off;
+	  subject.fire = eventsStorage.fire;
+	  return subject;
+	};
+
+	function createEventsStorage(subject) {
+	  // Store all event listeners to this hash. Key is event name, value is array
+	  // of callback records.
+	  //
+	  // A callback record consists of callback function and its optional context:
+	  // { 'eventName' => [{callback: function, ctx: object}] }
+	  var registeredEvents = Object.create(null);
+
+	  return {
+	    on: function (eventName, callback, ctx) {
+	      if (typeof callback !== 'function') {
+	        throw new Error('callback is expected to be a function');
+	      }
+	      var handlers = registeredEvents[eventName];
+	      if (!handlers) {
+	        handlers = registeredEvents[eventName] = [];
+	      }
+	      handlers.push({callback: callback, ctx: ctx});
+
+	      return subject;
+	    },
+
+	    off: function (eventName, callback) {
+	      var wantToRemoveAll = (typeof eventName === 'undefined');
+	      if (wantToRemoveAll) {
+	        // Killing old events storage should be enough in this case:
+	        registeredEvents = Object.create(null);
+	        return subject;
+	      }
+
+	      if (registeredEvents[eventName]) {
+	        var deleteAllCallbacksForEvent = (typeof callback !== 'function');
+	        if (deleteAllCallbacksForEvent) {
+	          delete registeredEvents[eventName];
+	        } else {
+	          var callbacks = registeredEvents[eventName];
+	          for (var i = 0; i < callbacks.length; ++i) {
+	            if (callbacks[i].callback === callback) {
+	              callbacks.splice(i, 1);
+	            }
+	          }
+	        }
+	      }
+
+	      return subject;
+	    },
+
+	    fire: function (eventName) {
+	      var callbacks = registeredEvents[eventName];
+	      if (!callbacks) {
+	        return subject;
+	      }
+
+	      var fireArguments;
+	      if (arguments.length > 1) {
+	        fireArguments = Array.prototype.splice.call(arguments, 1);
+	      }
+	      for(var i = 0; i < callbacks.length; ++i) {
+	        var callbackInfo = callbacks[i];
+	        callbackInfo.callback.apply(callbackInfo.ctx, fireArguments);
+	      }
+
+	      return subject;
+	    }
+	  };
+	}
+
+	function validateSubject(subject) {
+	  if (!subject) {
+	    throw new Error('Eventify cannot use falsy object as events subject');
+	  }
+	  var reservedWords = ['on', 'fire', 'off'];
+	  for (var i = 0; i < reservedWords.length; ++i) {
+	    if (subject.hasOwnProperty(reservedWords[i])) {
+	      throw new Error("Subject cannot be eventified, since it already has property '" + reservedWords[i] + "'");
+	    }
+	  }
+	}
+
+
+/***/ }),
+/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -5440,10 +5542,10 @@
 	  options.theta = typeof options.theta === 'number' ? options.theta : 0.8;
 
 	  // we require deterministic randomness here
-	  var random = __webpack_require__(18).random(1984),
-	    Node = __webpack_require__(19),
-	    InsertStack = __webpack_require__(20),
-	    isSamePosition = __webpack_require__(21);
+	  var random = __webpack_require__(19).random(1984),
+	    Node = __webpack_require__(20),
+	    InsertStack = __webpack_require__(21),
+	    isSamePosition = __webpack_require__(22);
 
 	  var gravity = options.gravity,
 	    updateQueue = [],
@@ -5757,49 +5859,76 @@
 
 
 /***/ }),
-/* 18 */
+/* 19 */
 /***/ (function(module, exports) {
 
-	module.exports = {
-	  random: random,
-	  randomIterator: randomIterator
-	};
+	module.exports = random;
+
+	// TODO: Deprecate?
+	module.exports.random = random,
+	module.exports.randomIterator = randomIterator
 
 	/**
 	 * Creates seeded PRNG with two methods:
 	 *   next() and nextDouble()
 	 */
 	function random(inputSeed) {
-	  var seed = typeof inputSeed === 'number' ? inputSeed : (+ new Date());
-	  var randomFunc = function() {
-	      // Robert Jenkins' 32 bit integer hash function.
-	      seed = ((seed + 0x7ed55d16) + (seed << 12))  & 0xffffffff;
-	      seed = ((seed ^ 0xc761c23c) ^ (seed >>> 19)) & 0xffffffff;
-	      seed = ((seed + 0x165667b1) + (seed << 5))   & 0xffffffff;
-	      seed = ((seed + 0xd3a2646c) ^ (seed << 9))   & 0xffffffff;
-	      seed = ((seed + 0xfd7046c5) + (seed << 3))   & 0xffffffff;
-	      seed = ((seed ^ 0xb55a4f09) ^ (seed >>> 16)) & 0xffffffff;
-	      return (seed & 0xfffffff) / 0x10000000;
-	  };
+	  var seed = typeof inputSeed === 'number' ? inputSeed : (+new Date());
+	  return new Generator(seed)
+	}
 
-	  return {
-	      /**
-	       * Generates random integer number in the range from 0 (inclusive) to maxValue (exclusive)
-	       *
-	       * @param maxValue Number REQUIRED. Ommitting this number will result in NaN values from PRNG.
-	       */
-	      next : function (maxValue) {
-	          return Math.floor(randomFunc() * maxValue);
-	      },
+	function Generator(seed) {
+	  this.seed = seed;
+	}
 
-	      /**
-	       * Generates random double number in the range from 0 (inclusive) to 1 (exclusive)
-	       * This function is the same as Math.random() (except that it could be seeded)
-	       */
-	      nextDouble : function () {
-	          return randomFunc();
-	      }
-	  };
+	/**
+	  * Generates random integer number in the range from 0 (inclusive) to maxValue (exclusive)
+	  *
+	  * @param maxValue Number REQUIRED. Omitting this number will result in NaN values from PRNG.
+	  */
+	Generator.prototype.next = next;
+
+	/**
+	  * Generates random double number in the range from 0 (inclusive) to 1 (exclusive)
+	  * This function is the same as Math.random() (except that it could be seeded)
+	  */
+	Generator.prototype.nextDouble = nextDouble;
+
+	/**
+	 * Returns a random real number uniformly in [0, 1)
+	 */
+	Generator.prototype.uniform = nextDouble;
+
+	Generator.prototype.gaussian = gaussian;
+
+	function gaussian() {
+	  // use the polar form of the Box-Muller transform
+	  // based on https://introcs.cs.princeton.edu/java/23recursion/StdRandom.java
+	  var r, x, y;
+	  do {
+	    x = this.nextDouble() * 2 - 1;
+	    y = this.nextDouble() * 2 - 1;
+	    r = x * x + y * y;
+	  } while (r >= 1 || r === 0);
+
+	  return x * Math.sqrt(-2 * Math.log(r)/r);
+	}
+
+	function nextDouble() {
+	  var seed = this.seed;
+	  // Robert Jenkins' 32 bit integer hash function.
+	  seed = ((seed + 0x7ed55d16) + (seed << 12)) & 0xffffffff;
+	  seed = ((seed ^ 0xc761c23c) ^ (seed >>> 19)) & 0xffffffff;
+	  seed = ((seed + 0x165667b1) + (seed << 5)) & 0xffffffff;
+	  seed = ((seed + 0xd3a2646c) ^ (seed << 9)) & 0xffffffff;
+	  seed = ((seed + 0xfd7046c5) + (seed << 3)) & 0xffffffff;
+	  seed = ((seed ^ 0xb55a4f09) ^ (seed >>> 16)) & 0xffffffff;
+	  this.seed = seed;
+	  return (seed & 0xfffffff) / 0x10000000;
+	}
+
+	function next(maxValue) {
+	  return Math.floor(this.nextDouble() * maxValue);
 	}
 
 	/*
@@ -5807,48 +5936,51 @@
 	 * Time complexity is guaranteed to be O(n);
 	 */
 	function randomIterator(array, customRandom) {
-	    var localRandom = customRandom || random();
-	    if (typeof localRandom.next !== 'function') {
-	      throw new Error('customRandom does not match expected API: next() function is missing');
+	  var localRandom = customRandom || random();
+	  if (typeof localRandom.next !== 'function') {
+	    throw new Error('customRandom does not match expected API: next() function is missing');
+	  }
+
+	  return {
+	    forEach: forEach,
+
+	    /**
+	     * Shuffles array randomly, in place.
+	     */
+	    shuffle: shuffle
+	  };
+
+	  function shuffle() {
+	    var i, j, t;
+	    for (i = array.length - 1; i > 0; --i) {
+	      j = localRandom.next(i + 1); // i inclusive
+	      t = array[j];
+	      array[j] = array[i];
+	      array[i] = t;
 	    }
 
-	    return {
-	        forEach : function (callback) {
-	            var i, j, t;
-	            for (i = array.length - 1; i > 0; --i) {
-	                j = localRandom.next(i + 1); // i inclusive
-	                t = array[j];
-	                array[j] = array[i];
-	                array[i] = t;
+	    return array;
+	  }
 
-	                callback(t);
-	            }
+	  function forEach(callback) {
+	    var i, j, t;
+	    for (i = array.length - 1; i > 0; --i) {
+	      j = localRandom.next(i + 1); // i inclusive
+	      t = array[j];
+	      array[j] = array[i];
+	      array[i] = t;
 
-	            if (array.length) {
-	                callback(array[0]);
-	            }
-	        },
+	      callback(t);
+	    }
 
-	        /**
-	         * Shuffles array randomly, in place.
-	         */
-	        shuffle : function () {
-	            var i, j, t;
-	            for (i = array.length - 1; i > 0; --i) {
-	                j = localRandom.next(i + 1); // i inclusive
-	                t = array[j];
-	                array[j] = array[i];
-	                array[i] = t;
-	            }
-
-	            return array;
-	        }
-	    };
+	    if (array.length) {
+	      callback(array[0]);
+	    }
+	  }
 	}
 
-
 /***/ }),
-/* 19 */
+/* 20 */
 /***/ (function(module, exports) {
 
 	/**
@@ -5884,7 +6016,7 @@
 
 
 /***/ }),
-/* 20 */
+/* 21 */
 /***/ (function(module, exports) {
 
 	module.exports = InsertStack;
@@ -5932,7 +6064,7 @@
 
 
 /***/ }),
-/* 21 */
+/* 22 */
 /***/ (function(module, exports) {
 
 	module.exports = function isSamePosition(point1, point2) {
@@ -5944,11 +6076,11 @@
 
 
 /***/ }),
-/* 22 */
+/* 23 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = function (bodies, settings) {
-	  var random = __webpack_require__(18).random(42);
+	  var random = __webpack_require__(24).random(42);
 	  var boundingBox =  { x1: 0, y1: 0, x2: 0, y2: 0 };
 
 	  return {
@@ -6030,7 +6162,128 @@
 
 
 /***/ }),
-/* 23 */
+/* 24 */
+/***/ (function(module, exports) {
+
+	module.exports = random;
+
+	// TODO: Deprecate?
+	module.exports.random = random,
+	module.exports.randomIterator = randomIterator
+
+	/**
+	 * Creates seeded PRNG with two methods:
+	 *   next() and nextDouble()
+	 */
+	function random(inputSeed) {
+	  var seed = typeof inputSeed === 'number' ? inputSeed : (+new Date());
+	  return new Generator(seed)
+	}
+
+	function Generator(seed) {
+	  this.seed = seed;
+	}
+
+	/**
+	  * Generates random integer number in the range from 0 (inclusive) to maxValue (exclusive)
+	  *
+	  * @param maxValue Number REQUIRED. Omitting this number will result in NaN values from PRNG.
+	  */
+	Generator.prototype.next = next;
+
+	/**
+	  * Generates random double number in the range from 0 (inclusive) to 1 (exclusive)
+	  * This function is the same as Math.random() (except that it could be seeded)
+	  */
+	Generator.prototype.nextDouble = nextDouble;
+
+	/**
+	 * Returns a random real number uniformly in [0, 1)
+	 */
+	Generator.prototype.uniform = nextDouble;
+
+	Generator.prototype.gaussian = gaussian;
+
+	function gaussian() {
+	  // use the polar form of the Box-Muller transform
+	  // based on https://introcs.cs.princeton.edu/java/23recursion/StdRandom.java
+	  var r, x, y;
+	  do {
+	    x = this.nextDouble() * 2 - 1;
+	    y = this.nextDouble() * 2 - 1;
+	    r = x * x + y * y;
+	  } while (r >= 1 || r === 0);
+
+	  return x * Math.sqrt(-2 * Math.log(r)/r);
+	}
+
+	function nextDouble() {
+	  var seed = this.seed;
+	  // Robert Jenkins' 32 bit integer hash function.
+	  seed = ((seed + 0x7ed55d16) + (seed << 12)) & 0xffffffff;
+	  seed = ((seed ^ 0xc761c23c) ^ (seed >>> 19)) & 0xffffffff;
+	  seed = ((seed + 0x165667b1) + (seed << 5)) & 0xffffffff;
+	  seed = ((seed + 0xd3a2646c) ^ (seed << 9)) & 0xffffffff;
+	  seed = ((seed + 0xfd7046c5) + (seed << 3)) & 0xffffffff;
+	  seed = ((seed ^ 0xb55a4f09) ^ (seed >>> 16)) & 0xffffffff;
+	  this.seed = seed;
+	  return (seed & 0xfffffff) / 0x10000000;
+	}
+
+	function next(maxValue) {
+	  return Math.floor(this.nextDouble() * maxValue);
+	}
+
+	/*
+	 * Creates iterator over array, which returns items of array in random order
+	 * Time complexity is guaranteed to be O(n);
+	 */
+	function randomIterator(array, customRandom) {
+	  var localRandom = customRandom || random();
+	  if (typeof localRandom.next !== 'function') {
+	    throw new Error('customRandom does not match expected API: next() function is missing');
+	  }
+
+	  return {
+	    forEach: forEach,
+
+	    /**
+	     * Shuffles array randomly, in place.
+	     */
+	    shuffle: shuffle
+	  };
+
+	  function shuffle() {
+	    var i, j, t;
+	    for (i = array.length - 1; i > 0; --i) {
+	      j = localRandom.next(i + 1); // i inclusive
+	      t = array[j];
+	      array[j] = array[i];
+	      array[i] = t;
+	    }
+
+	    return array;
+	  }
+
+	  function forEach(callback) {
+	    var i, j, t;
+	    for (i = array.length - 1; i > 0; --i) {
+	      j = localRandom.next(i + 1); // i inclusive
+	      t = array[j];
+	      array[j] = array[i];
+	      array[i] = t;
+
+	      callback(t);
+	    }
+
+	    if (array.length) {
+	      callback(array[0]);
+	    }
+	  }
+	}
+
+/***/ }),
+/* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -6063,7 +6316,7 @@
 
 
 /***/ }),
-/* 24 */
+/* 26 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -6076,7 +6329,7 @@
 	 */
 	module.exports = function (options) {
 	  var merge = __webpack_require__(16);
-	  var random = __webpack_require__(18).random(42);
+	  var random = __webpack_require__(24).random(42);
 	  var expose = __webpack_require__(15);
 
 	  options = merge(options, {
@@ -6119,7 +6372,7 @@
 
 
 /***/ }),
-/* 25 */
+/* 27 */
 /***/ (function(module, exports) {
 
 	/**
@@ -6152,6 +6405,8 @@
 	        v = Math.sqrt(vx * vx + vy * vy);
 
 	    if (v > 1) {
+	      // We normalize it so that we move within timeStep range. 
+	      // for the case when v <= 1 - we let velocity to fade out.
 	      body.velocity.x = vx / v;
 	      body.velocity.y = vy / v;
 	    }
@@ -6170,10 +6425,10 @@
 
 
 /***/ }),
-/* 26 */
+/* 28 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var physics = __webpack_require__(27);
+	var physics = __webpack_require__(29);
 
 	module.exports = function(pos) {
 	  return new physics.Body(pos);
@@ -6181,7 +6436,7 @@
 
 
 /***/ }),
-/* 27 */
+/* 29 */
 /***/ (function(module, exports) {
 
 	module.exports = {
@@ -6252,7 +6507,7 @@
 
 
 /***/ }),
-/* 28 */
+/* 30 */
 /***/ (function(module, exports) {
 
 	module.exports = function(subject) {
@@ -6346,7 +6601,7 @@
 
 
 /***/ }),
-/* 29 */
+/* 31 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -6356,17 +6611,17 @@
 	 * I was doing it wrong, will see if I can refactor/throw away this module.
 	 */
 	module.exports = createLayout;
-	createLayout.get2dLayout = __webpack_require__(30);
+	createLayout.get2dLayout = __webpack_require__(32);
 
 	function createLayout(graph, physicsSettings) {
-	  var merge = __webpack_require__(16);
+	  var merge = __webpack_require__(36);
 	  physicsSettings = merge(physicsSettings, {
-	        createQuadTree: __webpack_require__(42),
-	        createBounds: __webpack_require__(46),
-	        createDragForce: __webpack_require__(47),
-	        createSpringForce: __webpack_require__(48),
+	        createQuadTree: __webpack_require__(48),
+	        createBounds: __webpack_require__(52),
+	        createDragForce: __webpack_require__(53),
+	        createSpringForce: __webpack_require__(54),
 	        integrator: getIntegrator(physicsSettings),
-	        createBody: __webpack_require__(49)
+	        createBody: __webpack_require__(55)
 	      });
 
 	  return createLayout.get2dLayout(graph, physicsSettings);
@@ -6374,19 +6629,19 @@
 
 	function getIntegrator(physicsSettings) {
 	  if (physicsSettings && physicsSettings.integrator === 'verlet') {
-	    return __webpack_require__(50);
+	    return __webpack_require__(56);
 	  }
 
-	  return __webpack_require__(51)
+	  return __webpack_require__(57)
 	}
 
 
 /***/ }),
-/* 30 */
+/* 32 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = createLayout;
-	module.exports.simulator = __webpack_require__(31);
+	module.exports.simulator = __webpack_require__(33);
 
 	var eventify = __webpack_require__(11);
 
@@ -6402,7 +6657,7 @@
 	    throw new Error('Graph structure cannot be undefined');
 	  }
 
-	  var createSimulator = __webpack_require__(31);
+	  var createSimulator = __webpack_require__(33);
 	  var physicsSimulator = createSimulator(physicsSettings);
 
 	  var nodeBodies = typeof Object.create === 'function' ? Object.create(null) : {};
@@ -6701,7 +6956,7 @@
 
 
 /***/ }),
-/* 31 */
+/* 33 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -6710,9 +6965,9 @@
 	module.exports = physicsSimulator;
 
 	function physicsSimulator(settings) {
-	  var Spring = __webpack_require__(32);
-	  var expose = __webpack_require__(15);
-	  var merge = __webpack_require__(16);
+	  var Spring = __webpack_require__(34);
+	  var expose = __webpack_require__(35);
+	  var merge = __webpack_require__(36);
 	  var eventify = __webpack_require__(11);
 
 	  settings = merge(settings, {
@@ -6758,12 +7013,12 @@
 	  });
 
 	  // We allow clients to override basic factory methods:
-	  var createQuadTree = settings.createQuadTree || __webpack_require__(33);
-	  var createBounds = settings.createBounds || __webpack_require__(37);
-	  var createDragForce = settings.createDragForce || __webpack_require__(38);
-	  var createSpringForce = settings.createSpringForce || __webpack_require__(39);
-	  var integrate = settings.integrator || __webpack_require__(40);
-	  var createBody = settings.createBody || __webpack_require__(41);
+	  var createQuadTree = settings.createQuadTree || __webpack_require__(37);
+	  var createBounds = settings.createBounds || __webpack_require__(42);
+	  var createDragForce = settings.createDragForce || __webpack_require__(43);
+	  var createSpringForce = settings.createSpringForce || __webpack_require__(44);
+	  var integrate = settings.integrator || __webpack_require__(45);
+	  var createBody = settings.createBody || __webpack_require__(46);
 
 	  var bodies = [], // Bodies in this simulation.
 	      springs = [], // Springs in this simulation.
@@ -6983,7 +7238,7 @@
 
 
 /***/ }),
-/* 32 */
+/* 34 */
 /***/ (function(module, exports) {
 
 	module.exports = Spring;
@@ -7003,7 +7258,94 @@
 
 
 /***/ }),
-/* 33 */
+/* 35 */
+/***/ (function(module, exports) {
+
+	module.exports = exposeProperties;
+
+	/**
+	 * Augments `target` object with getter/setter functions, which modify settings
+	 *
+	 * @example
+	 *  var target = {};
+	 *  exposeProperties({ age: 42}, target);
+	 *  target.age(); // returns 42
+	 *  target.age(24); // make age 24;
+	 *
+	 *  var filteredTarget = {};
+	 *  exposeProperties({ age: 42, name: 'John'}, filteredTarget, ['name']);
+	 *  filteredTarget.name(); // returns 'John'
+	 *  filteredTarget.age === undefined; // true
+	 */
+	function exposeProperties(settings, target, filter) {
+	  var needsFilter = Object.prototype.toString.call(filter) === '[object Array]';
+	  if (needsFilter) {
+	    for (var i = 0; i < filter.length; ++i) {
+	      augment(settings, target, filter[i]);
+	    }
+	  } else {
+	    for (var key in settings) {
+	      augment(settings, target, key);
+	    }
+	  }
+	}
+
+	function augment(source, target, key) {
+	  if (source.hasOwnProperty(key)) {
+	    if (typeof target[key] === 'function') {
+	      // this accessor is already defined. Ignore it
+	      return;
+	    }
+	    target[key] = function (value) {
+	      if (value !== undefined) {
+	        source[key] = value;
+	        return target;
+	      }
+	      return source[key];
+	    }
+	  }
+	}
+
+
+/***/ }),
+/* 36 */
+/***/ (function(module, exports) {
+
+	module.exports = merge;
+
+	/**
+	 * Augments `target` with properties in `options`. Does not override
+	 * target's properties if they are defined and matches expected type in 
+	 * options
+	 *
+	 * @returns {Object} merged object
+	 */
+	function merge(target, options) {
+	  var key;
+	  if (!target) { target = {}; }
+	  if (options) {
+	    for (key in options) {
+	      if (options.hasOwnProperty(key)) {
+	        var targetHasIt = target.hasOwnProperty(key),
+	            optionsValueType = typeof options[key],
+	            shouldReplace = !targetHasIt || (typeof target[key] !== optionsValueType);
+
+	        if (shouldReplace) {
+	          target[key] = options[key];
+	        } else if (optionsValueType === 'object') {
+	          // go deep, don't care about loops here, we are simple API!:
+	          target[key] = merge(target[key], options[key]);
+	        }
+	      }
+	    }
+	  }
+
+	  return target;
+	}
+
+
+/***/ }),
+/* 37 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -7019,10 +7361,10 @@
 	  options.theta = typeof options.theta === 'number' ? options.theta : 0.8;
 
 	  // we require deterministic randomness here
-	  var random = __webpack_require__(18).random(1984),
-	    Node = __webpack_require__(34),
-	    InsertStack = __webpack_require__(35),
-	    isSamePosition = __webpack_require__(36);
+	  var random = __webpack_require__(38).random(1984),
+	    Node = __webpack_require__(39),
+	    InsertStack = __webpack_require__(40),
+	    isSamePosition = __webpack_require__(41);
 
 	  var gravity = options.gravity,
 	    updateQueue = [],
@@ -7333,7 +7675,98 @@
 
 
 /***/ }),
-/* 34 */
+/* 38 */
+/***/ (function(module, exports) {
+
+	module.exports = {
+	  random: random,
+	  randomIterator: randomIterator
+	};
+
+	/**
+	 * Creates seeded PRNG with two methods:
+	 *   next() and nextDouble()
+	 */
+	function random(inputSeed) {
+	  var seed = typeof inputSeed === 'number' ? inputSeed : (+ new Date());
+	  var randomFunc = function() {
+	      // Robert Jenkins' 32 bit integer hash function.
+	      seed = ((seed + 0x7ed55d16) + (seed << 12))  & 0xffffffff;
+	      seed = ((seed ^ 0xc761c23c) ^ (seed >>> 19)) & 0xffffffff;
+	      seed = ((seed + 0x165667b1) + (seed << 5))   & 0xffffffff;
+	      seed = ((seed + 0xd3a2646c) ^ (seed << 9))   & 0xffffffff;
+	      seed = ((seed + 0xfd7046c5) + (seed << 3))   & 0xffffffff;
+	      seed = ((seed ^ 0xb55a4f09) ^ (seed >>> 16)) & 0xffffffff;
+	      return (seed & 0xfffffff) / 0x10000000;
+	  };
+
+	  return {
+	      /**
+	       * Generates random integer number in the range from 0 (inclusive) to maxValue (exclusive)
+	       *
+	       * @param maxValue Number REQUIRED. Ommitting this number will result in NaN values from PRNG.
+	       */
+	      next : function (maxValue) {
+	          return Math.floor(randomFunc() * maxValue);
+	      },
+
+	      /**
+	       * Generates random double number in the range from 0 (inclusive) to 1 (exclusive)
+	       * This function is the same as Math.random() (except that it could be seeded)
+	       */
+	      nextDouble : function () {
+	          return randomFunc();
+	      }
+	  };
+	}
+
+	/*
+	 * Creates iterator over array, which returns items of array in random order
+	 * Time complexity is guaranteed to be O(n);
+	 */
+	function randomIterator(array, customRandom) {
+	    var localRandom = customRandom || random();
+	    if (typeof localRandom.next !== 'function') {
+	      throw new Error('customRandom does not match expected API: next() function is missing');
+	    }
+
+	    return {
+	        forEach : function (callback) {
+	            var i, j, t;
+	            for (i = array.length - 1; i > 0; --i) {
+	                j = localRandom.next(i + 1); // i inclusive
+	                t = array[j];
+	                array[j] = array[i];
+	                array[i] = t;
+
+	                callback(t);
+	            }
+
+	            if (array.length) {
+	                callback(array[0]);
+	            }
+	        },
+
+	        /**
+	         * Shuffles array randomly, in place.
+	         */
+	        shuffle : function () {
+	            var i, j, t;
+	            for (i = array.length - 1; i > 0; --i) {
+	                j = localRandom.next(i + 1); // i inclusive
+	                t = array[j];
+	                array[j] = array[i];
+	                array[i] = t;
+	            }
+
+	            return array;
+	        }
+	    };
+	}
+
+
+/***/ }),
+/* 39 */
 /***/ (function(module, exports) {
 
 	/**
@@ -7369,7 +7802,7 @@
 
 
 /***/ }),
-/* 35 */
+/* 40 */
 /***/ (function(module, exports) {
 
 	module.exports = InsertStack;
@@ -7417,7 +7850,7 @@
 
 
 /***/ }),
-/* 36 */
+/* 41 */
 /***/ (function(module, exports) {
 
 	module.exports = function isSamePosition(point1, point2) {
@@ -7429,11 +7862,11 @@
 
 
 /***/ }),
-/* 37 */
+/* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = function (bodies, settings) {
-	  var random = __webpack_require__(18).random(42);
+	  var random = __webpack_require__(38).random(42);
 	  var boundingBox =  { x1: 0, y1: 0, x2: 0, y2: 0 };
 
 	  return {
@@ -7515,7 +7948,7 @@
 
 
 /***/ }),
-/* 38 */
+/* 43 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -7526,8 +7959,8 @@
 	 * @param {Number=} options.dragCoeff drag force coefficient. 0.1 by default
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(16),
-	      expose = __webpack_require__(15);
+	  var merge = __webpack_require__(36),
+	      expose = __webpack_require__(35);
 
 	  options = merge(options, {
 	    dragCoeff: 0.02
@@ -7548,7 +7981,7 @@
 
 
 /***/ }),
-/* 39 */
+/* 44 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -7560,9 +7993,9 @@
 	 * @param {Number=} options.springLength desired length of a spring at rest.
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(16);
-	  var random = __webpack_require__(18).random(42);
-	  var expose = __webpack_require__(15);
+	  var merge = __webpack_require__(36);
+	  var random = __webpack_require__(38).random(42);
+	  var expose = __webpack_require__(35);
 
 	  options = merge(options, {
 	    springCoeff: 0.0002,
@@ -7604,7 +8037,7 @@
 
 
 /***/ }),
-/* 40 */
+/* 45 */
 /***/ (function(module, exports) {
 
 	/**
@@ -7655,10 +8088,10 @@
 
 
 /***/ }),
-/* 41 */
+/* 46 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var physics = __webpack_require__(27);
+	var physics = __webpack_require__(47);
 
 	module.exports = function(pos) {
 	  return new physics.Body(pos);
@@ -7666,7 +8099,78 @@
 
 
 /***/ }),
-/* 42 */
+/* 47 */
+/***/ (function(module, exports) {
+
+	module.exports = {
+	  Body: Body,
+	  Vector2d: Vector2d,
+	  Body3d: Body3d,
+	  Vector3d: Vector3d
+	};
+
+	function Body(x, y) {
+	  this.pos = new Vector2d(x, y);
+	  this.prevPos = new Vector2d(x, y);
+	  this.force = new Vector2d();
+	  this.velocity = new Vector2d();
+	  this.mass = 1;
+	}
+
+	Body.prototype.setPosition = function (x, y) {
+	  this.prevPos.x = this.pos.x = x;
+	  this.prevPos.y = this.pos.y = y;
+	};
+
+	function Vector2d(x, y) {
+	  if (x && typeof x !== 'number') {
+	    // could be another vector
+	    this.x = typeof x.x === 'number' ? x.x : 0;
+	    this.y = typeof x.y === 'number' ? x.y : 0;
+	  } else {
+	    this.x = typeof x === 'number' ? x : 0;
+	    this.y = typeof y === 'number' ? y : 0;
+	  }
+	}
+
+	Vector2d.prototype.reset = function () {
+	  this.x = this.y = 0;
+	};
+
+	function Body3d(x, y, z) {
+	  this.pos = new Vector3d(x, y, z);
+	  this.prevPos = new Vector3d(x, y, z);
+	  this.force = new Vector3d();
+	  this.velocity = new Vector3d();
+	  this.mass = 1;
+	}
+
+	Body3d.prototype.setPosition = function (x, y, z) {
+	  this.prevPos.x = this.pos.x = x;
+	  this.prevPos.y = this.pos.y = y;
+	  this.prevPos.z = this.pos.z = z;
+	};
+
+	function Vector3d(x, y, z) {
+	  if (x && typeof x !== 'number') {
+	    // could be another vector
+	    this.x = typeof x.x === 'number' ? x.x : 0;
+	    this.y = typeof x.y === 'number' ? x.y : 0;
+	    this.z = typeof x.z === 'number' ? x.z : 0;
+	  } else {
+	    this.x = typeof x === 'number' ? x : 0;
+	    this.y = typeof y === 'number' ? y : 0;
+	    this.z = typeof z === 'number' ? z : 0;
+	  }
+	};
+
+	Vector3d.prototype.reset = function () {
+	  this.x = this.y = this.z = 0;
+	};
+
+
+/***/ }),
+/* 48 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -7687,10 +8191,10 @@
 	  options.theta = typeof options.theta === 'number' ? options.theta : 0.8;
 
 	  // we require deterministic randomness here
-	  var random = __webpack_require__(18).random(1984),
-	    Node = __webpack_require__(43),
-	    InsertStack = __webpack_require__(44),
-	    isSamePosition = __webpack_require__(45);
+	  var random = __webpack_require__(38).random(1984),
+	    Node = __webpack_require__(49),
+	    InsertStack = __webpack_require__(50),
+	    isSamePosition = __webpack_require__(51);
 
 	  var gravity = options.gravity,
 	    updateQueue = [],
@@ -8065,7 +8569,7 @@
 
 
 /***/ }),
-/* 43 */
+/* 49 */
 /***/ (function(module, exports) {
 
 	/**
@@ -8113,7 +8617,7 @@
 
 
 /***/ }),
-/* 44 */
+/* 50 */
 /***/ (function(module, exports) {
 
 	module.exports = InsertStack;
@@ -8161,7 +8665,7 @@
 
 
 /***/ }),
-/* 45 */
+/* 51 */
 /***/ (function(module, exports) {
 
 	module.exports = function isSamePosition(point1, point2) {
@@ -8174,11 +8678,11 @@
 
 
 /***/ }),
-/* 46 */
+/* 52 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = function (bodies, settings) {
-	  var random = __webpack_require__(18).random(42);
+	  var random = __webpack_require__(38).random(42);
 	  var boundingBox =  { x1: 0, y1: 0, z1: 0, x2: 0, y2: 0, z2: 0 };
 
 	  return {
@@ -8277,7 +8781,7 @@
 
 
 /***/ }),
-/* 47 */
+/* 53 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -8288,8 +8792,8 @@
 	 * @param {Number=} options.dragCoeff drag force coefficient. 0.1 by default
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(16),
-	      expose = __webpack_require__(15);
+	  var merge = __webpack_require__(36),
+	      expose = __webpack_require__(35);
 
 	  options = merge(options, {
 	    dragCoeff: 0.02
@@ -8311,7 +8815,7 @@
 
 
 /***/ }),
-/* 48 */
+/* 54 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -8323,9 +8827,9 @@
 	 * @param {Number=} options.springLength desired length of a spring at rest.
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(16);
-	  var random = __webpack_require__(18).random(42);
-	  var expose = __webpack_require__(15);
+	  var merge = __webpack_require__(36);
+	  var random = __webpack_require__(38).random(42);
+	  var expose = __webpack_require__(35);
 
 	  options = merge(options, {
 	    springCoeff: 0.0002,
@@ -8371,10 +8875,10 @@
 
 
 /***/ }),
-/* 49 */
+/* 55 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var physics = __webpack_require__(27);
+	var physics = __webpack_require__(47);
 
 	module.exports = function(pos) {
 	  return new physics.Body3d(pos);
@@ -8382,7 +8886,7 @@
 
 
 /***/ }),
-/* 50 */
+/* 56 */
 /***/ (function(module, exports) {
 
 	module.exports = integrate;
@@ -8409,7 +8913,7 @@
 
 
 /***/ }),
-/* 51 */
+/* 57 */
 /***/ (function(module, exports) {
 
 	/**
@@ -8463,509 +8967,1426 @@
 
 
 /***/ }),
-/* 52 */
+/* 58 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	!function(n,t){ true?module.exports=t():"function"==typeof define&&define.amd?define([],t):"object"==typeof exports?exports.Kapsule=t():n.Kapsule=t()}("undefined"!=typeof self?self:this,function(){return function(n){var t={};function e(r){if(t[r])return t[r].exports;var o=t[r]={i:r,l:!1,exports:{}};return n[r].call(o.exports,o,o.exports,e),o.l=!0,o.exports}return e.m=n,e.c=t,e.d=function(n,t,r){e.o(n,t)||Object.defineProperty(n,t,{configurable:!1,enumerable:!0,get:r})},e.n=function(n){var t=n&&n.__esModule?function(){return n.default}:function(){return n};return e.d(t,"a",t),t},e.o=function(n,t){return Object.prototype.hasOwnProperty.call(n,t)},e.p="",e(e.s=0)}([function(n,t,e){var r,o,i;u=function(n,t,e){"use strict";Object.defineProperty(t,"__esModule",{value:!0}),t.default=function(n){var t=n.stateInit,e=void 0===t?function(){return{}}:t,r=n.props,a=void 0===r?{}:r,f=n.methods,l=void 0===f?{}:f,c=n.aliases,s=void 0===c?{}:c,d=n.init,p=void 0===d?function(){}:d,v=n.update,h=void 0===v?function(){}:v,y=Object.keys(a).map(function(n){return new u(n,a[n])});return function(){var n=arguments.length>0&&void 0!==arguments[0]?arguments[0]:{},t=Object.assign({},e instanceof Function?e(n):e,{initialised:!1});function r(t){return u(t,n),a(),r}var u=function(n,e){p.call(r,n,t,e),t.initialised=!0},a=(0,o.default)(function(){t.initialised&&h.call(r,t)},1);return y.forEach(function(n){r[n.name]=function(n){var e=arguments.length>1&&void 0!==arguments[1]&&arguments[1],o=arguments.length>2&&void 0!==arguments[2]?arguments[2]:function(n,t){};return function(i){var u=t[n];return arguments.length?(t[n]=i,o.call(r,i,t,u),e&&a(),r):u}}(n.name,n.triggerUpdate,n.onChange)}),Object.keys(l).forEach(function(n){r[n]=function(){for(var e,o=arguments.length,i=Array(o),u=0;u<o;u++)i[u]=arguments[u];return(e=l[n]).call.apply(e,[r,t].concat(i))}}),Object.entries(s).forEach(function(n){var t=i(n,2),e=t[0],o=t[1];return r[e]=r[o]}),r.resetProps=function(){return y.forEach(function(n){r[n.name](n.defaultVal)}),r},r.resetProps(),t._rerender=a,r}};var r,o=(r=e,r&&r.__esModule?r:{default:r});var i=function(){return function(n,t){if(Array.isArray(n))return n;if(Symbol.iterator in Object(n))return function(n,t){var e=[],r=!0,o=!1,i=void 0;try{for(var u,a=n[Symbol.iterator]();!(r=(u=a.next()).done)&&(e.push(u.value),!t||e.length!==t);r=!0);}catch(n){o=!0,i=n}finally{try{!r&&a.return&&a.return()}finally{if(o)throw i}}return e}(n,t);throw new TypeError("Invalid attempt to destructure non-iterable instance")}}();var u=function n(t,e){var r=e.default,o=void 0===r?null:r,i=e.triggerUpdate,u=void 0===i||i,a=e.onChange,f=void 0===a?function(n,t){}:a;!function(n,t){if(!(n instanceof t))throw new TypeError("Cannot call a class as a function")}(this,n),this.name=t,this.defaultVal=o,this.triggerUpdate=u,this.onChange=f};n.exports=t.default},o=[n,t,e(1)],void 0===(i="function"==typeof(r=u)?r.apply(t,o):r)||(n.exports=i);var u},function(n,t){n.exports=function(n,t,e){var r,o,i,u,a;null==t&&(t=100);function f(){var l=Date.now()-u;l<t&&l>=0?r=setTimeout(f,t-l):(r=null,e||(a=n.apply(i,o),i=o=null))}var l=function(){i=this,o=arguments,u=Date.now();var l=e&&!r;return r||(r=setTimeout(f,t)),l&&(a=n.apply(i,o),i=o=null),a};return l.clear=function(){r&&(clearTimeout(r),r=null)},l.flush=function(){r&&(a=n.apply(i,o),i=o=null,clearTimeout(r),r=null)},l}}])});
+	'use strict';
 
-/***/ }),
-/* 53 */
-/***/ (function(module, exports, __webpack_require__) {
+	function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-	// https://d3js.org/d3-scale-chromatic/ v1.3.3 Copyright 2018 Mike Bostock
-	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(54), __webpack_require__(55)) :
-	typeof define === 'function' && define.amd ? define(['exports', 'd3-interpolate', 'd3-color'], factory) :
-	(factory((global.d3 = global.d3 || {}),global.d3,global.d3));
-	}(this, (function (exports,d3Interpolate,d3Color) { 'use strict';
+	var debounce = _interopDefault(__webpack_require__(59));
 
-	function colors(specifier) {
-	  var n = specifier.length / 6 | 0, colors = new Array(n), i = 0;
-	  while (i < n) colors[i] = "#" + specifier.slice(i * 6, ++i * 6);
-	  return colors;
+	function _classCallCheck(instance, Constructor) {
+	  if (!(instance instanceof Constructor)) {
+	    throw new TypeError("Cannot call a class as a function");
+	  }
 	}
 
-	var category10 = colors("1f77b4ff7f0e2ca02cd627289467bd8c564be377c27f7f7fbcbd2217becf");
-
-	var Accent = colors("7fc97fbeaed4fdc086ffff99386cb0f0027fbf5b17666666");
-
-	var Dark2 = colors("1b9e77d95f027570b3e7298a66a61ee6ab02a6761d666666");
-
-	var Paired = colors("a6cee31f78b4b2df8a33a02cfb9a99e31a1cfdbf6fff7f00cab2d66a3d9affff99b15928");
-
-	var Pastel1 = colors("fbb4aeb3cde3ccebc5decbe4fed9a6ffffcce5d8bdfddaecf2f2f2");
-
-	var Pastel2 = colors("b3e2cdfdcdaccbd5e8f4cae4e6f5c9fff2aef1e2cccccccc");
-
-	var Set1 = colors("e41a1c377eb84daf4a984ea3ff7f00ffff33a65628f781bf999999");
-
-	var Set2 = colors("66c2a5fc8d628da0cbe78ac3a6d854ffd92fe5c494b3b3b3");
-
-	var Set3 = colors("8dd3c7ffffb3bebadafb807280b1d3fdb462b3de69fccde5d9d9d9bc80bdccebc5ffed6f");
-
-	function ramp(scheme) {
-	  return d3Interpolate.interpolateRgbBasis(scheme[scheme.length - 1]);
+	function _slicedToArray(arr, i) {
+	  return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _nonIterableRest();
 	}
 
-	var scheme = new Array(3).concat(
-	  "d8b365f5f5f55ab4ac",
-	  "a6611adfc27d80cdc1018571",
-	  "a6611adfc27df5f5f580cdc1018571",
-	  "8c510ad8b365f6e8c3c7eae55ab4ac01665e",
-	  "8c510ad8b365f6e8c3f5f5f5c7eae55ab4ac01665e",
-	  "8c510abf812ddfc27df6e8c3c7eae580cdc135978f01665e",
-	  "8c510abf812ddfc27df6e8c3f5f5f5c7eae580cdc135978f01665e",
-	  "5430058c510abf812ddfc27df6e8c3c7eae580cdc135978f01665e003c30",
-	  "5430058c510abf812ddfc27df6e8c3f5f5f5c7eae580cdc135978f01665e003c30"
-	).map(colors);
-
-	var BrBG = ramp(scheme);
-
-	var scheme$1 = new Array(3).concat(
-	  "af8dc3f7f7f77fbf7b",
-	  "7b3294c2a5cfa6dba0008837",
-	  "7b3294c2a5cff7f7f7a6dba0008837",
-	  "762a83af8dc3e7d4e8d9f0d37fbf7b1b7837",
-	  "762a83af8dc3e7d4e8f7f7f7d9f0d37fbf7b1b7837",
-	  "762a839970abc2a5cfe7d4e8d9f0d3a6dba05aae611b7837",
-	  "762a839970abc2a5cfe7d4e8f7f7f7d9f0d3a6dba05aae611b7837",
-	  "40004b762a839970abc2a5cfe7d4e8d9f0d3a6dba05aae611b783700441b",
-	  "40004b762a839970abc2a5cfe7d4e8f7f7f7d9f0d3a6dba05aae611b783700441b"
-	).map(colors);
-
-	var PRGn = ramp(scheme$1);
-
-	var scheme$2 = new Array(3).concat(
-	  "e9a3c9f7f7f7a1d76a",
-	  "d01c8bf1b6dab8e1864dac26",
-	  "d01c8bf1b6daf7f7f7b8e1864dac26",
-	  "c51b7de9a3c9fde0efe6f5d0a1d76a4d9221",
-	  "c51b7de9a3c9fde0eff7f7f7e6f5d0a1d76a4d9221",
-	  "c51b7dde77aef1b6dafde0efe6f5d0b8e1867fbc414d9221",
-	  "c51b7dde77aef1b6dafde0eff7f7f7e6f5d0b8e1867fbc414d9221",
-	  "8e0152c51b7dde77aef1b6dafde0efe6f5d0b8e1867fbc414d9221276419",
-	  "8e0152c51b7dde77aef1b6dafde0eff7f7f7e6f5d0b8e1867fbc414d9221276419"
-	).map(colors);
-
-	var PiYG = ramp(scheme$2);
-
-	var scheme$3 = new Array(3).concat(
-	  "998ec3f7f7f7f1a340",
-	  "5e3c99b2abd2fdb863e66101",
-	  "5e3c99b2abd2f7f7f7fdb863e66101",
-	  "542788998ec3d8daebfee0b6f1a340b35806",
-	  "542788998ec3d8daebf7f7f7fee0b6f1a340b35806",
-	  "5427888073acb2abd2d8daebfee0b6fdb863e08214b35806",
-	  "5427888073acb2abd2d8daebf7f7f7fee0b6fdb863e08214b35806",
-	  "2d004b5427888073acb2abd2d8daebfee0b6fdb863e08214b358067f3b08",
-	  "2d004b5427888073acb2abd2d8daebf7f7f7fee0b6fdb863e08214b358067f3b08"
-	).map(colors);
-
-	var PuOr = ramp(scheme$3);
-
-	var scheme$4 = new Array(3).concat(
-	  "ef8a62f7f7f767a9cf",
-	  "ca0020f4a58292c5de0571b0",
-	  "ca0020f4a582f7f7f792c5de0571b0",
-	  "b2182bef8a62fddbc7d1e5f067a9cf2166ac",
-	  "b2182bef8a62fddbc7f7f7f7d1e5f067a9cf2166ac",
-	  "b2182bd6604df4a582fddbc7d1e5f092c5de4393c32166ac",
-	  "b2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac",
-	  "67001fb2182bd6604df4a582fddbc7d1e5f092c5de4393c32166ac053061",
-	  "67001fb2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac053061"
-	).map(colors);
-
-	var RdBu = ramp(scheme$4);
-
-	var scheme$5 = new Array(3).concat(
-	  "ef8a62ffffff999999",
-	  "ca0020f4a582bababa404040",
-	  "ca0020f4a582ffffffbababa404040",
-	  "b2182bef8a62fddbc7e0e0e09999994d4d4d",
-	  "b2182bef8a62fddbc7ffffffe0e0e09999994d4d4d",
-	  "b2182bd6604df4a582fddbc7e0e0e0bababa8787874d4d4d",
-	  "b2182bd6604df4a582fddbc7ffffffe0e0e0bababa8787874d4d4d",
-	  "67001fb2182bd6604df4a582fddbc7e0e0e0bababa8787874d4d4d1a1a1a",
-	  "67001fb2182bd6604df4a582fddbc7ffffffe0e0e0bababa8787874d4d4d1a1a1a"
-	).map(colors);
-
-	var RdGy = ramp(scheme$5);
-
-	var scheme$6 = new Array(3).concat(
-	  "fc8d59ffffbf91bfdb",
-	  "d7191cfdae61abd9e92c7bb6",
-	  "d7191cfdae61ffffbfabd9e92c7bb6",
-	  "d73027fc8d59fee090e0f3f891bfdb4575b4",
-	  "d73027fc8d59fee090ffffbfe0f3f891bfdb4575b4",
-	  "d73027f46d43fdae61fee090e0f3f8abd9e974add14575b4",
-	  "d73027f46d43fdae61fee090ffffbfe0f3f8abd9e974add14575b4",
-	  "a50026d73027f46d43fdae61fee090e0f3f8abd9e974add14575b4313695",
-	  "a50026d73027f46d43fdae61fee090ffffbfe0f3f8abd9e974add14575b4313695"
-	).map(colors);
-
-	var RdYlBu = ramp(scheme$6);
-
-	var scheme$7 = new Array(3).concat(
-	  "fc8d59ffffbf91cf60",
-	  "d7191cfdae61a6d96a1a9641",
-	  "d7191cfdae61ffffbfa6d96a1a9641",
-	  "d73027fc8d59fee08bd9ef8b91cf601a9850",
-	  "d73027fc8d59fee08bffffbfd9ef8b91cf601a9850",
-	  "d73027f46d43fdae61fee08bd9ef8ba6d96a66bd631a9850",
-	  "d73027f46d43fdae61fee08bffffbfd9ef8ba6d96a66bd631a9850",
-	  "a50026d73027f46d43fdae61fee08bd9ef8ba6d96a66bd631a9850006837",
-	  "a50026d73027f46d43fdae61fee08bffffbfd9ef8ba6d96a66bd631a9850006837"
-	).map(colors);
-
-	var RdYlGn = ramp(scheme$7);
-
-	var scheme$8 = new Array(3).concat(
-	  "fc8d59ffffbf99d594",
-	  "d7191cfdae61abdda42b83ba",
-	  "d7191cfdae61ffffbfabdda42b83ba",
-	  "d53e4ffc8d59fee08be6f59899d5943288bd",
-	  "d53e4ffc8d59fee08bffffbfe6f59899d5943288bd",
-	  "d53e4ff46d43fdae61fee08be6f598abdda466c2a53288bd",
-	  "d53e4ff46d43fdae61fee08bffffbfe6f598abdda466c2a53288bd",
-	  "9e0142d53e4ff46d43fdae61fee08be6f598abdda466c2a53288bd5e4fa2",
-	  "9e0142d53e4ff46d43fdae61fee08bffffbfe6f598abdda466c2a53288bd5e4fa2"
-	).map(colors);
-
-	var Spectral = ramp(scheme$8);
-
-	var scheme$9 = new Array(3).concat(
-	  "e5f5f999d8c92ca25f",
-	  "edf8fbb2e2e266c2a4238b45",
-	  "edf8fbb2e2e266c2a42ca25f006d2c",
-	  "edf8fbccece699d8c966c2a42ca25f006d2c",
-	  "edf8fbccece699d8c966c2a441ae76238b45005824",
-	  "f7fcfde5f5f9ccece699d8c966c2a441ae76238b45005824",
-	  "f7fcfde5f5f9ccece699d8c966c2a441ae76238b45006d2c00441b"
-	).map(colors);
-
-	var BuGn = ramp(scheme$9);
-
-	var scheme$a = new Array(3).concat(
-	  "e0ecf49ebcda8856a7",
-	  "edf8fbb3cde38c96c688419d",
-	  "edf8fbb3cde38c96c68856a7810f7c",
-	  "edf8fbbfd3e69ebcda8c96c68856a7810f7c",
-	  "edf8fbbfd3e69ebcda8c96c68c6bb188419d6e016b",
-	  "f7fcfde0ecf4bfd3e69ebcda8c96c68c6bb188419d6e016b",
-	  "f7fcfde0ecf4bfd3e69ebcda8c96c68c6bb188419d810f7c4d004b"
-	).map(colors);
-
-	var BuPu = ramp(scheme$a);
-
-	var scheme$b = new Array(3).concat(
-	  "e0f3dba8ddb543a2ca",
-	  "f0f9e8bae4bc7bccc42b8cbe",
-	  "f0f9e8bae4bc7bccc443a2ca0868ac",
-	  "f0f9e8ccebc5a8ddb57bccc443a2ca0868ac",
-	  "f0f9e8ccebc5a8ddb57bccc44eb3d32b8cbe08589e",
-	  "f7fcf0e0f3dbccebc5a8ddb57bccc44eb3d32b8cbe08589e",
-	  "f7fcf0e0f3dbccebc5a8ddb57bccc44eb3d32b8cbe0868ac084081"
-	).map(colors);
-
-	var GnBu = ramp(scheme$b);
-
-	var scheme$c = new Array(3).concat(
-	  "fee8c8fdbb84e34a33",
-	  "fef0d9fdcc8afc8d59d7301f",
-	  "fef0d9fdcc8afc8d59e34a33b30000",
-	  "fef0d9fdd49efdbb84fc8d59e34a33b30000",
-	  "fef0d9fdd49efdbb84fc8d59ef6548d7301f990000",
-	  "fff7ecfee8c8fdd49efdbb84fc8d59ef6548d7301f990000",
-	  "fff7ecfee8c8fdd49efdbb84fc8d59ef6548d7301fb300007f0000"
-	).map(colors);
-
-	var OrRd = ramp(scheme$c);
-
-	var scheme$d = new Array(3).concat(
-	  "ece2f0a6bddb1c9099",
-	  "f6eff7bdc9e167a9cf02818a",
-	  "f6eff7bdc9e167a9cf1c9099016c59",
-	  "f6eff7d0d1e6a6bddb67a9cf1c9099016c59",
-	  "f6eff7d0d1e6a6bddb67a9cf3690c002818a016450",
-	  "fff7fbece2f0d0d1e6a6bddb67a9cf3690c002818a016450",
-	  "fff7fbece2f0d0d1e6a6bddb67a9cf3690c002818a016c59014636"
-	).map(colors);
-
-	var PuBuGn = ramp(scheme$d);
-
-	var scheme$e = new Array(3).concat(
-	  "ece7f2a6bddb2b8cbe",
-	  "f1eef6bdc9e174a9cf0570b0",
-	  "f1eef6bdc9e174a9cf2b8cbe045a8d",
-	  "f1eef6d0d1e6a6bddb74a9cf2b8cbe045a8d",
-	  "f1eef6d0d1e6a6bddb74a9cf3690c00570b0034e7b",
-	  "fff7fbece7f2d0d1e6a6bddb74a9cf3690c00570b0034e7b",
-	  "fff7fbece7f2d0d1e6a6bddb74a9cf3690c00570b0045a8d023858"
-	).map(colors);
-
-	var PuBu = ramp(scheme$e);
-
-	var scheme$f = new Array(3).concat(
-	  "e7e1efc994c7dd1c77",
-	  "f1eef6d7b5d8df65b0ce1256",
-	  "f1eef6d7b5d8df65b0dd1c77980043",
-	  "f1eef6d4b9dac994c7df65b0dd1c77980043",
-	  "f1eef6d4b9dac994c7df65b0e7298ace125691003f",
-	  "f7f4f9e7e1efd4b9dac994c7df65b0e7298ace125691003f",
-	  "f7f4f9e7e1efd4b9dac994c7df65b0e7298ace125698004367001f"
-	).map(colors);
-
-	var PuRd = ramp(scheme$f);
-
-	var scheme$g = new Array(3).concat(
-	  "fde0ddfa9fb5c51b8a",
-	  "feebe2fbb4b9f768a1ae017e",
-	  "feebe2fbb4b9f768a1c51b8a7a0177",
-	  "feebe2fcc5c0fa9fb5f768a1c51b8a7a0177",
-	  "feebe2fcc5c0fa9fb5f768a1dd3497ae017e7a0177",
-	  "fff7f3fde0ddfcc5c0fa9fb5f768a1dd3497ae017e7a0177",
-	  "fff7f3fde0ddfcc5c0fa9fb5f768a1dd3497ae017e7a017749006a"
-	).map(colors);
-
-	var RdPu = ramp(scheme$g);
-
-	var scheme$h = new Array(3).concat(
-	  "edf8b17fcdbb2c7fb8",
-	  "ffffcca1dab441b6c4225ea8",
-	  "ffffcca1dab441b6c42c7fb8253494",
-	  "ffffccc7e9b47fcdbb41b6c42c7fb8253494",
-	  "ffffccc7e9b47fcdbb41b6c41d91c0225ea80c2c84",
-	  "ffffd9edf8b1c7e9b47fcdbb41b6c41d91c0225ea80c2c84",
-	  "ffffd9edf8b1c7e9b47fcdbb41b6c41d91c0225ea8253494081d58"
-	).map(colors);
-
-	var YlGnBu = ramp(scheme$h);
-
-	var scheme$i = new Array(3).concat(
-	  "f7fcb9addd8e31a354",
-	  "ffffccc2e69978c679238443",
-	  "ffffccc2e69978c67931a354006837",
-	  "ffffccd9f0a3addd8e78c67931a354006837",
-	  "ffffccd9f0a3addd8e78c67941ab5d238443005a32",
-	  "ffffe5f7fcb9d9f0a3addd8e78c67941ab5d238443005a32",
-	  "ffffe5f7fcb9d9f0a3addd8e78c67941ab5d238443006837004529"
-	).map(colors);
-
-	var YlGn = ramp(scheme$i);
-
-	var scheme$j = new Array(3).concat(
-	  "fff7bcfec44fd95f0e",
-	  "ffffd4fed98efe9929cc4c02",
-	  "ffffd4fed98efe9929d95f0e993404",
-	  "ffffd4fee391fec44ffe9929d95f0e993404",
-	  "ffffd4fee391fec44ffe9929ec7014cc4c028c2d04",
-	  "ffffe5fff7bcfee391fec44ffe9929ec7014cc4c028c2d04",
-	  "ffffe5fff7bcfee391fec44ffe9929ec7014cc4c02993404662506"
-	).map(colors);
-
-	var YlOrBr = ramp(scheme$j);
-
-	var scheme$k = new Array(3).concat(
-	  "ffeda0feb24cf03b20",
-	  "ffffb2fecc5cfd8d3ce31a1c",
-	  "ffffb2fecc5cfd8d3cf03b20bd0026",
-	  "ffffb2fed976feb24cfd8d3cf03b20bd0026",
-	  "ffffb2fed976feb24cfd8d3cfc4e2ae31a1cb10026",
-	  "ffffccffeda0fed976feb24cfd8d3cfc4e2ae31a1cb10026",
-	  "ffffccffeda0fed976feb24cfd8d3cfc4e2ae31a1cbd0026800026"
-	).map(colors);
-
-	var YlOrRd = ramp(scheme$k);
-
-	var scheme$l = new Array(3).concat(
-	  "deebf79ecae13182bd",
-	  "eff3ffbdd7e76baed62171b5",
-	  "eff3ffbdd7e76baed63182bd08519c",
-	  "eff3ffc6dbef9ecae16baed63182bd08519c",
-	  "eff3ffc6dbef9ecae16baed64292c62171b5084594",
-	  "f7fbffdeebf7c6dbef9ecae16baed64292c62171b5084594",
-	  "f7fbffdeebf7c6dbef9ecae16baed64292c62171b508519c08306b"
-	).map(colors);
-
-	var Blues = ramp(scheme$l);
-
-	var scheme$m = new Array(3).concat(
-	  "e5f5e0a1d99b31a354",
-	  "edf8e9bae4b374c476238b45",
-	  "edf8e9bae4b374c47631a354006d2c",
-	  "edf8e9c7e9c0a1d99b74c47631a354006d2c",
-	  "edf8e9c7e9c0a1d99b74c47641ab5d238b45005a32",
-	  "f7fcf5e5f5e0c7e9c0a1d99b74c47641ab5d238b45005a32",
-	  "f7fcf5e5f5e0c7e9c0a1d99b74c47641ab5d238b45006d2c00441b"
-	).map(colors);
-
-	var Greens = ramp(scheme$m);
-
-	var scheme$n = new Array(3).concat(
-	  "f0f0f0bdbdbd636363",
-	  "f7f7f7cccccc969696525252",
-	  "f7f7f7cccccc969696636363252525",
-	  "f7f7f7d9d9d9bdbdbd969696636363252525",
-	  "f7f7f7d9d9d9bdbdbd969696737373525252252525",
-	  "fffffff0f0f0d9d9d9bdbdbd969696737373525252252525",
-	  "fffffff0f0f0d9d9d9bdbdbd969696737373525252252525000000"
-	).map(colors);
-
-	var Greys = ramp(scheme$n);
-
-	var scheme$o = new Array(3).concat(
-	  "efedf5bcbddc756bb1",
-	  "f2f0f7cbc9e29e9ac86a51a3",
-	  "f2f0f7cbc9e29e9ac8756bb154278f",
-	  "f2f0f7dadaebbcbddc9e9ac8756bb154278f",
-	  "f2f0f7dadaebbcbddc9e9ac8807dba6a51a34a1486",
-	  "fcfbfdefedf5dadaebbcbddc9e9ac8807dba6a51a34a1486",
-	  "fcfbfdefedf5dadaebbcbddc9e9ac8807dba6a51a354278f3f007d"
-	).map(colors);
-
-	var Purples = ramp(scheme$o);
-
-	var scheme$p = new Array(3).concat(
-	  "fee0d2fc9272de2d26",
-	  "fee5d9fcae91fb6a4acb181d",
-	  "fee5d9fcae91fb6a4ade2d26a50f15",
-	  "fee5d9fcbba1fc9272fb6a4ade2d26a50f15",
-	  "fee5d9fcbba1fc9272fb6a4aef3b2ccb181d99000d",
-	  "fff5f0fee0d2fcbba1fc9272fb6a4aef3b2ccb181d99000d",
-	  "fff5f0fee0d2fcbba1fc9272fb6a4aef3b2ccb181da50f1567000d"
-	).map(colors);
-
-	var Reds = ramp(scheme$p);
-
-	var scheme$q = new Array(3).concat(
-	  "fee6cefdae6be6550d",
-	  "feeddefdbe85fd8d3cd94701",
-	  "feeddefdbe85fd8d3ce6550da63603",
-	  "feeddefdd0a2fdae6bfd8d3ce6550da63603",
-	  "feeddefdd0a2fdae6bfd8d3cf16913d948018c2d04",
-	  "fff5ebfee6cefdd0a2fdae6bfd8d3cf16913d948018c2d04",
-	  "fff5ebfee6cefdd0a2fdae6bfd8d3cf16913d94801a636037f2704"
-	).map(colors);
-
-	var Oranges = ramp(scheme$q);
-
-	var cubehelix = d3Interpolate.interpolateCubehelixLong(d3Color.cubehelix(300, 0.5, 0.0), d3Color.cubehelix(-240, 0.5, 1.0));
-
-	var warm = d3Interpolate.interpolateCubehelixLong(d3Color.cubehelix(-100, 0.75, 0.35), d3Color.cubehelix(80, 1.50, 0.8));
-
-	var cool = d3Interpolate.interpolateCubehelixLong(d3Color.cubehelix(260, 0.75, 0.35), d3Color.cubehelix(80, 1.50, 0.8));
-
-	var c = d3Color.cubehelix();
-
-	function rainbow(t) {
-	  if (t < 0 || t > 1) t -= Math.floor(t);
-	  var ts = Math.abs(t - 0.5);
-	  c.h = 360 * t - 100;
-	  c.s = 1.5 - 1.5 * ts;
-	  c.l = 0.8 - 0.9 * ts;
-	  return c + "";
+	function _arrayWithHoles(arr) {
+	  if (Array.isArray(arr)) return arr;
 	}
 
-	var c$1 = d3Color.rgb(),
-	    pi_1_3 = Math.PI / 3,
-	    pi_2_3 = Math.PI * 2 / 3;
+	function _iterableToArrayLimit(arr, i) {
+	  var _arr = [];
+	  var _n = true;
+	  var _d = false;
+	  var _e = undefined;
 
-	function sinebow(t) {
-	  var x;
-	  t = (0.5 - t) * Math.PI;
-	  c$1.r = 255 * (x = Math.sin(t)) * x;
-	  c$1.g = 255 * (x = Math.sin(t + pi_1_3)) * x;
-	  c$1.b = 255 * (x = Math.sin(t + pi_2_3)) * x;
-	  return c$1 + "";
+	  try {
+	    for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+	      _arr.push(_s.value);
+
+	      if (i && _arr.length === i) break;
+	    }
+	  } catch (err) {
+	    _d = true;
+	    _e = err;
+	  } finally {
+	    try {
+	      if (!_n && _i["return"] != null) _i["return"]();
+	    } finally {
+	      if (_d) throw _e;
+	    }
+	  }
+
+	  return _arr;
 	}
 
-	function ramp$1(range) {
-	  var n = range.length;
-	  return function(t) {
-	    return range[Math.max(0, Math.min(n - 1, Math.floor(t * n)))];
+	function _nonIterableRest() {
+	  throw new TypeError("Invalid attempt to destructure non-iterable instance");
+	}
+
+	var Prop = function Prop(name, _ref) {
+	  var _ref$default = _ref["default"],
+	      defaultVal = _ref$default === void 0 ? null : _ref$default,
+	      _ref$triggerUpdate = _ref.triggerUpdate,
+	      triggerUpdate = _ref$triggerUpdate === void 0 ? true : _ref$triggerUpdate,
+	      _ref$onChange = _ref.onChange,
+	      onChange = _ref$onChange === void 0 ? function (newVal, state) {} : _ref$onChange;
+
+	  _classCallCheck(this, Prop);
+
+	  this.name = name;
+	  this.defaultVal = defaultVal;
+	  this.triggerUpdate = triggerUpdate;
+	  this.onChange = onChange;
+	};
+
+	function index (_ref2) {
+	  var _ref2$stateInit = _ref2.stateInit,
+	      stateInit = _ref2$stateInit === void 0 ? function () {
+	    return {};
+	  } : _ref2$stateInit,
+	      _ref2$props = _ref2.props,
+	      rawProps = _ref2$props === void 0 ? {} : _ref2$props,
+	      _ref2$methods = _ref2.methods,
+	      methods = _ref2$methods === void 0 ? {} : _ref2$methods,
+	      _ref2$aliases = _ref2.aliases,
+	      aliases = _ref2$aliases === void 0 ? {} : _ref2$aliases,
+	      _ref2$init = _ref2.init,
+	      initFn = _ref2$init === void 0 ? function () {} : _ref2$init,
+	      _ref2$update = _ref2.update,
+	      updateFn = _ref2$update === void 0 ? function () {} : _ref2$update;
+	  // Parse props into Prop instances
+	  var props = Object.keys(rawProps).map(function (propName) {
+	    return new Prop(propName, rawProps[propName]);
+	  });
+	  return function () {
+	    var options = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+	    // Holds component state
+	    var state = Object.assign({}, stateInit instanceof Function ? stateInit(options) : stateInit, // Support plain objects for backwards compatibility
+	    {
+	      initialised: false
+	    }); // Component constructor
+
+	    function comp(nodeElement) {
+	      initStatic(nodeElement, options);
+	      digest();
+	      return comp;
+	    }
+
+	    var initStatic = function initStatic(nodeElement, options) {
+	      initFn.call(comp, nodeElement, state, options);
+	      state.initialised = true;
+	    };
+
+	    var digest = debounce(function () {
+	      if (!state.initialised) {
+	        return;
+	      }
+
+	      updateFn.call(comp, state);
+	    }, 1); // Getter/setter methods
+
+	    props.forEach(function (prop) {
+	      comp[prop.name] = getSetProp(prop.name, prop.triggerUpdate, prop.onChange);
+
+	      function getSetProp(prop) {
+	        var redigest = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+	        var onChange = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : function (newVal, state) {};
+	        return function (_) {
+	          var curVal = state[prop];
+
+	          if (!arguments.length) {
+	            return curVal;
+	          } // Getter mode
+
+
+	          state[prop] = _;
+	          onChange.call(comp, _, state, curVal);
+
+	          if (redigest) {
+	            digest();
+	          }
+
+	          return comp;
+	        };
+	      }
+	    }); // Other methods
+
+	    Object.keys(methods).forEach(function (methodName) {
+	      comp[methodName] = function () {
+	        var _methods$methodName;
+
+	        for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+	          args[_key] = arguments[_key];
+	        }
+
+	        return (_methods$methodName = methods[methodName]).call.apply(_methods$methodName, [comp, state].concat(args));
+	      };
+	    }); // Link aliases
+
+	    Object.entries(aliases).forEach(function (_ref3) {
+	      var _ref4 = _slicedToArray(_ref3, 2),
+	          alias = _ref4[0],
+	          target = _ref4[1];
+
+	      return comp[alias] = comp[target];
+	    }); // Reset all component props to their default value
+
+	    comp.resetProps = function () {
+	      props.forEach(function (prop) {
+	        comp[prop.name](prop.defaultVal);
+	      });
+	      return comp;
+	    }; //
+
+
+	    comp.resetProps(); // Apply all prop defaults
+
+	    state._rerender = digest; // Expose digest method
+
+	    return comp;
 	  };
 	}
 
-	var viridis = ramp$1(colors("44015444025645045745055946075a46085c460a5d460b5e470d60470e6147106347116447136548146748166848176948186a481a6c481b6d481c6e481d6f481f70482071482173482374482475482576482677482878482979472a7a472c7a472d7b472e7c472f7d46307e46327e46337f463480453581453781453882443983443a83443b84433d84433e85423f854240864241864142874144874045884046883f47883f48893e49893e4a893e4c8a3d4d8a3d4e8a3c4f8a3c508b3b518b3b528b3a538b3a548c39558c39568c38588c38598c375a8c375b8d365c8d365d8d355e8d355f8d34608d34618d33628d33638d32648e32658e31668e31678e31688e30698e306a8e2f6b8e2f6c8e2e6d8e2e6e8e2e6f8e2d708e2d718e2c718e2c728e2c738e2b748e2b758e2a768e2a778e2a788e29798e297a8e297b8e287c8e287d8e277e8e277f8e27808e26818e26828e26828e25838e25848e25858e24868e24878e23888e23898e238a8d228b8d228c8d228d8d218e8d218f8d21908d21918c20928c20928c20938c1f948c1f958b1f968b1f978b1f988b1f998a1f9a8a1e9b8a1e9c891e9d891f9e891f9f881fa0881fa1881fa1871fa28720a38620a48621a58521a68522a78522a88423a98324aa8325ab8225ac8226ad8127ad8128ae8029af7f2ab07f2cb17e2db27d2eb37c2fb47c31b57b32b67a34b67935b77937b87838b9773aba763bbb753dbc743fbc7340bd7242be7144bf7046c06f48c16e4ac16d4cc26c4ec36b50c46a52c56954c56856c66758c7655ac8645cc8635ec96260ca6063cb5f65cb5e67cc5c69cd5b6ccd5a6ece5870cf5773d05675d05477d1537ad1517cd2507fd34e81d34d84d44b86d54989d5488bd6468ed64590d74393d74195d84098d83e9bd93c9dd93ba0da39a2da37a5db36a8db34aadc32addc30b0dd2fb2dd2db5de2bb8de29bade28bddf26c0df25c2df23c5e021c8e020cae11fcde11dd0e11cd2e21bd5e21ad8e219dae319dde318dfe318e2e418e5e419e7e419eae51aece51befe51cf1e51df4e61ef6e620f8e621fbe723fde725"));
+	module.exports = index;
 
-	var magma = ramp$1(colors("00000401000501010601010802010902020b02020d03030f03031204041405041606051806051a07061c08071e0907200a08220b09240c09260d0a290e0b2b100b2d110c2f120d31130d34140e36150e38160f3b180f3d19103f1a10421c10441d11471e114920114b21114e22115024125325125527125829115a2a115c2c115f2d11612f116331116533106734106936106b38106c390f6e3b0f703d0f713f0f72400f74420f75440f764510774710784910784a10794c117a4e117b4f127b51127c52137c54137d56147d57157e59157e5a167e5c167f5d177f5f187f601880621980641a80651a80671b80681c816a1c816b1d816d1d816e1e81701f81721f817320817521817621817822817922827b23827c23827e24828025828125818326818426818627818827818928818b29818c29818e2a81902a81912b81932b80942c80962c80982d80992d809b2e7f9c2e7f9e2f7fa02f7fa1307ea3307ea5317ea6317da8327daa337dab337cad347cae347bb0357bb2357bb3367ab5367ab73779b83779ba3878bc3978bd3977bf3a77c03a76c23b75c43c75c53c74c73d73c83e73ca3e72cc3f71cd4071cf4070d0416fd2426fd3436ed5446dd6456cd8456cd9466bdb476adc4869de4968df4a68e04c67e24d66e34e65e44f64e55064e75263e85362e95462ea5661eb5760ec5860ed5a5fee5b5eef5d5ef05f5ef1605df2625df2645cf3655cf4675cf4695cf56b5cf66c5cf66e5cf7705cf7725cf8745cf8765cf9785df9795df97b5dfa7d5efa7f5efa815ffb835ffb8560fb8761fc8961fc8a62fc8c63fc8e64fc9065fd9266fd9467fd9668fd9869fd9a6afd9b6bfe9d6cfe9f6dfea16efea36ffea571fea772fea973feaa74feac76feae77feb078feb27afeb47bfeb67cfeb77efeb97ffebb81febd82febf84fec185fec287fec488fec68afec88cfeca8dfecc8ffecd90fecf92fed194fed395fed597fed799fed89afdda9cfddc9efddea0fde0a1fde2a3fde3a5fde5a7fde7a9fde9aafdebacfcecaefceeb0fcf0b2fcf2b4fcf4b6fcf6b8fcf7b9fcf9bbfcfbbdfcfdbf"));
 
-	var inferno = ramp$1(colors("00000401000501010601010802010a02020c02020e03021004031204031405041706041907051b08051d09061f0a07220b07240c08260d08290e092b10092d110a30120a32140b34150b37160b39180c3c190c3e1b0c411c0c431e0c451f0c48210c4a230c4c240c4f260c51280b53290b552b0b572d0b592f0a5b310a5c320a5e340a5f3609613809623909633b09643d09653e0966400a67420a68440a68450a69470b6a490b6a4a0c6b4c0c6b4d0d6c4f0d6c510e6c520e6d540f6d550f6d57106e59106e5a116e5c126e5d126e5f136e61136e62146e64156e65156e67166e69166e6a176e6c186e6d186e6f196e71196e721a6e741a6e751b6e771c6d781c6d7a1d6d7c1d6d7d1e6d7f1e6c801f6c82206c84206b85216b87216b88226a8a226a8c23698d23698f24699025689225689326679526679727669827669a28659b29649d29649f2a63a02a63a22b62a32c61a52c60a62d60a82e5fa92e5eab2f5ead305dae305cb0315bb1325ab3325ab43359b63458b73557b93556ba3655bc3754bd3853bf3952c03a51c13a50c33b4fc43c4ec63d4dc73e4cc83f4bca404acb4149cc4248ce4347cf4446d04545d24644d34743d44842d54a41d74b3fd84c3ed94d3dda4e3cdb503bdd513ade5238df5337e05536e15635e25734e35933e45a31e55c30e65d2fe75e2ee8602de9612bea632aeb6429eb6628ec6726ed6925ee6a24ef6c23ef6e21f06f20f1711ff1731df2741cf3761bf37819f47918f57b17f57d15f67e14f68013f78212f78410f8850ff8870ef8890cf98b0bf98c0af98e09fa9008fa9207fa9407fb9606fb9706fb9906fb9b06fb9d07fc9f07fca108fca309fca50afca60cfca80dfcaa0ffcac11fcae12fcb014fcb216fcb418fbb61afbb81dfbba1ffbbc21fbbe23fac026fac228fac42afac62df9c72ff9c932f9cb35f8cd37f8cf3af7d13df7d340f6d543f6d746f5d949f5db4cf4dd4ff4df53f4e156f3e35af3e55df2e661f2e865f2ea69f1ec6df1ed71f1ef75f1f179f2f27df2f482f3f586f3f68af4f88ef5f992f6fa96f8fb9af9fc9dfafda1fcffa4"));
+/***/ }),
+/* 59 */
+/***/ (function(module, exports) {
 
-	var plasma = ramp$1(colors("0d088710078813078916078a19068c1b068d1d068e20068f2206902406912605912805922a05932c05942e05952f059631059733059735049837049938049a3a049a3c049b3e049c3f049c41049d43039e44039e46039f48039f4903a04b03a14c02a14e02a25002a25102a35302a35502a45601a45801a45901a55b01a55c01a65e01a66001a66100a76300a76400a76600a76700a86900a86a00a86c00a86e00a86f00a87100a87201a87401a87501a87701a87801a87a02a87b02a87d03a87e03a88004a88104a78305a78405a78606a68707a68808a68a09a58b0aa58d0ba58e0ca48f0da4910ea3920fa39410a29511a19613a19814a099159f9a169f9c179e9d189d9e199da01a9ca11b9ba21d9aa31e9aa51f99a62098a72197a82296aa2395ab2494ac2694ad2793ae2892b02991b12a90b22b8fb32c8eb42e8db52f8cb6308bb7318ab83289ba3388bb3488bc3587bd3786be3885bf3984c03a83c13b82c23c81c33d80c43e7fc5407ec6417dc7427cc8437bc9447aca457acb4679cc4778cc4977cd4a76ce4b75cf4c74d04d73d14e72d24f71d35171d45270d5536fd5546ed6556dd7566cd8576bd9586ada5a6ada5b69db5c68dc5d67dd5e66de5f65de6164df6263e06363e16462e26561e26660e3685fe4695ee56a5de56b5de66c5ce76e5be76f5ae87059e97158e97257ea7457eb7556eb7655ec7754ed7953ed7a52ee7b51ef7c51ef7e50f07f4ff0804ef1814df1834cf2844bf3854bf3874af48849f48948f58b47f58c46f68d45f68f44f79044f79143f79342f89441f89540f9973ff9983ef99a3efa9b3dfa9c3cfa9e3bfb9f3afba139fba238fca338fca537fca636fca835fca934fdab33fdac33fdae32fdaf31fdb130fdb22ffdb42ffdb52efeb72dfeb82cfeba2cfebb2bfebd2afebe2afec029fdc229fdc328fdc527fdc627fdc827fdca26fdcb26fccd25fcce25fcd025fcd225fbd324fbd524fbd724fad824fada24f9dc24f9dd25f8df25f8e125f7e225f7e425f6e626f6e826f5e926f5eb27f4ed27f3ee27f3f027f2f227f1f426f1f525f0f724f0f921"));
+	/**
+	 * Returns a function, that, as long as it continues to be invoked, will not
+	 * be triggered. The function will be called after it stops being called for
+	 * N milliseconds. If `immediate` is passed, trigger the function on the
+	 * leading edge, instead of the trailing. The function also has a property 'clear' 
+	 * that is a function which will clear the timer to prevent previously scheduled executions. 
+	 *
+	 * @source underscore.js
+	 * @see http://unscriptable.com/2009/03/20/debouncing-javascript-methods/
+	 * @param {Function} function to wrap
+	 * @param {Number} timeout in ms (`100`)
+	 * @param {Boolean} whether to execute at the beginning (`false`)
+	 * @api public
+	 */
+	function debounce(func, wait, immediate){
+	  var timeout, args, context, timestamp, result;
+	  if (null == wait) wait = 100;
 
-	exports.schemeCategory10 = category10;
-	exports.schemeAccent = Accent;
-	exports.schemeDark2 = Dark2;
-	exports.schemePaired = Paired;
-	exports.schemePastel1 = Pastel1;
-	exports.schemePastel2 = Pastel2;
-	exports.schemeSet1 = Set1;
-	exports.schemeSet2 = Set2;
-	exports.schemeSet3 = Set3;
-	exports.interpolateBrBG = BrBG;
-	exports.schemeBrBG = scheme;
-	exports.interpolatePRGn = PRGn;
-	exports.schemePRGn = scheme$1;
-	exports.interpolatePiYG = PiYG;
-	exports.schemePiYG = scheme$2;
-	exports.interpolatePuOr = PuOr;
-	exports.schemePuOr = scheme$3;
-	exports.interpolateRdBu = RdBu;
-	exports.schemeRdBu = scheme$4;
-	exports.interpolateRdGy = RdGy;
-	exports.schemeRdGy = scheme$5;
-	exports.interpolateRdYlBu = RdYlBu;
-	exports.schemeRdYlBu = scheme$6;
-	exports.interpolateRdYlGn = RdYlGn;
-	exports.schemeRdYlGn = scheme$7;
-	exports.interpolateSpectral = Spectral;
-	exports.schemeSpectral = scheme$8;
-	exports.interpolateBuGn = BuGn;
-	exports.schemeBuGn = scheme$9;
-	exports.interpolateBuPu = BuPu;
-	exports.schemeBuPu = scheme$a;
-	exports.interpolateGnBu = GnBu;
-	exports.schemeGnBu = scheme$b;
-	exports.interpolateOrRd = OrRd;
-	exports.schemeOrRd = scheme$c;
-	exports.interpolatePuBuGn = PuBuGn;
-	exports.schemePuBuGn = scheme$d;
-	exports.interpolatePuBu = PuBu;
-	exports.schemePuBu = scheme$e;
-	exports.interpolatePuRd = PuRd;
-	exports.schemePuRd = scheme$f;
-	exports.interpolateRdPu = RdPu;
-	exports.schemeRdPu = scheme$g;
-	exports.interpolateYlGnBu = YlGnBu;
-	exports.schemeYlGnBu = scheme$h;
-	exports.interpolateYlGn = YlGn;
-	exports.schemeYlGn = scheme$i;
-	exports.interpolateYlOrBr = YlOrBr;
-	exports.schemeYlOrBr = scheme$j;
-	exports.interpolateYlOrRd = YlOrRd;
-	exports.schemeYlOrRd = scheme$k;
-	exports.interpolateBlues = Blues;
-	exports.schemeBlues = scheme$l;
-	exports.interpolateGreens = Greens;
-	exports.schemeGreens = scheme$m;
-	exports.interpolateGreys = Greys;
-	exports.schemeGreys = scheme$n;
-	exports.interpolatePurples = Purples;
-	exports.schemePurples = scheme$o;
-	exports.interpolateReds = Reds;
-	exports.schemeReds = scheme$p;
-	exports.interpolateOranges = Oranges;
-	exports.schemeOranges = scheme$q;
-	exports.interpolateCubehelixDefault = cubehelix;
-	exports.interpolateRainbow = rainbow;
-	exports.interpolateWarm = warm;
-	exports.interpolateCool = cool;
-	exports.interpolateSinebow = sinebow;
-	exports.interpolateViridis = viridis;
-	exports.interpolateMagma = magma;
-	exports.interpolateInferno = inferno;
-	exports.interpolatePlasma = plasma;
+	  function later() {
+	    var last = Date.now() - timestamp;
+
+	    if (last < wait && last >= 0) {
+	      timeout = setTimeout(later, wait - last);
+	    } else {
+	      timeout = null;
+	      if (!immediate) {
+	        result = func.apply(context, args);
+	        context = args = null;
+	      }
+	    }
+	  };
+
+	  var debounced = function(){
+	    context = this;
+	    args = arguments;
+	    timestamp = Date.now();
+	    var callNow = immediate && !timeout;
+	    if (!timeout) timeout = setTimeout(later, wait);
+	    if (callNow) {
+	      result = func.apply(context, args);
+	      context = args = null;
+	    }
+
+	    return result;
+	  };
+
+	  debounced.clear = function() {
+	    if (timeout) {
+	      clearTimeout(timeout);
+	      timeout = null;
+	    }
+	  };
+	  
+	  debounced.flush = function() {
+	    if (timeout) {
+	      result = func.apply(context, args);
+	      context = args = null;
+	      
+	      clearTimeout(timeout);
+	      timeout = null;
+	    }
+	  };
+
+	  return debounced;
+	};
+
+	// Adds compatibility for ES modules
+	debounce.debounce = debounce;
+
+	module.exports = debounce;
+
+
+/***/ }),
+/* 60 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	// https://d3js.org/d3-scale/ v3.0.0 Copyright 2019 Mike Bostock
+	(function (global, factory) {
+	 true ? factory(exports, __webpack_require__(61), __webpack_require__(62), __webpack_require__(64), __webpack_require__(65), __webpack_require__(66)) :
+	typeof define === 'function' && define.amd ? define(['exports', 'd3-array', 'd3-interpolate', 'd3-format', 'd3-time', 'd3-time-format'], factory) :
+	(factory((global.d3 = global.d3 || {}),global.d3,global.d3,global.d3,global.d3,global.d3));
+	}(this, (function (exports,d3Array,d3Interpolate,d3Format,d3Time,d3TimeFormat) { 'use strict';
+
+	function initRange(domain, range) {
+	  switch (arguments.length) {
+	    case 0: break;
+	    case 1: this.range(domain); break;
+	    default: this.range(range).domain(domain); break;
+	  }
+	  return this;
+	}
+
+	function initInterpolator(domain, interpolator) {
+	  switch (arguments.length) {
+	    case 0: break;
+	    case 1: this.interpolator(domain); break;
+	    default: this.interpolator(interpolator).domain(domain); break;
+	  }
+	  return this;
+	}
+
+	const implicit = Symbol("implicit");
+
+	function ordinal() {
+	  var index = new Map(),
+	      domain = [],
+	      range = [],
+	      unknown = implicit;
+
+	  function scale(d) {
+	    var key = d + "", i = index.get(key);
+	    if (!i) {
+	      if (unknown !== implicit) return unknown;
+	      index.set(key, i = domain.push(d));
+	    }
+	    return range[(i - 1) % range.length];
+	  }
+
+	  scale.domain = function(_) {
+	    if (!arguments.length) return domain.slice();
+	    domain = [], index = new Map();
+	    for (const value of _) {
+	      const key = value + "";
+	      if (index.has(key)) continue;
+	      index.set(key, domain.push(value));
+	    }
+	    return scale;
+	  };
+
+	  scale.range = function(_) {
+	    return arguments.length ? (range = Array.from(_), scale) : range.slice();
+	  };
+
+	  scale.unknown = function(_) {
+	    return arguments.length ? (unknown = _, scale) : unknown;
+	  };
+
+	  scale.copy = function() {
+	    return ordinal(domain, range).unknown(unknown);
+	  };
+
+	  initRange.apply(scale, arguments);
+
+	  return scale;
+	}
+
+	function band() {
+	  var scale = ordinal().unknown(undefined),
+	      domain = scale.domain,
+	      ordinalRange = scale.range,
+	      r0 = 0,
+	      r1 = 1,
+	      step,
+	      bandwidth,
+	      round = false,
+	      paddingInner = 0,
+	      paddingOuter = 0,
+	      align = 0.5;
+
+	  delete scale.unknown;
+
+	  function rescale() {
+	    var n = domain().length,
+	        reverse = r1 < r0,
+	        start = reverse ? r1 : r0,
+	        stop = reverse ? r0 : r1;
+	    step = (stop - start) / Math.max(1, n - paddingInner + paddingOuter * 2);
+	    if (round) step = Math.floor(step);
+	    start += (stop - start - step * (n - paddingInner)) * align;
+	    bandwidth = step * (1 - paddingInner);
+	    if (round) start = Math.round(start), bandwidth = Math.round(bandwidth);
+	    var values = d3Array.range(n).map(function(i) { return start + step * i; });
+	    return ordinalRange(reverse ? values.reverse() : values);
+	  }
+
+	  scale.domain = function(_) {
+	    return arguments.length ? (domain(_), rescale()) : domain();
+	  };
+
+	  scale.range = function(_) {
+	    return arguments.length ? ([r0, r1] = _, r0 = +r0, r1 = +r1, rescale()) : [r0, r1];
+	  };
+
+	  scale.rangeRound = function(_) {
+	    return [r0, r1] = _, r0 = +r0, r1 = +r1, round = true, rescale();
+	  };
+
+	  scale.bandwidth = function() {
+	    return bandwidth;
+	  };
+
+	  scale.step = function() {
+	    return step;
+	  };
+
+	  scale.round = function(_) {
+	    return arguments.length ? (round = !!_, rescale()) : round;
+	  };
+
+	  scale.padding = function(_) {
+	    return arguments.length ? (paddingInner = Math.min(1, paddingOuter = +_), rescale()) : paddingInner;
+	  };
+
+	  scale.paddingInner = function(_) {
+	    return arguments.length ? (paddingInner = Math.min(1, _), rescale()) : paddingInner;
+	  };
+
+	  scale.paddingOuter = function(_) {
+	    return arguments.length ? (paddingOuter = +_, rescale()) : paddingOuter;
+	  };
+
+	  scale.align = function(_) {
+	    return arguments.length ? (align = Math.max(0, Math.min(1, _)), rescale()) : align;
+	  };
+
+	  scale.copy = function() {
+	    return band(domain(), [r0, r1])
+	        .round(round)
+	        .paddingInner(paddingInner)
+	        .paddingOuter(paddingOuter)
+	        .align(align);
+	  };
+
+	  return initRange.apply(rescale(), arguments);
+	}
+
+	function pointish(scale) {
+	  var copy = scale.copy;
+
+	  scale.padding = scale.paddingOuter;
+	  delete scale.paddingInner;
+	  delete scale.paddingOuter;
+
+	  scale.copy = function() {
+	    return pointish(copy());
+	  };
+
+	  return scale;
+	}
+
+	function point() {
+	  return pointish(band.apply(null, arguments).paddingInner(1));
+	}
+
+	function constant(x) {
+	  return function() {
+	    return x;
+	  };
+	}
+
+	function number(x) {
+	  return +x;
+	}
+
+	var unit = [0, 1];
+
+	function identity(x) {
+	  return x;
+	}
+
+	function normalize(a, b) {
+	  return (b -= (a = +a))
+	      ? function(x) { return (x - a) / b; }
+	      : constant(isNaN(b) ? NaN : 0.5);
+	}
+
+	function clamper(domain) {
+	  var a = domain[0], b = domain[domain.length - 1], t;
+	  if (a > b) t = a, a = b, b = t;
+	  return function(x) { return Math.max(a, Math.min(b, x)); };
+	}
+
+	// normalize(a, b)(x) takes a domain value x in [a,b] and returns the corresponding parameter t in [0,1].
+	// interpolate(a, b)(t) takes a parameter t in [0,1] and returns the corresponding range value x in [a,b].
+	function bimap(domain, range, interpolate) {
+	  var d0 = domain[0], d1 = domain[1], r0 = range[0], r1 = range[1];
+	  if (d1 < d0) d0 = normalize(d1, d0), r0 = interpolate(r1, r0);
+	  else d0 = normalize(d0, d1), r0 = interpolate(r0, r1);
+	  return function(x) { return r0(d0(x)); };
+	}
+
+	function polymap(domain, range, interpolate) {
+	  var j = Math.min(domain.length, range.length) - 1,
+	      d = new Array(j),
+	      r = new Array(j),
+	      i = -1;
+
+	  // Reverse descending domains.
+	  if (domain[j] < domain[0]) {
+	    domain = domain.slice().reverse();
+	    range = range.slice().reverse();
+	  }
+
+	  while (++i < j) {
+	    d[i] = normalize(domain[i], domain[i + 1]);
+	    r[i] = interpolate(range[i], range[i + 1]);
+	  }
+
+	  return function(x) {
+	    var i = d3Array.bisect(domain, x, 1, j) - 1;
+	    return r[i](d[i](x));
+	  };
+	}
+
+	function copy(source, target) {
+	  return target
+	      .domain(source.domain())
+	      .range(source.range())
+	      .interpolate(source.interpolate())
+	      .clamp(source.clamp())
+	      .unknown(source.unknown());
+	}
+
+	function transformer() {
+	  var domain = unit,
+	      range = unit,
+	      interpolate = d3Interpolate.interpolate,
+	      transform,
+	      untransform,
+	      unknown,
+	      clamp = identity,
+	      piecewise,
+	      output,
+	      input;
+
+	  function rescale() {
+	    piecewise = Math.min(domain.length, range.length) > 2 ? polymap : bimap;
+	    output = input = null;
+	    return scale;
+	  }
+
+	  function scale(x) {
+	    return isNaN(x = +x) ? unknown : (output || (output = piecewise(domain.map(transform), range, interpolate)))(transform(clamp(x)));
+	  }
+
+	  scale.invert = function(y) {
+	    return clamp(untransform((input || (input = piecewise(range, domain.map(transform), d3Interpolate.interpolateNumber)))(y)));
+	  };
+
+	  scale.domain = function(_) {
+	    return arguments.length ? (domain = Array.from(_, number), clamp === identity || (clamp = clamper(domain)), rescale()) : domain.slice();
+	  };
+
+	  scale.range = function(_) {
+	    return arguments.length ? (range = Array.from(_), rescale()) : range.slice();
+	  };
+
+	  scale.rangeRound = function(_) {
+	    return range = Array.from(_), interpolate = d3Interpolate.interpolateRound, rescale();
+	  };
+
+	  scale.clamp = function(_) {
+	    return arguments.length ? (clamp = _ ? clamper(domain) : identity, scale) : clamp !== identity;
+	  };
+
+	  scale.interpolate = function(_) {
+	    return arguments.length ? (interpolate = _, rescale()) : interpolate;
+	  };
+
+	  scale.unknown = function(_) {
+	    return arguments.length ? (unknown = _, scale) : unknown;
+	  };
+
+	  return function(t, u) {
+	    transform = t, untransform = u;
+	    return rescale();
+	  };
+	}
+
+	function continuous(transform, untransform) {
+	  return transformer()(transform, untransform);
+	}
+
+	function tickFormat(start, stop, count, specifier) {
+	  var step = d3Array.tickStep(start, stop, count),
+	      precision;
+	  specifier = d3Format.formatSpecifier(specifier == null ? ",f" : specifier);
+	  switch (specifier.type) {
+	    case "s": {
+	      var value = Math.max(Math.abs(start), Math.abs(stop));
+	      if (specifier.precision == null && !isNaN(precision = d3Format.precisionPrefix(step, value))) specifier.precision = precision;
+	      return d3Format.formatPrefix(specifier, value);
+	    }
+	    case "":
+	    case "e":
+	    case "g":
+	    case "p":
+	    case "r": {
+	      if (specifier.precision == null && !isNaN(precision = d3Format.precisionRound(step, Math.max(Math.abs(start), Math.abs(stop))))) specifier.precision = precision - (specifier.type === "e");
+	      break;
+	    }
+	    case "f":
+	    case "%": {
+	      if (specifier.precision == null && !isNaN(precision = d3Format.precisionFixed(step))) specifier.precision = precision - (specifier.type === "%") * 2;
+	      break;
+	    }
+	  }
+	  return d3Format.format(specifier);
+	}
+
+	function linearish(scale) {
+	  var domain = scale.domain;
+
+	  scale.ticks = function(count) {
+	    var d = domain();
+	    return d3Array.ticks(d[0], d[d.length - 1], count == null ? 10 : count);
+	  };
+
+	  scale.tickFormat = function(count, specifier) {
+	    var d = domain();
+	    return tickFormat(d[0], d[d.length - 1], count == null ? 10 : count, specifier);
+	  };
+
+	  scale.nice = function(count) {
+	    if (count == null) count = 10;
+
+	    var d = domain(),
+	        i0 = 0,
+	        i1 = d.length - 1,
+	        start = d[i0],
+	        stop = d[i1],
+	        step;
+
+	    if (stop < start) {
+	      step = start, start = stop, stop = step;
+	      step = i0, i0 = i1, i1 = step;
+	    }
+
+	    step = d3Array.tickIncrement(start, stop, count);
+
+	    if (step > 0) {
+	      start = Math.floor(start / step) * step;
+	      stop = Math.ceil(stop / step) * step;
+	      step = d3Array.tickIncrement(start, stop, count);
+	    } else if (step < 0) {
+	      start = Math.ceil(start * step) / step;
+	      stop = Math.floor(stop * step) / step;
+	      step = d3Array.tickIncrement(start, stop, count);
+	    }
+
+	    if (step > 0) {
+	      d[i0] = Math.floor(start / step) * step;
+	      d[i1] = Math.ceil(stop / step) * step;
+	      domain(d);
+	    } else if (step < 0) {
+	      d[i0] = Math.ceil(start * step) / step;
+	      d[i1] = Math.floor(stop * step) / step;
+	      domain(d);
+	    }
+
+	    return scale;
+	  };
+
+	  return scale;
+	}
+
+	function linear() {
+	  var scale = continuous(identity, identity);
+
+	  scale.copy = function() {
+	    return copy(scale, linear());
+	  };
+
+	  initRange.apply(scale, arguments);
+
+	  return linearish(scale);
+	}
+
+	function identity$1(domain) {
+	  var unknown;
+
+	  function scale(x) {
+	    return isNaN(x = +x) ? unknown : x;
+	  }
+
+	  scale.invert = scale;
+
+	  scale.domain = scale.range = function(_) {
+	    return arguments.length ? (domain = Array.from(_, number), scale) : domain.slice();
+	  };
+
+	  scale.unknown = function(_) {
+	    return arguments.length ? (unknown = _, scale) : unknown;
+	  };
+
+	  scale.copy = function() {
+	    return identity$1(domain).unknown(unknown);
+	  };
+
+	  domain = arguments.length ? Array.from(domain, number) : [0, 1];
+
+	  return linearish(scale);
+	}
+
+	function nice(domain, interval) {
+	  domain = domain.slice();
+
+	  var i0 = 0,
+	      i1 = domain.length - 1,
+	      x0 = domain[i0],
+	      x1 = domain[i1],
+	      t;
+
+	  if (x1 < x0) {
+	    t = i0, i0 = i1, i1 = t;
+	    t = x0, x0 = x1, x1 = t;
+	  }
+
+	  domain[i0] = interval.floor(x0);
+	  domain[i1] = interval.ceil(x1);
+	  return domain;
+	}
+
+	function transformLog(x) {
+	  return Math.log(x);
+	}
+
+	function transformExp(x) {
+	  return Math.exp(x);
+	}
+
+	function transformLogn(x) {
+	  return -Math.log(-x);
+	}
+
+	function transformExpn(x) {
+	  return -Math.exp(-x);
+	}
+
+	function pow10(x) {
+	  return isFinite(x) ? +("1e" + x) : x < 0 ? 0 : x;
+	}
+
+	function powp(base) {
+	  return base === 10 ? pow10
+	      : base === Math.E ? Math.exp
+	      : function(x) { return Math.pow(base, x); };
+	}
+
+	function logp(base) {
+	  return base === Math.E ? Math.log
+	      : base === 10 && Math.log10
+	      || base === 2 && Math.log2
+	      || (base = Math.log(base), function(x) { return Math.log(x) / base; });
+	}
+
+	function reflect(f) {
+	  return function(x) {
+	    return -f(-x);
+	  };
+	}
+
+	function loggish(transform) {
+	  var scale = transform(transformLog, transformExp),
+	      domain = scale.domain,
+	      base = 10,
+	      logs,
+	      pows;
+
+	  function rescale() {
+	    logs = logp(base), pows = powp(base);
+	    if (domain()[0] < 0) {
+	      logs = reflect(logs), pows = reflect(pows);
+	      transform(transformLogn, transformExpn);
+	    } else {
+	      transform(transformLog, transformExp);
+	    }
+	    return scale;
+	  }
+
+	  scale.base = function(_) {
+	    return arguments.length ? (base = +_, rescale()) : base;
+	  };
+
+	  scale.domain = function(_) {
+	    return arguments.length ? (domain(_), rescale()) : domain();
+	  };
+
+	  scale.ticks = function(count) {
+	    var d = domain(),
+	        u = d[0],
+	        v = d[d.length - 1],
+	        r;
+
+	    if (r = v < u) i = u, u = v, v = i;
+
+	    var i = logs(u),
+	        j = logs(v),
+	        p,
+	        k,
+	        t,
+	        n = count == null ? 10 : +count,
+	        z = [];
+
+	    if (!(base % 1) && j - i < n) {
+	      i = Math.round(i) - 1, j = Math.round(j) + 1;
+	      if (u > 0) for (; i < j; ++i) {
+	        for (k = 1, p = pows(i); k < base; ++k) {
+	          t = p * k;
+	          if (t < u) continue;
+	          if (t > v) break;
+	          z.push(t);
+	        }
+	      } else for (; i < j; ++i) {
+	        for (k = base - 1, p = pows(i); k >= 1; --k) {
+	          t = p * k;
+	          if (t < u) continue;
+	          if (t > v) break;
+	          z.push(t);
+	        }
+	      }
+	    } else {
+	      z = d3Array.ticks(i, j, Math.min(j - i, n)).map(pows);
+	    }
+
+	    return r ? z.reverse() : z;
+	  };
+
+	  scale.tickFormat = function(count, specifier) {
+	    if (specifier == null) specifier = base === 10 ? ".0e" : ",";
+	    if (typeof specifier !== "function") specifier = d3Format.format(specifier);
+	    if (count === Infinity) return specifier;
+	    if (count == null) count = 10;
+	    var k = Math.max(1, base * count / scale.ticks().length); // TODO fast estimate?
+	    return function(d) {
+	      var i = d / pows(Math.round(logs(d)));
+	      if (i * base < base - 0.5) i *= base;
+	      return i <= k ? specifier(d) : "";
+	    };
+	  };
+
+	  scale.nice = function() {
+	    return domain(nice(domain(), {
+	      floor: function(x) { return pows(Math.floor(logs(x))); },
+	      ceil: function(x) { return pows(Math.ceil(logs(x))); }
+	    }));
+	  };
+
+	  return scale;
+	}
+
+	function log() {
+	  var scale = loggish(transformer()).domain([1, 10]);
+
+	  scale.copy = function() {
+	    return copy(scale, log()).base(scale.base());
+	  };
+
+	  initRange.apply(scale, arguments);
+
+	  return scale;
+	}
+
+	function transformSymlog(c) {
+	  return function(x) {
+	    return Math.sign(x) * Math.log1p(Math.abs(x / c));
+	  };
+	}
+
+	function transformSymexp(c) {
+	  return function(x) {
+	    return Math.sign(x) * Math.expm1(Math.abs(x)) * c;
+	  };
+	}
+
+	function symlogish(transform) {
+	  var c = 1, scale = transform(transformSymlog(c), transformSymexp(c));
+
+	  scale.constant = function(_) {
+	    return arguments.length ? transform(transformSymlog(c = +_), transformSymexp(c)) : c;
+	  };
+
+	  return linearish(scale);
+	}
+
+	function symlog() {
+	  var scale = symlogish(transformer());
+
+	  scale.copy = function() {
+	    return copy(scale, symlog()).constant(scale.constant());
+	  };
+
+	  return initRange.apply(scale, arguments);
+	}
+
+	function transformPow(exponent) {
+	  return function(x) {
+	    return x < 0 ? -Math.pow(-x, exponent) : Math.pow(x, exponent);
+	  };
+	}
+
+	function transformSqrt(x) {
+	  return x < 0 ? -Math.sqrt(-x) : Math.sqrt(x);
+	}
+
+	function transformSquare(x) {
+	  return x < 0 ? -x * x : x * x;
+	}
+
+	function powish(transform) {
+	  var scale = transform(identity, identity),
+	      exponent = 1;
+
+	  function rescale() {
+	    return exponent === 1 ? transform(identity, identity)
+	        : exponent === 0.5 ? transform(transformSqrt, transformSquare)
+	        : transform(transformPow(exponent), transformPow(1 / exponent));
+	  }
+
+	  scale.exponent = function(_) {
+	    return arguments.length ? (exponent = +_, rescale()) : exponent;
+	  };
+
+	  return linearish(scale);
+	}
+
+	function pow() {
+	  var scale = powish(transformer());
+
+	  scale.copy = function() {
+	    return copy(scale, pow()).exponent(scale.exponent());
+	  };
+
+	  initRange.apply(scale, arguments);
+
+	  return scale;
+	}
+
+	function sqrt() {
+	  return pow.apply(null, arguments).exponent(0.5);
+	}
+
+	function quantile() {
+	  var domain = [],
+	      range = [],
+	      thresholds = [],
+	      unknown;
+
+	  function rescale() {
+	    var i = 0, n = Math.max(1, range.length);
+	    thresholds = new Array(n - 1);
+	    while (++i < n) thresholds[i - 1] = d3Array.quantile(domain, i / n);
+	    return scale;
+	  }
+
+	  function scale(x) {
+	    return isNaN(x = +x) ? unknown : range[d3Array.bisect(thresholds, x)];
+	  }
+
+	  scale.invertExtent = function(y) {
+	    var i = range.indexOf(y);
+	    return i < 0 ? [NaN, NaN] : [
+	      i > 0 ? thresholds[i - 1] : domain[0],
+	      i < thresholds.length ? thresholds[i] : domain[domain.length - 1]
+	    ];
+	  };
+
+	  scale.domain = function(_) {
+	    if (!arguments.length) return domain.slice();
+	    domain = [];
+	    for (let d of _) if (d != null && !isNaN(d = +d)) domain.push(d);
+	    domain.sort(d3Array.ascending);
+	    return rescale();
+	  };
+
+	  scale.range = function(_) {
+	    return arguments.length ? (range = Array.from(_), rescale()) : range.slice();
+	  };
+
+	  scale.unknown = function(_) {
+	    return arguments.length ? (unknown = _, scale) : unknown;
+	  };
+
+	  scale.quantiles = function() {
+	    return thresholds.slice();
+	  };
+
+	  scale.copy = function() {
+	    return quantile()
+	        .domain(domain)
+	        .range(range)
+	        .unknown(unknown);
+	  };
+
+	  return initRange.apply(scale, arguments);
+	}
+
+	function quantize() {
+	  var x0 = 0,
+	      x1 = 1,
+	      n = 1,
+	      domain = [0.5],
+	      range = [0, 1],
+	      unknown;
+
+	  function scale(x) {
+	    return x <= x ? range[d3Array.bisect(domain, x, 0, n)] : unknown;
+	  }
+
+	  function rescale() {
+	    var i = -1;
+	    domain = new Array(n);
+	    while (++i < n) domain[i] = ((i + 1) * x1 - (i - n) * x0) / (n + 1);
+	    return scale;
+	  }
+
+	  scale.domain = function(_) {
+	    return arguments.length ? ([x0, x1] = _, x0 = +x0, x1 = +x1, rescale()) : [x0, x1];
+	  };
+
+	  scale.range = function(_) {
+	    return arguments.length ? (n = (range = Array.from(_)).length - 1, rescale()) : range.slice();
+	  };
+
+	  scale.invertExtent = function(y) {
+	    var i = range.indexOf(y);
+	    return i < 0 ? [NaN, NaN]
+	        : i < 1 ? [x0, domain[0]]
+	        : i >= n ? [domain[n - 1], x1]
+	        : [domain[i - 1], domain[i]];
+	  };
+
+	  scale.unknown = function(_) {
+	    return arguments.length ? (unknown = _, scale) : scale;
+	  };
+
+	  scale.thresholds = function() {
+	    return domain.slice();
+	  };
+
+	  scale.copy = function() {
+	    return quantize()
+	        .domain([x0, x1])
+	        .range(range)
+	        .unknown(unknown);
+	  };
+
+	  return initRange.apply(linearish(scale), arguments);
+	}
+
+	function threshold() {
+	  var domain = [0.5],
+	      range = [0, 1],
+	      unknown,
+	      n = 1;
+
+	  function scale(x) {
+	    return x <= x ? range[d3Array.bisect(domain, x, 0, n)] : unknown;
+	  }
+
+	  scale.domain = function(_) {
+	    return arguments.length ? (domain = Array.from(_), n = Math.min(domain.length, range.length - 1), scale) : domain.slice();
+	  };
+
+	  scale.range = function(_) {
+	    return arguments.length ? (range = Array.from(_), n = Math.min(domain.length, range.length - 1), scale) : range.slice();
+	  };
+
+	  scale.invertExtent = function(y) {
+	    var i = range.indexOf(y);
+	    return [domain[i - 1], domain[i]];
+	  };
+
+	  scale.unknown = function(_) {
+	    return arguments.length ? (unknown = _, scale) : unknown;
+	  };
+
+	  scale.copy = function() {
+	    return threshold()
+	        .domain(domain)
+	        .range(range)
+	        .unknown(unknown);
+	  };
+
+	  return initRange.apply(scale, arguments);
+	}
+
+	var durationSecond = 1000,
+	    durationMinute = durationSecond * 60,
+	    durationHour = durationMinute * 60,
+	    durationDay = durationHour * 24,
+	    durationWeek = durationDay * 7,
+	    durationMonth = durationDay * 30,
+	    durationYear = durationDay * 365;
+
+	function date(t) {
+	  return new Date(t);
+	}
+
+	function number$1(t) {
+	  return t instanceof Date ? +t : +new Date(+t);
+	}
+
+	function calendar(year, month, week, day, hour, minute, second, millisecond, format) {
+	  var scale = continuous(identity, identity),
+	      invert = scale.invert,
+	      domain = scale.domain;
+
+	  var formatMillisecond = format(".%L"),
+	      formatSecond = format(":%S"),
+	      formatMinute = format("%I:%M"),
+	      formatHour = format("%I %p"),
+	      formatDay = format("%a %d"),
+	      formatWeek = format("%b %d"),
+	      formatMonth = format("%B"),
+	      formatYear = format("%Y");
+
+	  var tickIntervals = [
+	    [second,  1,      durationSecond],
+	    [second,  5,  5 * durationSecond],
+	    [second, 15, 15 * durationSecond],
+	    [second, 30, 30 * durationSecond],
+	    [minute,  1,      durationMinute],
+	    [minute,  5,  5 * durationMinute],
+	    [minute, 15, 15 * durationMinute],
+	    [minute, 30, 30 * durationMinute],
+	    [  hour,  1,      durationHour  ],
+	    [  hour,  3,  3 * durationHour  ],
+	    [  hour,  6,  6 * durationHour  ],
+	    [  hour, 12, 12 * durationHour  ],
+	    [   day,  1,      durationDay   ],
+	    [   day,  2,  2 * durationDay   ],
+	    [  week,  1,      durationWeek  ],
+	    [ month,  1,      durationMonth ],
+	    [ month,  3,  3 * durationMonth ],
+	    [  year,  1,      durationYear  ]
+	  ];
+
+	  function tickFormat(date) {
+	    return (second(date) < date ? formatMillisecond
+	        : minute(date) < date ? formatSecond
+	        : hour(date) < date ? formatMinute
+	        : day(date) < date ? formatHour
+	        : month(date) < date ? (week(date) < date ? formatDay : formatWeek)
+	        : year(date) < date ? formatMonth
+	        : formatYear)(date);
+	  }
+
+	  function tickInterval(interval, start, stop, step) {
+	    if (interval == null) interval = 10;
+
+	    // If a desired tick count is specified, pick a reasonable tick interval
+	    // based on the extent of the domain and a rough estimate of tick size.
+	    // Otherwise, assume interval is already a time interval and use it.
+	    if (typeof interval === "number") {
+	      var target = Math.abs(stop - start) / interval,
+	          i = d3Array.bisector(function(i) { return i[2]; }).right(tickIntervals, target);
+	      if (i === tickIntervals.length) {
+	        step = d3Array.tickStep(start / durationYear, stop / durationYear, interval);
+	        interval = year;
+	      } else if (i) {
+	        i = tickIntervals[target / tickIntervals[i - 1][2] < tickIntervals[i][2] / target ? i - 1 : i];
+	        step = i[1];
+	        interval = i[0];
+	      } else {
+	        step = Math.max(d3Array.tickStep(start, stop, interval), 1);
+	        interval = millisecond;
+	      }
+	    }
+
+	    return step == null ? interval : interval.every(step);
+	  }
+
+	  scale.invert = function(y) {
+	    return new Date(invert(y));
+	  };
+
+	  scale.domain = function(_) {
+	    return arguments.length ? domain(Array.from(_, number$1)) : domain().map(date);
+	  };
+
+	  scale.ticks = function(interval, step) {
+	    var d = domain(),
+	        t0 = d[0],
+	        t1 = d[d.length - 1],
+	        r = t1 < t0,
+	        t;
+	    if (r) t = t0, t0 = t1, t1 = t;
+	    t = tickInterval(interval, t0, t1, step);
+	    t = t ? t.range(t0, t1 + 1) : []; // inclusive stop
+	    return r ? t.reverse() : t;
+	  };
+
+	  scale.tickFormat = function(count, specifier) {
+	    return specifier == null ? tickFormat : format(specifier);
+	  };
+
+	  scale.nice = function(interval, step) {
+	    var d = domain();
+	    return (interval = tickInterval(interval, d[0], d[d.length - 1], step))
+	        ? domain(nice(d, interval))
+	        : scale;
+	  };
+
+	  scale.copy = function() {
+	    return copy(scale, calendar(year, month, week, day, hour, minute, second, millisecond, format));
+	  };
+
+	  return scale;
+	}
+
+	function time() {
+	  return initRange.apply(calendar(d3Time.timeYear, d3Time.timeMonth, d3Time.timeWeek, d3Time.timeDay, d3Time.timeHour, d3Time.timeMinute, d3Time.timeSecond, d3Time.timeMillisecond, d3TimeFormat.timeFormat).domain([new Date(2000, 0, 1), new Date(2000, 0, 2)]), arguments);
+	}
+
+	function utcTime() {
+	  return initRange.apply(calendar(d3Time.utcYear, d3Time.utcMonth, d3Time.utcWeek, d3Time.utcDay, d3Time.utcHour, d3Time.utcMinute, d3Time.utcSecond, d3Time.utcMillisecond, d3TimeFormat.utcFormat).domain([Date.UTC(2000, 0, 1), Date.UTC(2000, 0, 2)]), arguments);
+	}
+
+	function transformer$1() {
+	  var x0 = 0,
+	      x1 = 1,
+	      t0,
+	      t1,
+	      k10,
+	      transform,
+	      interpolator = identity,
+	      clamp = false,
+	      unknown;
+
+	  function scale(x) {
+	    return isNaN(x = +x) ? unknown : interpolator(k10 === 0 ? 0.5 : (x = (transform(x) - t0) * k10, clamp ? Math.max(0, Math.min(1, x)) : x));
+	  }
+
+	  scale.domain = function(_) {
+	    return arguments.length ? ([x0, x1] = _, t0 = transform(x0 = +x0), t1 = transform(x1 = +x1), k10 = t0 === t1 ? 0 : 1 / (t1 - t0), scale) : [x0, x1];
+	  };
+
+	  scale.clamp = function(_) {
+	    return arguments.length ? (clamp = !!_, scale) : clamp;
+	  };
+
+	  scale.interpolator = function(_) {
+	    return arguments.length ? (interpolator = _, scale) : interpolator;
+	  };
+
+	  scale.unknown = function(_) {
+	    return arguments.length ? (unknown = _, scale) : unknown;
+	  };
+
+	  return function(t) {
+	    transform = t, t0 = t(x0), t1 = t(x1), k10 = t0 === t1 ? 0 : 1 / (t1 - t0);
+	    return scale;
+	  };
+	}
+
+	function copy$1(source, target) {
+	  return target
+	      .domain(source.domain())
+	      .interpolator(source.interpolator())
+	      .clamp(source.clamp())
+	      .unknown(source.unknown());
+	}
+
+	function sequential() {
+	  var scale = linearish(transformer$1()(identity));
+
+	  scale.copy = function() {
+	    return copy$1(scale, sequential());
+	  };
+
+	  return initInterpolator.apply(scale, arguments);
+	}
+
+	function sequentialLog() {
+	  var scale = loggish(transformer$1()).domain([1, 10]);
+
+	  scale.copy = function() {
+	    return copy$1(scale, sequentialLog()).base(scale.base());
+	  };
+
+	  return initInterpolator.apply(scale, arguments);
+	}
+
+	function sequentialSymlog() {
+	  var scale = symlogish(transformer$1());
+
+	  scale.copy = function() {
+	    return copy$1(scale, sequentialSymlog()).constant(scale.constant());
+	  };
+
+	  return initInterpolator.apply(scale, arguments);
+	}
+
+	function sequentialPow() {
+	  var scale = powish(transformer$1());
+
+	  scale.copy = function() {
+	    return copy$1(scale, sequentialPow()).exponent(scale.exponent());
+	  };
+
+	  return initInterpolator.apply(scale, arguments);
+	}
+
+	function sequentialSqrt() {
+	  return sequentialPow.apply(null, arguments).exponent(0.5);
+	}
+
+	function sequentialQuantile() {
+	  var domain = [],
+	      interpolator = identity;
+
+	  function scale(x) {
+	    if (!isNaN(x = +x)) return interpolator((d3Array.bisect(domain, x) - 1) / (domain.length - 1));
+	  }
+
+	  scale.domain = function(_) {
+	    if (!arguments.length) return domain.slice();
+	    domain = [];
+	    for (let d of _) if (d != null && !isNaN(d = +d)) domain.push(d);
+	    domain.sort(d3Array.ascending);
+	    return scale;
+	  };
+
+	  scale.interpolator = function(_) {
+	    return arguments.length ? (interpolator = _, scale) : interpolator;
+	  };
+
+	  scale.copy = function() {
+	    return sequentialQuantile(interpolator).domain(domain);
+	  };
+
+	  return initInterpolator.apply(scale, arguments);
+	}
+
+	function transformer$2() {
+	  var x0 = 0,
+	      x1 = 0.5,
+	      x2 = 1,
+	      t0,
+	      t1,
+	      t2,
+	      k10,
+	      k21,
+	      interpolator = identity,
+	      transform,
+	      clamp = false,
+	      unknown;
+
+	  function scale(x) {
+	    return isNaN(x = +x) ? unknown : (x = 0.5 + ((x = +transform(x)) - t1) * (x < t1 ? k10 : k21), interpolator(clamp ? Math.max(0, Math.min(1, x)) : x));
+	  }
+
+	  scale.domain = function(_) {
+	    return arguments.length ? ([x0, x1, x2] = _, t0 = transform(x0 = +x0), t1 = transform(x1 = +x1), t2 = transform(x2 = +x2), k10 = t0 === t1 ? 0 : 0.5 / (t1 - t0), k21 = t1 === t2 ? 0 : 0.5 / (t2 - t1), scale) : [x0, x1, x2];
+	  };
+
+	  scale.clamp = function(_) {
+	    return arguments.length ? (clamp = !!_, scale) : clamp;
+	  };
+
+	  scale.interpolator = function(_) {
+	    return arguments.length ? (interpolator = _, scale) : interpolator;
+	  };
+
+	  scale.unknown = function(_) {
+	    return arguments.length ? (unknown = _, scale) : unknown;
+	  };
+
+	  return function(t) {
+	    transform = t, t0 = t(x0), t1 = t(x1), t2 = t(x2), k10 = t0 === t1 ? 0 : 0.5 / (t1 - t0), k21 = t1 === t2 ? 0 : 0.5 / (t2 - t1);
+	    return scale;
+	  };
+	}
+
+	function diverging() {
+	  var scale = linearish(transformer$2()(identity));
+
+	  scale.copy = function() {
+	    return copy$1(scale, diverging());
+	  };
+
+	  return initInterpolator.apply(scale, arguments);
+	}
+
+	function divergingLog() {
+	  var scale = loggish(transformer$2()).domain([0.1, 1, 10]);
+
+	  scale.copy = function() {
+	    return copy$1(scale, divergingLog()).base(scale.base());
+	  };
+
+	  return initInterpolator.apply(scale, arguments);
+	}
+
+	function divergingSymlog() {
+	  var scale = symlogish(transformer$2());
+
+	  scale.copy = function() {
+	    return copy$1(scale, divergingSymlog()).constant(scale.constant());
+	  };
+
+	  return initInterpolator.apply(scale, arguments);
+	}
+
+	function divergingPow() {
+	  var scale = powish(transformer$2());
+
+	  scale.copy = function() {
+	    return copy$1(scale, divergingPow()).exponent(scale.exponent());
+	  };
+
+	  return initInterpolator.apply(scale, arguments);
+	}
+
+	function divergingSqrt() {
+	  return divergingPow.apply(null, arguments).exponent(0.5);
+	}
+
+	exports.scaleBand = band;
+	exports.scalePoint = point;
+	exports.scaleIdentity = identity$1;
+	exports.scaleLinear = linear;
+	exports.scaleLog = log;
+	exports.scaleSymlog = symlog;
+	exports.scaleOrdinal = ordinal;
+	exports.scaleImplicit = implicit;
+	exports.scalePow = pow;
+	exports.scaleSqrt = sqrt;
+	exports.scaleQuantile = quantile;
+	exports.scaleQuantize = quantize;
+	exports.scaleThreshold = threshold;
+	exports.scaleTime = time;
+	exports.scaleUtc = utcTime;
+	exports.scaleSequential = sequential;
+	exports.scaleSequentialLog = sequentialLog;
+	exports.scaleSequentialPow = sequentialPow;
+	exports.scaleSequentialSqrt = sequentialSqrt;
+	exports.scaleSequentialSymlog = sequentialSymlog;
+	exports.scaleSequentialQuantile = sequentialQuantile;
+	exports.scaleDiverging = diverging;
+	exports.scaleDivergingLog = divergingLog;
+	exports.scaleDivergingPow = divergingPow;
+	exports.scaleDivergingSqrt = divergingSqrt;
+	exports.scaleDivergingSymlog = divergingSymlog;
+	exports.tickFormat = tickFormat;
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
@@ -8973,12 +10394,765 @@
 
 
 /***/ }),
-/* 54 */
+/* 61 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	// https://d3js.org/d3-array/ v2.2.0 Copyright 2019 Mike Bostock
+	(function (global, factory) {
+	 true ? factory(exports) :
+	typeof define === 'function' && define.amd ? define(['exports'], factory) :
+	(factory((global.d3 = global.d3 || {})));
+	}(this, (function (exports) { 'use strict';
+
+	function ascending(a, b) {
+	  return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
+	}
+
+	function bisector(compare) {
+	  if (compare.length === 1) compare = ascendingComparator(compare);
+	  return {
+	    left: function(a, x, lo, hi) {
+	      if (lo == null) lo = 0;
+	      if (hi == null) hi = a.length;
+	      while (lo < hi) {
+	        var mid = lo + hi >>> 1;
+	        if (compare(a[mid], x) < 0) lo = mid + 1;
+	        else hi = mid;
+	      }
+	      return lo;
+	    },
+	    right: function(a, x, lo, hi) {
+	      if (lo == null) lo = 0;
+	      if (hi == null) hi = a.length;
+	      while (lo < hi) {
+	        var mid = lo + hi >>> 1;
+	        if (compare(a[mid], x) > 0) hi = mid;
+	        else lo = mid + 1;
+	      }
+	      return lo;
+	    }
+	  };
+	}
+
+	function ascendingComparator(f) {
+	  return function(d, x) {
+	    return ascending(f(d), x);
+	  };
+	}
+
+	var ascendingBisect = bisector(ascending);
+	var bisectRight = ascendingBisect.right;
+	var bisectLeft = ascendingBisect.left;
+
+	function count(values, valueof) {
+	  let count = 0;
+	  if (valueof === undefined) {
+	    for (const value of values) {
+	      if (value != null && value >= value) {
+	        ++count;
+	      }
+	    }
+	  } else {
+	    let index = -1;
+	    for (let value of values) {
+	      if ((value = valueof(value, ++index, values)) != null && value >= value) {
+	        ++count;
+	      }
+	    }
+	  }
+	  return count;
+	}
+
+	function length(array) {
+	  return array.length | 0;
+	}
+
+	function empty(length) {
+	  return !(length > 0);
+	}
+
+	function arrayify(values) {
+	  return typeof values !== "object" || "length" in values ? values : Array.from(values);
+	}
+
+	function reducer(reduce) {
+	  return values => reduce(...values);
+	}
+
+	function cross(...values) {
+	  const reduce = typeof values[values.length - 1] === "function" && reducer(values.pop());
+	  values = values.map(arrayify);
+	  const lengths = values.map(length);
+	  const j = values.length - 1;
+	  const index = new Array(j + 1).fill(0);
+	  const product = [];
+	  if (j < 0 || lengths.some(empty)) return product;
+	  while (true) {
+	    product.push(index.map((j, i) => values[i][j]));
+	    let i = j;
+	    while (++index[i] === lengths[i]) {
+	      if (i === 0) return reduce ? product.map(reduce) : product;
+	      index[i--] = 0;
+	    }
+	  }
+	}
+
+	function descending(a, b) {
+	  return b < a ? -1 : b > a ? 1 : b >= a ? 0 : NaN;
+	}
+
+	function variance(values, valueof) {
+	  let count = 0;
+	  let delta;
+	  let mean = 0;
+	  let sum = 0;
+	  if (valueof === undefined) {
+	    for (let value of values) {
+	      if (value != null && (value = +value) >= value) {
+	        delta = value - mean;
+	        mean += delta / ++count;
+	        sum += delta * (value - mean);
+	      }
+	    }
+	  } else {
+	    let index = -1;
+	    for (let value of values) {
+	      if ((value = valueof(value, ++index, values)) != null && (value = +value) >= value) {
+	        delta = value - mean;
+	        mean += delta / ++count;
+	        sum += delta * (value - mean);
+	      }
+	    }
+	  }
+	  if (count > 1) return sum / (count - 1);
+	}
+
+	function deviation(values, valueof) {
+	  const v = variance(values, valueof);
+	  return v ? Math.sqrt(v) : v;
+	}
+
+	function extent(values, valueof) {
+	  let min;
+	  let max;
+	  if (valueof === undefined) {
+	    for (const value of values) {
+	      if (value != null) {
+	        if (min === undefined) {
+	          if (value >= value) min = max = value;
+	        } else {
+	          if (min > value) min = value;
+	          if (max < value) max = value;
+	        }
+	      }
+	    }
+	  } else {
+	    let index = -1;
+	    for (let value of values) {
+	      if ((value = valueof(value, ++index, values)) != null) {
+	        if (min === undefined) {
+	          if (value >= value) min = max = value;
+	        } else {
+	          if (min > value) min = value;
+	          if (max < value) max = value;
+	        }
+	      }
+	    }
+	  }
+	  return [min, max];
+	}
+
+	function identity(x) {
+	  return x;
+	}
+
+	function group(values, ...keys) {
+	  return nest(values, identity, identity, keys);
+	}
+
+	function groups(values, ...keys) {
+	  return nest(values, Array.from, identity, keys);
+	}
+
+	function rollup(values, reduce, ...keys) {
+	  return nest(values, identity, reduce, keys);
+	}
+
+	function rollups(values, reduce, ...keys) {
+	  return nest(values, Array.from, reduce, keys);
+	}
+
+	function nest(values, map, reduce, keys) {
+	  return (function regroup(values, i) {
+	    if (i >= keys.length) return reduce(values);
+	    const groups = new Map();
+	    const keyof = keys[i++];
+	    let index = -1;
+	    for (const value of values) {
+	      const key = keyof(value, ++index, values);
+	      const group = groups.get(key);
+	      if (group) group.push(value);
+	      else groups.set(key, [value]);
+	    }
+	    for (const [key, values] of groups) {
+	      groups.set(key, regroup(values, i));
+	    }
+	    return map(groups);
+	  })(values, 0);
+	}
+
+	var array = Array.prototype;
+
+	var slice = array.slice;
+	var map = array.map;
+
+	function constant(x) {
+	  return function() {
+	    return x;
+	  };
+	}
+
+	function range(start, stop, step) {
+	  start = +start, stop = +stop, step = (n = arguments.length) < 2 ? (stop = start, start = 0, 1) : n < 3 ? 1 : +step;
+
+	  var i = -1,
+	      n = Math.max(0, Math.ceil((stop - start) / step)) | 0,
+	      range = new Array(n);
+
+	  while (++i < n) {
+	    range[i] = start + i * step;
+	  }
+
+	  return range;
+	}
+
+	var e10 = Math.sqrt(50),
+	    e5 = Math.sqrt(10),
+	    e2 = Math.sqrt(2);
+
+	function ticks(start, stop, count) {
+	  var reverse,
+	      i = -1,
+	      n,
+	      ticks,
+	      step;
+
+	  stop = +stop, start = +start, count = +count;
+	  if (start === stop && count > 0) return [start];
+	  if (reverse = stop < start) n = start, start = stop, stop = n;
+	  if ((step = tickIncrement(start, stop, count)) === 0 || !isFinite(step)) return [];
+
+	  if (step > 0) {
+	    start = Math.ceil(start / step);
+	    stop = Math.floor(stop / step);
+	    ticks = new Array(n = Math.ceil(stop - start + 1));
+	    while (++i < n) ticks[i] = (start + i) * step;
+	  } else {
+	    start = Math.floor(start * step);
+	    stop = Math.ceil(stop * step);
+	    ticks = new Array(n = Math.ceil(start - stop + 1));
+	    while (++i < n) ticks[i] = (start - i) / step;
+	  }
+
+	  if (reverse) ticks.reverse();
+
+	  return ticks;
+	}
+
+	function tickIncrement(start, stop, count) {
+	  var step = (stop - start) / Math.max(0, count),
+	      power = Math.floor(Math.log(step) / Math.LN10),
+	      error = step / Math.pow(10, power);
+	  return power >= 0
+	      ? (error >= e10 ? 10 : error >= e5 ? 5 : error >= e2 ? 2 : 1) * Math.pow(10, power)
+	      : -Math.pow(10, -power) / (error >= e10 ? 10 : error >= e5 ? 5 : error >= e2 ? 2 : 1);
+	}
+
+	function tickStep(start, stop, count) {
+	  var step0 = Math.abs(stop - start) / Math.max(0, count),
+	      step1 = Math.pow(10, Math.floor(Math.log(step0) / Math.LN10)),
+	      error = step0 / step1;
+	  if (error >= e10) step1 *= 10;
+	  else if (error >= e5) step1 *= 5;
+	  else if (error >= e2) step1 *= 2;
+	  return stop < start ? -step1 : step1;
+	}
+
+	function sturges(values) {
+	  return Math.ceil(Math.log(values.length) / Math.LN2) + 1;
+	}
+
+	function bin() {
+	  var value = identity,
+	      domain = extent,
+	      threshold = sturges;
+
+	  function histogram(data) {
+	    if (!Array.isArray(data)) data = Array.from(data);
+
+	    var i,
+	        n = data.length,
+	        x,
+	        values = new Array(n);
+
+	    for (i = 0; i < n; ++i) {
+	      values[i] = value(data[i], i, data);
+	    }
+
+	    var xz = domain(values),
+	        x0 = xz[0],
+	        x1 = xz[1],
+	        tz = threshold(values, x0, x1);
+
+	    // Convert number of thresholds into uniform thresholds.
+	    if (!Array.isArray(tz)) {
+	      tz = tickStep(x0, x1, tz);
+	      tz = range(Math.ceil(x0 / tz) * tz, x1, tz); // exclusive
+	    }
+
+	    // Remove any thresholds outside the domain.
+	    var m = tz.length;
+	    while (tz[0] <= x0) tz.shift(), --m;
+	    while (tz[m - 1] > x1) tz.pop(), --m;
+
+	    var bins = new Array(m + 1),
+	        bin;
+
+	    // Initialize bins.
+	    for (i = 0; i <= m; ++i) {
+	      bin = bins[i] = [];
+	      bin.x0 = i > 0 ? tz[i - 1] : x0;
+	      bin.x1 = i < m ? tz[i] : x1;
+	    }
+
+	    // Assign data to bins by value, ignoring any outside the domain.
+	    for (i = 0; i < n; ++i) {
+	      x = values[i];
+	      if (x0 <= x && x <= x1) {
+	        bins[bisectRight(tz, x, 0, m)].push(data[i]);
+	      }
+	    }
+
+	    return bins;
+	  }
+
+	  histogram.value = function(_) {
+	    return arguments.length ? (value = typeof _ === "function" ? _ : constant(_), histogram) : value;
+	  };
+
+	  histogram.domain = function(_) {
+	    return arguments.length ? (domain = typeof _ === "function" ? _ : constant([_[0], _[1]]), histogram) : domain;
+	  };
+
+	  histogram.thresholds = function(_) {
+	    return arguments.length ? (threshold = typeof _ === "function" ? _ : Array.isArray(_) ? constant(slice.call(_)) : constant(_), histogram) : threshold;
+	  };
+
+	  return histogram;
+	}
+
+	function number(x) {
+	  return x === null ? NaN : +x;
+	}
+
+	function quantile(values, p, valueof = number) {
+	  if (!(n = values.length)) return;
+	  if ((p = +p) <= 0 || n < 2) return +valueof(values[0], 0, values);
+	  if (p >= 1) return +valueof(values[n - 1], n - 1, values);
+	  var n,
+	      i = (n - 1) * p,
+	      i0 = Math.floor(i),
+	      value0 = +valueof(values[i0], i0, values),
+	      value1 = +valueof(values[i0 + 1], i0 + 1, values);
+	  return value0 + (value1 - value0) * (i - i0);
+	}
+
+	function freedmanDiaconis(values, min, max) {
+	  values = map.call(values, number).sort(ascending);
+	  return Math.ceil((max - min) / (2 * (quantile(values, 0.75) - quantile(values, 0.25)) * Math.pow(values.length, -1 / 3)));
+	}
+
+	function scott(values, min, max) {
+	  return Math.ceil((max - min) / (3.5 * deviation(values) * Math.pow(values.length, -1 / 3)));
+	}
+
+	function max(values, valueof) {
+	  let max;
+	  if (valueof === undefined) {
+	    for (const value of values) {
+	      if (value != null
+	          && (max < value || (max === undefined && value >= value))) {
+	        max = value;
+	      }
+	    }
+	  } else {
+	    let index = -1;
+	    for (let value of values) {
+	      if ((value = valueof(value, ++index, values)) != null
+	          && (max < value || (max === undefined && value >= value))) {
+	        max = value;
+	      }
+	    }
+	  }
+	  return max;
+	}
+
+	function maxIndex(values, valueof) {
+	  let max;
+	  let maxIndex = -1;
+	  let index = -1;
+	  if (valueof === undefined) {
+	    for (const value of values) {
+	      ++index;
+	      if (value != null
+	          && (max < value || (max === undefined && value >= value))) {
+	        max = value, maxIndex = index;
+	      }
+	    }
+	  } else {
+	    for (let value of values) {
+	      if ((value = valueof(value, ++index, values)) != null
+	          && (max < value || (max === undefined && value >= value))) {
+	        max = value, maxIndex = index;
+	      }
+	    }
+	  }
+	  return maxIndex;
+	}
+
+	function mean(values, valueof) {
+	  let count = 0;
+	  let sum = 0;
+	  if (valueof === undefined) {
+	    for (let value of values) {
+	      if (value != null && (value = +value) >= value) {
+	        ++count, sum += value;
+	      }
+	    }
+	  } else {
+	    let index = -1;
+	    for (let value of values) {
+	      if ((value = valueof(value, ++index, values)) != null && (value = +value) >= value) {
+	        ++count, sum += value;
+	      }
+	    }
+	  }
+	  if (count) return sum / count;
+	}
+
+	// Based on https://github.com/mourner/quickselect
+	// ISC license, Copyright 2018 Vladimir Agafonkin.
+	function quickselect(array, k, left = 0, right = array.length - 1, compare = ascending) {
+	  while (right > left) {
+	    if (right - left > 600) {
+	      const n = right - left + 1;
+	      const m = k - left + 1;
+	      const z = Math.log(n);
+	      const s = 0.5 * Math.exp(2 * z / 3);
+	      const sd = 0.5 * Math.sqrt(z * s * (n - s) / n) * (m - n / 2 < 0 ? -1 : 1);
+	      const newLeft = Math.max(left, Math.floor(k - m * s / n + sd));
+	      const newRight = Math.min(right, Math.floor(k + (n - m) * s / n + sd));
+	      quickselect(array, k, newLeft, newRight, compare);
+	    }
+
+	    const t = array[k];
+	    let i = left;
+	    let j = right;
+
+	    swap(array, left, k);
+	    if (compare(array[right], t) > 0) swap(array, left, right);
+
+	    while (i < j) {
+	      swap(array, i, j), ++i, --j;
+	      while (compare(array[i], t) < 0) ++i;
+	      while (compare(array[j], t) > 0) --j;
+	    }
+
+	    if (compare(array[left], t) === 0) swap(array, left, j);
+	    else ++j, swap(array, j, right);
+
+	    if (j <= k) left = j + 1;
+	    if (k <= j) right = j - 1;
+	  }
+	  return array;
+	}
+
+	function swap(array, i, j) {
+	  const t = array[i];
+	  array[i] = array[j];
+	  array[j] = t;
+	}
+
+	function* numbers(values, valueof) {
+	  if (valueof === undefined) {
+	    for (let value of values) {
+	      if (value != null && (value = +value) >= value) {
+	        yield value;
+	      }
+	    }
+	  } else {
+	    let index = -1;
+	    for (let value of values) {
+	      if ((value = valueof(value, ++index, values)) != null && (value = +value) >= value) {
+	        yield value;
+	      }
+	    }
+	  }
+	}
+
+	function median(values, valueof) {
+	  values = Float64Array.from(numbers(values, valueof));
+	  if (!values.length) return;
+	  const n = values.length;
+	  const i = n >> 1;
+	  quickselect(values, i - 1, 0);
+	  if ((n & 1) === 0) quickselect(values, i, i);
+	  return quantile(values, 0.5);
+	}
+
+	function* flatten(arrays) {
+	  for (const array of arrays) {
+	    yield* array;
+	  }
+	}
+
+	function merge(arrays) {
+	  return Array.from(flatten(arrays));
+	}
+
+	function min(values, valueof) {
+	  let min;
+	  if (valueof === undefined) {
+	    for (const value of values) {
+	      if (value != null
+	          && (min > value || (min === undefined && value >= value))) {
+	        min = value;
+	      }
+	    }
+	  } else {
+	    let index = -1;
+	    for (let value of values) {
+	      if ((value = valueof(value, ++index, values)) != null
+	          && (min > value || (min === undefined && value >= value))) {
+	        min = value;
+	      }
+	    }
+	  }
+	  return min;
+	}
+
+	function minIndex(values, valueof) {
+	  let min;
+	  let minIndex = -1;
+	  let index = -1;
+	  if (valueof === undefined) {
+	    for (const value of values) {
+	      ++index;
+	      if (value != null
+	          && (min > value || (min === undefined && value >= value))) {
+	        min = value, minIndex = index;
+	      }
+	    }
+	  } else {
+	    for (let value of values) {
+	      if ((value = valueof(value, ++index, values)) != null
+	          && (min > value || (min === undefined && value >= value))) {
+	        min = value, minIndex = index;
+	      }
+	    }
+	  }
+	  return minIndex;
+	}
+
+	function pairs(values, pairof = pair) {
+	  const pairs = [];
+	  let previous;
+	  let first = false;
+	  for (const value of values) {
+	    if (first) pairs.push(pairof(previous, value));
+	    previous = value;
+	    first = true;
+	  }
+	  return pairs;
+	}
+
+	function pair(a, b) {
+	  return [a, b];
+	}
+
+	function permute(source, keys) {
+	  return Array.from(keys, key => source[key]);
+	}
+
+	function least(values, compare = ascending) {
+	  let min;
+	  let defined = false;
+	  if (compare.length === 1) {
+	    let minValue;
+	    for (const element of values) {
+	      const value = compare(element);
+	      if (defined
+	          ? ascending(value, minValue) < 0
+	          : ascending(value, value) === 0) {
+	        min = element;
+	        minValue = value;
+	        defined = true;
+	      }
+	    }
+	  } else {
+	    for (const value of values) {
+	      if (defined
+	          ? compare(value, min) < 0
+	          : compare(value, value) === 0) {
+	        min = value;
+	        defined = true;
+	      }
+	    }
+	  }
+	  return min;
+	}
+
+	function leastIndex(values, compare = ascending) {
+	  let min;
+	  let minIndex = -1;
+	  let index = -1;
+	  if (compare.length === 1) {
+	    for (const element of values) {
+	      ++index;
+	      const value = compare(element);
+	      if (minIndex < 0
+	          ? ascending(value, value) === 0
+	          : ascending(value, min) < 0) {
+	        min = value;
+	        minIndex = index;
+	      }
+	    }
+	  } else {
+	    for (const value of values) {
+	      ++index;
+	      if (minIndex < 0
+	          ? compare(value, value) === 0
+	          : compare(value, min) < 0) {
+	        min = value;
+	        minIndex = index;
+	      }
+	    }
+	  }
+	  return minIndex;
+	}
+
+	function scan(values, compare) {
+	  const index = leastIndex(values, compare);
+	  return index < 0 ? undefined : index;
+	}
+
+	function shuffle(array, i0 = 0, i1 = array.length) {
+	  var m = i1 - (i0 = +i0),
+	      t,
+	      i;
+
+	  while (m) {
+	    i = Math.random() * m-- | 0;
+	    t = array[m + i0];
+	    array[m + i0] = array[i + i0];
+	    array[i + i0] = t;
+	  }
+
+	  return array;
+	}
+
+	function sum(values, valueof) {
+	  let sum = 0;
+	  if (valueof === undefined) {
+	    for (let value of values) {
+	      if (value = +value) {
+	        sum += value;
+	      }
+	    }
+	  } else {
+	    let index = -1;
+	    for (let value of values) {
+	      if (value = +valueof(value, ++index, values)) {
+	        sum += value;
+	      }
+	    }
+	  }
+	  return sum;
+	}
+
+	function transpose(matrix) {
+	  if (!(n = matrix.length)) return [];
+	  for (var i = -1, m = min(matrix, length$1), transpose = new Array(m); ++i < m;) {
+	    for (var j = -1, n, row = transpose[i] = new Array(n); ++j < n;) {
+	      row[j] = matrix[j][i];
+	    }
+	  }
+	  return transpose;
+	}
+
+	function length$1(d) {
+	  return d.length;
+	}
+
+	function zip() {
+	  return transpose(arguments);
+	}
+
+	exports.bisect = bisectRight;
+	exports.bisectRight = bisectRight;
+	exports.bisectLeft = bisectLeft;
+	exports.ascending = ascending;
+	exports.bisector = bisector;
+	exports.count = count;
+	exports.cross = cross;
+	exports.descending = descending;
+	exports.deviation = deviation;
+	exports.extent = extent;
+	exports.group = group;
+	exports.groups = groups;
+	exports.rollup = rollup;
+	exports.rollups = rollups;
+	exports.bin = bin;
+	exports.histogram = bin;
+	exports.thresholdFreedmanDiaconis = freedmanDiaconis;
+	exports.thresholdScott = scott;
+	exports.thresholdSturges = sturges;
+	exports.max = max;
+	exports.maxIndex = maxIndex;
+	exports.mean = mean;
+	exports.median = median;
+	exports.merge = merge;
+	exports.min = min;
+	exports.minIndex = minIndex;
+	exports.pairs = pairs;
+	exports.permute = permute;
+	exports.quantile = quantile;
+	exports.quickselect = quickselect;
+	exports.range = range;
+	exports.least = least;
+	exports.leastIndex = leastIndex;
+	exports.scan = scan;
+	exports.shuffle = shuffle;
+	exports.sum = sum;
+	exports.ticks = ticks;
+	exports.tickIncrement = tickIncrement;
+	exports.tickStep = tickStep;
+	exports.transpose = transpose;
+	exports.variance = variance;
+	exports.zip = zip;
+
+	Object.defineProperty(exports, '__esModule', { value: true });
+
+	})));
+
+
+/***/ }),
+/* 62 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-interpolate/ v1.3.2 Copyright 2018 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(55)) :
+	 true ? factory(exports, __webpack_require__(63)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-color'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Color) { 'use strict';
@@ -9551,7 +11725,7 @@
 
 
 /***/ }),
-/* 55 */
+/* 63 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-color/ v1.2.3 Copyright 2018 Mike Bostock
@@ -10106,7 +12280,1904 @@
 
 
 /***/ }),
-/* 56 */
+/* 64 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	// https://d3js.org/d3-format/ v1.3.2 Copyright 2018 Mike Bostock
+	(function (global, factory) {
+	 true ? factory(exports) :
+	typeof define === 'function' && define.amd ? define(['exports'], factory) :
+	(factory((global.d3 = global.d3 || {})));
+	}(this, (function (exports) { 'use strict';
+
+	// Computes the decimal coefficient and exponent of the specified number x with
+	// significant digits p, where x is positive and p is in [1, 21] or undefined.
+	// For example, formatDecimal(1.23) returns ["123", 0].
+	function formatDecimal(x, p) {
+	  if ((i = (x = p ? x.toExponential(p - 1) : x.toExponential()).indexOf("e")) < 0) return null; // NaN, ±Infinity
+	  var i, coefficient = x.slice(0, i);
+
+	  // The string returned by toExponential either has the form \d\.\d+e[-+]\d+
+	  // (e.g., 1.2e+3) or the form \de[-+]\d+ (e.g., 1e+3).
+	  return [
+	    coefficient.length > 1 ? coefficient[0] + coefficient.slice(2) : coefficient,
+	    +x.slice(i + 1)
+	  ];
+	}
+
+	function exponent(x) {
+	  return x = formatDecimal(Math.abs(x)), x ? x[1] : NaN;
+	}
+
+	function formatGroup(grouping, thousands) {
+	  return function(value, width) {
+	    var i = value.length,
+	        t = [],
+	        j = 0,
+	        g = grouping[0],
+	        length = 0;
+
+	    while (i > 0 && g > 0) {
+	      if (length + g + 1 > width) g = Math.max(1, width - length);
+	      t.push(value.substring(i -= g, i + g));
+	      if ((length += g + 1) > width) break;
+	      g = grouping[j = (j + 1) % grouping.length];
+	    }
+
+	    return t.reverse().join(thousands);
+	  };
+	}
+
+	function formatNumerals(numerals) {
+	  return function(value) {
+	    return value.replace(/[0-9]/g, function(i) {
+	      return numerals[+i];
+	    });
+	  };
+	}
+
+	// [[fill]align][sign][symbol][0][width][,][.precision][~][type]
+	var re = /^(?:(.)?([<>=^]))?([+\-( ])?([$#])?(0)?(\d+)?(,)?(\.\d+)?(~)?([a-z%])?$/i;
+
+	function formatSpecifier(specifier) {
+	  return new FormatSpecifier(specifier);
+	}
+
+	formatSpecifier.prototype = FormatSpecifier.prototype; // instanceof
+
+	function FormatSpecifier(specifier) {
+	  if (!(match = re.exec(specifier))) throw new Error("invalid format: " + specifier);
+	  var match;
+	  this.fill = match[1] || " ";
+	  this.align = match[2] || ">";
+	  this.sign = match[3] || "-";
+	  this.symbol = match[4] || "";
+	  this.zero = !!match[5];
+	  this.width = match[6] && +match[6];
+	  this.comma = !!match[7];
+	  this.precision = match[8] && +match[8].slice(1);
+	  this.trim = !!match[9];
+	  this.type = match[10] || "";
+	}
+
+	FormatSpecifier.prototype.toString = function() {
+	  return this.fill
+	      + this.align
+	      + this.sign
+	      + this.symbol
+	      + (this.zero ? "0" : "")
+	      + (this.width == null ? "" : Math.max(1, this.width | 0))
+	      + (this.comma ? "," : "")
+	      + (this.precision == null ? "" : "." + Math.max(0, this.precision | 0))
+	      + (this.trim ? "~" : "")
+	      + this.type;
+	};
+
+	// Trims insignificant zeros, e.g., replaces 1.2000k with 1.2k.
+	function formatTrim(s) {
+	  out: for (var n = s.length, i = 1, i0 = -1, i1; i < n; ++i) {
+	    switch (s[i]) {
+	      case ".": i0 = i1 = i; break;
+	      case "0": if (i0 === 0) i0 = i; i1 = i; break;
+	      default: if (i0 > 0) { if (!+s[i]) break out; i0 = 0; } break;
+	    }
+	  }
+	  return i0 > 0 ? s.slice(0, i0) + s.slice(i1 + 1) : s;
+	}
+
+	var prefixExponent;
+
+	function formatPrefixAuto(x, p) {
+	  var d = formatDecimal(x, p);
+	  if (!d) return x + "";
+	  var coefficient = d[0],
+	      exponent = d[1],
+	      i = exponent - (prefixExponent = Math.max(-8, Math.min(8, Math.floor(exponent / 3))) * 3) + 1,
+	      n = coefficient.length;
+	  return i === n ? coefficient
+	      : i > n ? coefficient + new Array(i - n + 1).join("0")
+	      : i > 0 ? coefficient.slice(0, i) + "." + coefficient.slice(i)
+	      : "0." + new Array(1 - i).join("0") + formatDecimal(x, Math.max(0, p + i - 1))[0]; // less than 1y!
+	}
+
+	function formatRounded(x, p) {
+	  var d = formatDecimal(x, p);
+	  if (!d) return x + "";
+	  var coefficient = d[0],
+	      exponent = d[1];
+	  return exponent < 0 ? "0." + new Array(-exponent).join("0") + coefficient
+	      : coefficient.length > exponent + 1 ? coefficient.slice(0, exponent + 1) + "." + coefficient.slice(exponent + 1)
+	      : coefficient + new Array(exponent - coefficient.length + 2).join("0");
+	}
+
+	var formatTypes = {
+	  "%": function(x, p) { return (x * 100).toFixed(p); },
+	  "b": function(x) { return Math.round(x).toString(2); },
+	  "c": function(x) { return x + ""; },
+	  "d": function(x) { return Math.round(x).toString(10); },
+	  "e": function(x, p) { return x.toExponential(p); },
+	  "f": function(x, p) { return x.toFixed(p); },
+	  "g": function(x, p) { return x.toPrecision(p); },
+	  "o": function(x) { return Math.round(x).toString(8); },
+	  "p": function(x, p) { return formatRounded(x * 100, p); },
+	  "r": formatRounded,
+	  "s": formatPrefixAuto,
+	  "X": function(x) { return Math.round(x).toString(16).toUpperCase(); },
+	  "x": function(x) { return Math.round(x).toString(16); }
+	};
+
+	function identity(x) {
+	  return x;
+	}
+
+	var prefixes = ["y","z","a","f","p","n","µ","m","","k","M","G","T","P","E","Z","Y"];
+
+	function formatLocale(locale) {
+	  var group = locale.grouping && locale.thousands ? formatGroup(locale.grouping, locale.thousands) : identity,
+	      currency = locale.currency,
+	      decimal = locale.decimal,
+	      numerals = locale.numerals ? formatNumerals(locale.numerals) : identity,
+	      percent = locale.percent || "%";
+
+	  function newFormat(specifier) {
+	    specifier = formatSpecifier(specifier);
+
+	    var fill = specifier.fill,
+	        align = specifier.align,
+	        sign = specifier.sign,
+	        symbol = specifier.symbol,
+	        zero = specifier.zero,
+	        width = specifier.width,
+	        comma = specifier.comma,
+	        precision = specifier.precision,
+	        trim = specifier.trim,
+	        type = specifier.type;
+
+	    // The "n" type is an alias for ",g".
+	    if (type === "n") comma = true, type = "g";
+
+	    // The "" type, and any invalid type, is an alias for ".12~g".
+	    else if (!formatTypes[type]) precision == null && (precision = 12), trim = true, type = "g";
+
+	    // If zero fill is specified, padding goes after sign and before digits.
+	    if (zero || (fill === "0" && align === "=")) zero = true, fill = "0", align = "=";
+
+	    // Compute the prefix and suffix.
+	    // For SI-prefix, the suffix is lazily computed.
+	    var prefix = symbol === "$" ? currency[0] : symbol === "#" && /[boxX]/.test(type) ? "0" + type.toLowerCase() : "",
+	        suffix = symbol === "$" ? currency[1] : /[%p]/.test(type) ? percent : "";
+
+	    // What format function should we use?
+	    // Is this an integer type?
+	    // Can this type generate exponential notation?
+	    var formatType = formatTypes[type],
+	        maybeSuffix = /[defgprs%]/.test(type);
+
+	    // Set the default precision if not specified,
+	    // or clamp the specified precision to the supported range.
+	    // For significant precision, it must be in [1, 21].
+	    // For fixed precision, it must be in [0, 20].
+	    precision = precision == null ? 6
+	        : /[gprs]/.test(type) ? Math.max(1, Math.min(21, precision))
+	        : Math.max(0, Math.min(20, precision));
+
+	    function format(value) {
+	      var valuePrefix = prefix,
+	          valueSuffix = suffix,
+	          i, n, c;
+
+	      if (type === "c") {
+	        valueSuffix = formatType(value) + valueSuffix;
+	        value = "";
+	      } else {
+	        value = +value;
+
+	        // Perform the initial formatting.
+	        var valueNegative = value < 0;
+	        value = formatType(Math.abs(value), precision);
+
+	        // Trim insignificant zeros.
+	        if (trim) value = formatTrim(value);
+
+	        // If a negative value rounds to zero during formatting, treat as positive.
+	        if (valueNegative && +value === 0) valueNegative = false;
+
+	        // Compute the prefix and suffix.
+	        valuePrefix = (valueNegative ? (sign === "(" ? sign : "-") : sign === "-" || sign === "(" ? "" : sign) + valuePrefix;
+	        valueSuffix = (type === "s" ? prefixes[8 + prefixExponent / 3] : "") + valueSuffix + (valueNegative && sign === "(" ? ")" : "");
+
+	        // Break the formatted value into the integer “value” part that can be
+	        // grouped, and fractional or exponential “suffix” part that is not.
+	        if (maybeSuffix) {
+	          i = -1, n = value.length;
+	          while (++i < n) {
+	            if (c = value.charCodeAt(i), 48 > c || c > 57) {
+	              valueSuffix = (c === 46 ? decimal + value.slice(i + 1) : value.slice(i)) + valueSuffix;
+	              value = value.slice(0, i);
+	              break;
+	            }
+	          }
+	        }
+	      }
+
+	      // If the fill character is not "0", grouping is applied before padding.
+	      if (comma && !zero) value = group(value, Infinity);
+
+	      // Compute the padding.
+	      var length = valuePrefix.length + value.length + valueSuffix.length,
+	          padding = length < width ? new Array(width - length + 1).join(fill) : "";
+
+	      // If the fill character is "0", grouping is applied after padding.
+	      if (comma && zero) value = group(padding + value, padding.length ? width - valueSuffix.length : Infinity), padding = "";
+
+	      // Reconstruct the final output based on the desired alignment.
+	      switch (align) {
+	        case "<": value = valuePrefix + value + valueSuffix + padding; break;
+	        case "=": value = valuePrefix + padding + value + valueSuffix; break;
+	        case "^": value = padding.slice(0, length = padding.length >> 1) + valuePrefix + value + valueSuffix + padding.slice(length); break;
+	        default: value = padding + valuePrefix + value + valueSuffix; break;
+	      }
+
+	      return numerals(value);
+	    }
+
+	    format.toString = function() {
+	      return specifier + "";
+	    };
+
+	    return format;
+	  }
+
+	  function formatPrefix(specifier, value) {
+	    var f = newFormat((specifier = formatSpecifier(specifier), specifier.type = "f", specifier)),
+	        e = Math.max(-8, Math.min(8, Math.floor(exponent(value) / 3))) * 3,
+	        k = Math.pow(10, -e),
+	        prefix = prefixes[8 + e / 3];
+	    return function(value) {
+	      return f(k * value) + prefix;
+	    };
+	  }
+
+	  return {
+	    format: newFormat,
+	    formatPrefix: formatPrefix
+	  };
+	}
+
+	var locale;
+
+	defaultLocale({
+	  decimal: ".",
+	  thousands: ",",
+	  grouping: [3],
+	  currency: ["$", ""]
+	});
+
+	function defaultLocale(definition) {
+	  locale = formatLocale(definition);
+	  exports.format = locale.format;
+	  exports.formatPrefix = locale.formatPrefix;
+	  return locale;
+	}
+
+	function precisionFixed(step) {
+	  return Math.max(0, -exponent(Math.abs(step)));
+	}
+
+	function precisionPrefix(step, value) {
+	  return Math.max(0, Math.max(-8, Math.min(8, Math.floor(exponent(value) / 3))) * 3 - exponent(Math.abs(step)));
+	}
+
+	function precisionRound(step, max) {
+	  step = Math.abs(step), max = Math.abs(max) - step;
+	  return Math.max(0, exponent(max) - exponent(step)) + 1;
+	}
+
+	exports.formatDefaultLocale = defaultLocale;
+	exports.formatLocale = formatLocale;
+	exports.formatSpecifier = formatSpecifier;
+	exports.precisionFixed = precisionFixed;
+	exports.precisionPrefix = precisionPrefix;
+	exports.precisionRound = precisionRound;
+
+	Object.defineProperty(exports, '__esModule', { value: true });
+
+	})));
+
+
+/***/ }),
+/* 65 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	// https://d3js.org/d3-time/ v1.0.11 Copyright 2019 Mike Bostock
+	(function (global, factory) {
+	 true ? factory(exports) :
+	typeof define === 'function' && define.amd ? define(['exports'], factory) :
+	(factory((global.d3 = global.d3 || {})));
+	}(this, (function (exports) { 'use strict';
+
+	var t0 = new Date,
+	    t1 = new Date;
+
+	function newInterval(floori, offseti, count, field) {
+
+	  function interval(date) {
+	    return floori(date = new Date(+date)), date;
+	  }
+
+	  interval.floor = interval;
+
+	  interval.ceil = function(date) {
+	    return floori(date = new Date(date - 1)), offseti(date, 1), floori(date), date;
+	  };
+
+	  interval.round = function(date) {
+	    var d0 = interval(date),
+	        d1 = interval.ceil(date);
+	    return date - d0 < d1 - date ? d0 : d1;
+	  };
+
+	  interval.offset = function(date, step) {
+	    return offseti(date = new Date(+date), step == null ? 1 : Math.floor(step)), date;
+	  };
+
+	  interval.range = function(start, stop, step) {
+	    var range = [], previous;
+	    start = interval.ceil(start);
+	    step = step == null ? 1 : Math.floor(step);
+	    if (!(start < stop) || !(step > 0)) return range; // also handles Invalid Date
+	    do range.push(previous = new Date(+start)), offseti(start, step), floori(start);
+	    while (previous < start && start < stop);
+	    return range;
+	  };
+
+	  interval.filter = function(test) {
+	    return newInterval(function(date) {
+	      if (date >= date) while (floori(date), !test(date)) date.setTime(date - 1);
+	    }, function(date, step) {
+	      if (date >= date) {
+	        if (step < 0) while (++step <= 0) {
+	          while (offseti(date, -1), !test(date)) {} // eslint-disable-line no-empty
+	        } else while (--step >= 0) {
+	          while (offseti(date, +1), !test(date)) {} // eslint-disable-line no-empty
+	        }
+	      }
+	    });
+	  };
+
+	  if (count) {
+	    interval.count = function(start, end) {
+	      t0.setTime(+start), t1.setTime(+end);
+	      floori(t0), floori(t1);
+	      return Math.floor(count(t0, t1));
+	    };
+
+	    interval.every = function(step) {
+	      step = Math.floor(step);
+	      return !isFinite(step) || !(step > 0) ? null
+	          : !(step > 1) ? interval
+	          : interval.filter(field
+	              ? function(d) { return field(d) % step === 0; }
+	              : function(d) { return interval.count(0, d) % step === 0; });
+	    };
+	  }
+
+	  return interval;
+	}
+
+	var millisecond = newInterval(function() {
+	  // noop
+	}, function(date, step) {
+	  date.setTime(+date + step);
+	}, function(start, end) {
+	  return end - start;
+	});
+
+	// An optimized implementation for this simple case.
+	millisecond.every = function(k) {
+	  k = Math.floor(k);
+	  if (!isFinite(k) || !(k > 0)) return null;
+	  if (!(k > 1)) return millisecond;
+	  return newInterval(function(date) {
+	    date.setTime(Math.floor(date / k) * k);
+	  }, function(date, step) {
+	    date.setTime(+date + step * k);
+	  }, function(start, end) {
+	    return (end - start) / k;
+	  });
+	};
+	var milliseconds = millisecond.range;
+
+	var durationSecond = 1e3;
+	var durationMinute = 6e4;
+	var durationHour = 36e5;
+	var durationDay = 864e5;
+	var durationWeek = 6048e5;
+
+	var second = newInterval(function(date) {
+	  date.setTime(date - date.getMilliseconds());
+	}, function(date, step) {
+	  date.setTime(+date + step * durationSecond);
+	}, function(start, end) {
+	  return (end - start) / durationSecond;
+	}, function(date) {
+	  return date.getUTCSeconds();
+	});
+	var seconds = second.range;
+
+	var minute = newInterval(function(date) {
+	  date.setTime(date - date.getMilliseconds() - date.getSeconds() * durationSecond);
+	}, function(date, step) {
+	  date.setTime(+date + step * durationMinute);
+	}, function(start, end) {
+	  return (end - start) / durationMinute;
+	}, function(date) {
+	  return date.getMinutes();
+	});
+	var minutes = minute.range;
+
+	var hour = newInterval(function(date) {
+	  date.setTime(date - date.getMilliseconds() - date.getSeconds() * durationSecond - date.getMinutes() * durationMinute);
+	}, function(date, step) {
+	  date.setTime(+date + step * durationHour);
+	}, function(start, end) {
+	  return (end - start) / durationHour;
+	}, function(date) {
+	  return date.getHours();
+	});
+	var hours = hour.range;
+
+	var day = newInterval(function(date) {
+	  date.setHours(0, 0, 0, 0);
+	}, function(date, step) {
+	  date.setDate(date.getDate() + step);
+	}, function(start, end) {
+	  return (end - start - (end.getTimezoneOffset() - start.getTimezoneOffset()) * durationMinute) / durationDay;
+	}, function(date) {
+	  return date.getDate() - 1;
+	});
+	var days = day.range;
+
+	function weekday(i) {
+	  return newInterval(function(date) {
+	    date.setDate(date.getDate() - (date.getDay() + 7 - i) % 7);
+	    date.setHours(0, 0, 0, 0);
+	  }, function(date, step) {
+	    date.setDate(date.getDate() + step * 7);
+	  }, function(start, end) {
+	    return (end - start - (end.getTimezoneOffset() - start.getTimezoneOffset()) * durationMinute) / durationWeek;
+	  });
+	}
+
+	var sunday = weekday(0);
+	var monday = weekday(1);
+	var tuesday = weekday(2);
+	var wednesday = weekday(3);
+	var thursday = weekday(4);
+	var friday = weekday(5);
+	var saturday = weekday(6);
+
+	var sundays = sunday.range;
+	var mondays = monday.range;
+	var tuesdays = tuesday.range;
+	var wednesdays = wednesday.range;
+	var thursdays = thursday.range;
+	var fridays = friday.range;
+	var saturdays = saturday.range;
+
+	var month = newInterval(function(date) {
+	  date.setDate(1);
+	  date.setHours(0, 0, 0, 0);
+	}, function(date, step) {
+	  date.setMonth(date.getMonth() + step);
+	}, function(start, end) {
+	  return end.getMonth() - start.getMonth() + (end.getFullYear() - start.getFullYear()) * 12;
+	}, function(date) {
+	  return date.getMonth();
+	});
+	var months = month.range;
+
+	var year = newInterval(function(date) {
+	  date.setMonth(0, 1);
+	  date.setHours(0, 0, 0, 0);
+	}, function(date, step) {
+	  date.setFullYear(date.getFullYear() + step);
+	}, function(start, end) {
+	  return end.getFullYear() - start.getFullYear();
+	}, function(date) {
+	  return date.getFullYear();
+	});
+
+	// An optimized implementation for this simple case.
+	year.every = function(k) {
+	  return !isFinite(k = Math.floor(k)) || !(k > 0) ? null : newInterval(function(date) {
+	    date.setFullYear(Math.floor(date.getFullYear() / k) * k);
+	    date.setMonth(0, 1);
+	    date.setHours(0, 0, 0, 0);
+	  }, function(date, step) {
+	    date.setFullYear(date.getFullYear() + step * k);
+	  });
+	};
+	var years = year.range;
+
+	var utcMinute = newInterval(function(date) {
+	  date.setUTCSeconds(0, 0);
+	}, function(date, step) {
+	  date.setTime(+date + step * durationMinute);
+	}, function(start, end) {
+	  return (end - start) / durationMinute;
+	}, function(date) {
+	  return date.getUTCMinutes();
+	});
+	var utcMinutes = utcMinute.range;
+
+	var utcHour = newInterval(function(date) {
+	  date.setUTCMinutes(0, 0, 0);
+	}, function(date, step) {
+	  date.setTime(+date + step * durationHour);
+	}, function(start, end) {
+	  return (end - start) / durationHour;
+	}, function(date) {
+	  return date.getUTCHours();
+	});
+	var utcHours = utcHour.range;
+
+	var utcDay = newInterval(function(date) {
+	  date.setUTCHours(0, 0, 0, 0);
+	}, function(date, step) {
+	  date.setUTCDate(date.getUTCDate() + step);
+	}, function(start, end) {
+	  return (end - start) / durationDay;
+	}, function(date) {
+	  return date.getUTCDate() - 1;
+	});
+	var utcDays = utcDay.range;
+
+	function utcWeekday(i) {
+	  return newInterval(function(date) {
+	    date.setUTCDate(date.getUTCDate() - (date.getUTCDay() + 7 - i) % 7);
+	    date.setUTCHours(0, 0, 0, 0);
+	  }, function(date, step) {
+	    date.setUTCDate(date.getUTCDate() + step * 7);
+	  }, function(start, end) {
+	    return (end - start) / durationWeek;
+	  });
+	}
+
+	var utcSunday = utcWeekday(0);
+	var utcMonday = utcWeekday(1);
+	var utcTuesday = utcWeekday(2);
+	var utcWednesday = utcWeekday(3);
+	var utcThursday = utcWeekday(4);
+	var utcFriday = utcWeekday(5);
+	var utcSaturday = utcWeekday(6);
+
+	var utcSundays = utcSunday.range;
+	var utcMondays = utcMonday.range;
+	var utcTuesdays = utcTuesday.range;
+	var utcWednesdays = utcWednesday.range;
+	var utcThursdays = utcThursday.range;
+	var utcFridays = utcFriday.range;
+	var utcSaturdays = utcSaturday.range;
+
+	var utcMonth = newInterval(function(date) {
+	  date.setUTCDate(1);
+	  date.setUTCHours(0, 0, 0, 0);
+	}, function(date, step) {
+	  date.setUTCMonth(date.getUTCMonth() + step);
+	}, function(start, end) {
+	  return end.getUTCMonth() - start.getUTCMonth() + (end.getUTCFullYear() - start.getUTCFullYear()) * 12;
+	}, function(date) {
+	  return date.getUTCMonth();
+	});
+	var utcMonths = utcMonth.range;
+
+	var utcYear = newInterval(function(date) {
+	  date.setUTCMonth(0, 1);
+	  date.setUTCHours(0, 0, 0, 0);
+	}, function(date, step) {
+	  date.setUTCFullYear(date.getUTCFullYear() + step);
+	}, function(start, end) {
+	  return end.getUTCFullYear() - start.getUTCFullYear();
+	}, function(date) {
+	  return date.getUTCFullYear();
+	});
+
+	// An optimized implementation for this simple case.
+	utcYear.every = function(k) {
+	  return !isFinite(k = Math.floor(k)) || !(k > 0) ? null : newInterval(function(date) {
+	    date.setUTCFullYear(Math.floor(date.getUTCFullYear() / k) * k);
+	    date.setUTCMonth(0, 1);
+	    date.setUTCHours(0, 0, 0, 0);
+	  }, function(date, step) {
+	    date.setUTCFullYear(date.getUTCFullYear() + step * k);
+	  });
+	};
+	var utcYears = utcYear.range;
+
+	exports.timeInterval = newInterval;
+	exports.timeMillisecond = millisecond;
+	exports.timeMilliseconds = milliseconds;
+	exports.utcMillisecond = millisecond;
+	exports.utcMilliseconds = milliseconds;
+	exports.timeSecond = second;
+	exports.timeSeconds = seconds;
+	exports.utcSecond = second;
+	exports.utcSeconds = seconds;
+	exports.timeMinute = minute;
+	exports.timeMinutes = minutes;
+	exports.timeHour = hour;
+	exports.timeHours = hours;
+	exports.timeDay = day;
+	exports.timeDays = days;
+	exports.timeWeek = sunday;
+	exports.timeWeeks = sundays;
+	exports.timeSunday = sunday;
+	exports.timeSundays = sundays;
+	exports.timeMonday = monday;
+	exports.timeMondays = mondays;
+	exports.timeTuesday = tuesday;
+	exports.timeTuesdays = tuesdays;
+	exports.timeWednesday = wednesday;
+	exports.timeWednesdays = wednesdays;
+	exports.timeThursday = thursday;
+	exports.timeThursdays = thursdays;
+	exports.timeFriday = friday;
+	exports.timeFridays = fridays;
+	exports.timeSaturday = saturday;
+	exports.timeSaturdays = saturdays;
+	exports.timeMonth = month;
+	exports.timeMonths = months;
+	exports.timeYear = year;
+	exports.timeYears = years;
+	exports.utcMinute = utcMinute;
+	exports.utcMinutes = utcMinutes;
+	exports.utcHour = utcHour;
+	exports.utcHours = utcHours;
+	exports.utcDay = utcDay;
+	exports.utcDays = utcDays;
+	exports.utcWeek = utcSunday;
+	exports.utcWeeks = utcSundays;
+	exports.utcSunday = utcSunday;
+	exports.utcSundays = utcSundays;
+	exports.utcMonday = utcMonday;
+	exports.utcMondays = utcMondays;
+	exports.utcTuesday = utcTuesday;
+	exports.utcTuesdays = utcTuesdays;
+	exports.utcWednesday = utcWednesday;
+	exports.utcWednesdays = utcWednesdays;
+	exports.utcThursday = utcThursday;
+	exports.utcThursdays = utcThursdays;
+	exports.utcFriday = utcFriday;
+	exports.utcFridays = utcFridays;
+	exports.utcSaturday = utcSaturday;
+	exports.utcSaturdays = utcSaturdays;
+	exports.utcMonth = utcMonth;
+	exports.utcMonths = utcMonths;
+	exports.utcYear = utcYear;
+	exports.utcYears = utcYears;
+
+	Object.defineProperty(exports, '__esModule', { value: true });
+
+	})));
+
+
+/***/ }),
+/* 66 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	// https://d3js.org/d3-time-format/ v2.1.3 Copyright 2018 Mike Bostock
+	(function (global, factory) {
+	 true ? factory(exports, __webpack_require__(65)) :
+	typeof define === 'function' && define.amd ? define(['exports', 'd3-time'], factory) :
+	(factory((global.d3 = global.d3 || {}),global.d3));
+	}(this, (function (exports,d3Time) { 'use strict';
+
+	function localDate(d) {
+	  if (0 <= d.y && d.y < 100) {
+	    var date = new Date(-1, d.m, d.d, d.H, d.M, d.S, d.L);
+	    date.setFullYear(d.y);
+	    return date;
+	  }
+	  return new Date(d.y, d.m, d.d, d.H, d.M, d.S, d.L);
+	}
+
+	function utcDate(d) {
+	  if (0 <= d.y && d.y < 100) {
+	    var date = new Date(Date.UTC(-1, d.m, d.d, d.H, d.M, d.S, d.L));
+	    date.setUTCFullYear(d.y);
+	    return date;
+	  }
+	  return new Date(Date.UTC(d.y, d.m, d.d, d.H, d.M, d.S, d.L));
+	}
+
+	function newYear(y) {
+	  return {y: y, m: 0, d: 1, H: 0, M: 0, S: 0, L: 0};
+	}
+
+	function formatLocale(locale) {
+	  var locale_dateTime = locale.dateTime,
+	      locale_date = locale.date,
+	      locale_time = locale.time,
+	      locale_periods = locale.periods,
+	      locale_weekdays = locale.days,
+	      locale_shortWeekdays = locale.shortDays,
+	      locale_months = locale.months,
+	      locale_shortMonths = locale.shortMonths;
+
+	  var periodRe = formatRe(locale_periods),
+	      periodLookup = formatLookup(locale_periods),
+	      weekdayRe = formatRe(locale_weekdays),
+	      weekdayLookup = formatLookup(locale_weekdays),
+	      shortWeekdayRe = formatRe(locale_shortWeekdays),
+	      shortWeekdayLookup = formatLookup(locale_shortWeekdays),
+	      monthRe = formatRe(locale_months),
+	      monthLookup = formatLookup(locale_months),
+	      shortMonthRe = formatRe(locale_shortMonths),
+	      shortMonthLookup = formatLookup(locale_shortMonths);
+
+	  var formats = {
+	    "a": formatShortWeekday,
+	    "A": formatWeekday,
+	    "b": formatShortMonth,
+	    "B": formatMonth,
+	    "c": null,
+	    "d": formatDayOfMonth,
+	    "e": formatDayOfMonth,
+	    "f": formatMicroseconds,
+	    "H": formatHour24,
+	    "I": formatHour12,
+	    "j": formatDayOfYear,
+	    "L": formatMilliseconds,
+	    "m": formatMonthNumber,
+	    "M": formatMinutes,
+	    "p": formatPeriod,
+	    "Q": formatUnixTimestamp,
+	    "s": formatUnixTimestampSeconds,
+	    "S": formatSeconds,
+	    "u": formatWeekdayNumberMonday,
+	    "U": formatWeekNumberSunday,
+	    "V": formatWeekNumberISO,
+	    "w": formatWeekdayNumberSunday,
+	    "W": formatWeekNumberMonday,
+	    "x": null,
+	    "X": null,
+	    "y": formatYear,
+	    "Y": formatFullYear,
+	    "Z": formatZone,
+	    "%": formatLiteralPercent
+	  };
+
+	  var utcFormats = {
+	    "a": formatUTCShortWeekday,
+	    "A": formatUTCWeekday,
+	    "b": formatUTCShortMonth,
+	    "B": formatUTCMonth,
+	    "c": null,
+	    "d": formatUTCDayOfMonth,
+	    "e": formatUTCDayOfMonth,
+	    "f": formatUTCMicroseconds,
+	    "H": formatUTCHour24,
+	    "I": formatUTCHour12,
+	    "j": formatUTCDayOfYear,
+	    "L": formatUTCMilliseconds,
+	    "m": formatUTCMonthNumber,
+	    "M": formatUTCMinutes,
+	    "p": formatUTCPeriod,
+	    "Q": formatUnixTimestamp,
+	    "s": formatUnixTimestampSeconds,
+	    "S": formatUTCSeconds,
+	    "u": formatUTCWeekdayNumberMonday,
+	    "U": formatUTCWeekNumberSunday,
+	    "V": formatUTCWeekNumberISO,
+	    "w": formatUTCWeekdayNumberSunday,
+	    "W": formatUTCWeekNumberMonday,
+	    "x": null,
+	    "X": null,
+	    "y": formatUTCYear,
+	    "Y": formatUTCFullYear,
+	    "Z": formatUTCZone,
+	    "%": formatLiteralPercent
+	  };
+
+	  var parses = {
+	    "a": parseShortWeekday,
+	    "A": parseWeekday,
+	    "b": parseShortMonth,
+	    "B": parseMonth,
+	    "c": parseLocaleDateTime,
+	    "d": parseDayOfMonth,
+	    "e": parseDayOfMonth,
+	    "f": parseMicroseconds,
+	    "H": parseHour24,
+	    "I": parseHour24,
+	    "j": parseDayOfYear,
+	    "L": parseMilliseconds,
+	    "m": parseMonthNumber,
+	    "M": parseMinutes,
+	    "p": parsePeriod,
+	    "Q": parseUnixTimestamp,
+	    "s": parseUnixTimestampSeconds,
+	    "S": parseSeconds,
+	    "u": parseWeekdayNumberMonday,
+	    "U": parseWeekNumberSunday,
+	    "V": parseWeekNumberISO,
+	    "w": parseWeekdayNumberSunday,
+	    "W": parseWeekNumberMonday,
+	    "x": parseLocaleDate,
+	    "X": parseLocaleTime,
+	    "y": parseYear,
+	    "Y": parseFullYear,
+	    "Z": parseZone,
+	    "%": parseLiteralPercent
+	  };
+
+	  // These recursive directive definitions must be deferred.
+	  formats.x = newFormat(locale_date, formats);
+	  formats.X = newFormat(locale_time, formats);
+	  formats.c = newFormat(locale_dateTime, formats);
+	  utcFormats.x = newFormat(locale_date, utcFormats);
+	  utcFormats.X = newFormat(locale_time, utcFormats);
+	  utcFormats.c = newFormat(locale_dateTime, utcFormats);
+
+	  function newFormat(specifier, formats) {
+	    return function(date) {
+	      var string = [],
+	          i = -1,
+	          j = 0,
+	          n = specifier.length,
+	          c,
+	          pad,
+	          format;
+
+	      if (!(date instanceof Date)) date = new Date(+date);
+
+	      while (++i < n) {
+	        if (specifier.charCodeAt(i) === 37) {
+	          string.push(specifier.slice(j, i));
+	          if ((pad = pads[c = specifier.charAt(++i)]) != null) c = specifier.charAt(++i);
+	          else pad = c === "e" ? " " : "0";
+	          if (format = formats[c]) c = format(date, pad);
+	          string.push(c);
+	          j = i + 1;
+	        }
+	      }
+
+	      string.push(specifier.slice(j, i));
+	      return string.join("");
+	    };
+	  }
+
+	  function newParse(specifier, newDate) {
+	    return function(string) {
+	      var d = newYear(1900),
+	          i = parseSpecifier(d, specifier, string += "", 0),
+	          week, day;
+	      if (i != string.length) return null;
+
+	      // If a UNIX timestamp is specified, return it.
+	      if ("Q" in d) return new Date(d.Q);
+
+	      // The am-pm flag is 0 for AM, and 1 for PM.
+	      if ("p" in d) d.H = d.H % 12 + d.p * 12;
+
+	      // Convert day-of-week and week-of-year to day-of-year.
+	      if ("V" in d) {
+	        if (d.V < 1 || d.V > 53) return null;
+	        if (!("w" in d)) d.w = 1;
+	        if ("Z" in d) {
+	          week = utcDate(newYear(d.y)), day = week.getUTCDay();
+	          week = day > 4 || day === 0 ? d3Time.utcMonday.ceil(week) : d3Time.utcMonday(week);
+	          week = d3Time.utcDay.offset(week, (d.V - 1) * 7);
+	          d.y = week.getUTCFullYear();
+	          d.m = week.getUTCMonth();
+	          d.d = week.getUTCDate() + (d.w + 6) % 7;
+	        } else {
+	          week = newDate(newYear(d.y)), day = week.getDay();
+	          week = day > 4 || day === 0 ? d3Time.timeMonday.ceil(week) : d3Time.timeMonday(week);
+	          week = d3Time.timeDay.offset(week, (d.V - 1) * 7);
+	          d.y = week.getFullYear();
+	          d.m = week.getMonth();
+	          d.d = week.getDate() + (d.w + 6) % 7;
+	        }
+	      } else if ("W" in d || "U" in d) {
+	        if (!("w" in d)) d.w = "u" in d ? d.u % 7 : "W" in d ? 1 : 0;
+	        day = "Z" in d ? utcDate(newYear(d.y)).getUTCDay() : newDate(newYear(d.y)).getDay();
+	        d.m = 0;
+	        d.d = "W" in d ? (d.w + 6) % 7 + d.W * 7 - (day + 5) % 7 : d.w + d.U * 7 - (day + 6) % 7;
+	      }
+
+	      // If a time zone is specified, all fields are interpreted as UTC and then
+	      // offset according to the specified time zone.
+	      if ("Z" in d) {
+	        d.H += d.Z / 100 | 0;
+	        d.M += d.Z % 100;
+	        return utcDate(d);
+	      }
+
+	      // Otherwise, all fields are in local time.
+	      return newDate(d);
+	    };
+	  }
+
+	  function parseSpecifier(d, specifier, string, j) {
+	    var i = 0,
+	        n = specifier.length,
+	        m = string.length,
+	        c,
+	        parse;
+
+	    while (i < n) {
+	      if (j >= m) return -1;
+	      c = specifier.charCodeAt(i++);
+	      if (c === 37) {
+	        c = specifier.charAt(i++);
+	        parse = parses[c in pads ? specifier.charAt(i++) : c];
+	        if (!parse || ((j = parse(d, string, j)) < 0)) return -1;
+	      } else if (c != string.charCodeAt(j++)) {
+	        return -1;
+	      }
+	    }
+
+	    return j;
+	  }
+
+	  function parsePeriod(d, string, i) {
+	    var n = periodRe.exec(string.slice(i));
+	    return n ? (d.p = periodLookup[n[0].toLowerCase()], i + n[0].length) : -1;
+	  }
+
+	  function parseShortWeekday(d, string, i) {
+	    var n = shortWeekdayRe.exec(string.slice(i));
+	    return n ? (d.w = shortWeekdayLookup[n[0].toLowerCase()], i + n[0].length) : -1;
+	  }
+
+	  function parseWeekday(d, string, i) {
+	    var n = weekdayRe.exec(string.slice(i));
+	    return n ? (d.w = weekdayLookup[n[0].toLowerCase()], i + n[0].length) : -1;
+	  }
+
+	  function parseShortMonth(d, string, i) {
+	    var n = shortMonthRe.exec(string.slice(i));
+	    return n ? (d.m = shortMonthLookup[n[0].toLowerCase()], i + n[0].length) : -1;
+	  }
+
+	  function parseMonth(d, string, i) {
+	    var n = monthRe.exec(string.slice(i));
+	    return n ? (d.m = monthLookup[n[0].toLowerCase()], i + n[0].length) : -1;
+	  }
+
+	  function parseLocaleDateTime(d, string, i) {
+	    return parseSpecifier(d, locale_dateTime, string, i);
+	  }
+
+	  function parseLocaleDate(d, string, i) {
+	    return parseSpecifier(d, locale_date, string, i);
+	  }
+
+	  function parseLocaleTime(d, string, i) {
+	    return parseSpecifier(d, locale_time, string, i);
+	  }
+
+	  function formatShortWeekday(d) {
+	    return locale_shortWeekdays[d.getDay()];
+	  }
+
+	  function formatWeekday(d) {
+	    return locale_weekdays[d.getDay()];
+	  }
+
+	  function formatShortMonth(d) {
+	    return locale_shortMonths[d.getMonth()];
+	  }
+
+	  function formatMonth(d) {
+	    return locale_months[d.getMonth()];
+	  }
+
+	  function formatPeriod(d) {
+	    return locale_periods[+(d.getHours() >= 12)];
+	  }
+
+	  function formatUTCShortWeekday(d) {
+	    return locale_shortWeekdays[d.getUTCDay()];
+	  }
+
+	  function formatUTCWeekday(d) {
+	    return locale_weekdays[d.getUTCDay()];
+	  }
+
+	  function formatUTCShortMonth(d) {
+	    return locale_shortMonths[d.getUTCMonth()];
+	  }
+
+	  function formatUTCMonth(d) {
+	    return locale_months[d.getUTCMonth()];
+	  }
+
+	  function formatUTCPeriod(d) {
+	    return locale_periods[+(d.getUTCHours() >= 12)];
+	  }
+
+	  return {
+	    format: function(specifier) {
+	      var f = newFormat(specifier += "", formats);
+	      f.toString = function() { return specifier; };
+	      return f;
+	    },
+	    parse: function(specifier) {
+	      var p = newParse(specifier += "", localDate);
+	      p.toString = function() { return specifier; };
+	      return p;
+	    },
+	    utcFormat: function(specifier) {
+	      var f = newFormat(specifier += "", utcFormats);
+	      f.toString = function() { return specifier; };
+	      return f;
+	    },
+	    utcParse: function(specifier) {
+	      var p = newParse(specifier, utcDate);
+	      p.toString = function() { return specifier; };
+	      return p;
+	    }
+	  };
+	}
+
+	var pads = {"-": "", "_": " ", "0": "0"},
+	    numberRe = /^\s*\d+/, // note: ignores next directive
+	    percentRe = /^%/,
+	    requoteRe = /[\\^$*+?|[\]().{}]/g;
+
+	function pad(value, fill, width) {
+	  var sign = value < 0 ? "-" : "",
+	      string = (sign ? -value : value) + "",
+	      length = string.length;
+	  return sign + (length < width ? new Array(width - length + 1).join(fill) + string : string);
+	}
+
+	function requote(s) {
+	  return s.replace(requoteRe, "\\$&");
+	}
+
+	function formatRe(names) {
+	  return new RegExp("^(?:" + names.map(requote).join("|") + ")", "i");
+	}
+
+	function formatLookup(names) {
+	  var map = {}, i = -1, n = names.length;
+	  while (++i < n) map[names[i].toLowerCase()] = i;
+	  return map;
+	}
+
+	function parseWeekdayNumberSunday(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 1));
+	  return n ? (d.w = +n[0], i + n[0].length) : -1;
+	}
+
+	function parseWeekdayNumberMonday(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 1));
+	  return n ? (d.u = +n[0], i + n[0].length) : -1;
+	}
+
+	function parseWeekNumberSunday(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 2));
+	  return n ? (d.U = +n[0], i + n[0].length) : -1;
+	}
+
+	function parseWeekNumberISO(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 2));
+	  return n ? (d.V = +n[0], i + n[0].length) : -1;
+	}
+
+	function parseWeekNumberMonday(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 2));
+	  return n ? (d.W = +n[0], i + n[0].length) : -1;
+	}
+
+	function parseFullYear(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 4));
+	  return n ? (d.y = +n[0], i + n[0].length) : -1;
+	}
+
+	function parseYear(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 2));
+	  return n ? (d.y = +n[0] + (+n[0] > 68 ? 1900 : 2000), i + n[0].length) : -1;
+	}
+
+	function parseZone(d, string, i) {
+	  var n = /^(Z)|([+-]\d\d)(?::?(\d\d))?/.exec(string.slice(i, i + 6));
+	  return n ? (d.Z = n[1] ? 0 : -(n[2] + (n[3] || "00")), i + n[0].length) : -1;
+	}
+
+	function parseMonthNumber(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 2));
+	  return n ? (d.m = n[0] - 1, i + n[0].length) : -1;
+	}
+
+	function parseDayOfMonth(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 2));
+	  return n ? (d.d = +n[0], i + n[0].length) : -1;
+	}
+
+	function parseDayOfYear(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 3));
+	  return n ? (d.m = 0, d.d = +n[0], i + n[0].length) : -1;
+	}
+
+	function parseHour24(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 2));
+	  return n ? (d.H = +n[0], i + n[0].length) : -1;
+	}
+
+	function parseMinutes(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 2));
+	  return n ? (d.M = +n[0], i + n[0].length) : -1;
+	}
+
+	function parseSeconds(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 2));
+	  return n ? (d.S = +n[0], i + n[0].length) : -1;
+	}
+
+	function parseMilliseconds(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 3));
+	  return n ? (d.L = +n[0], i + n[0].length) : -1;
+	}
+
+	function parseMicroseconds(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 6));
+	  return n ? (d.L = Math.floor(n[0] / 1000), i + n[0].length) : -1;
+	}
+
+	function parseLiteralPercent(d, string, i) {
+	  var n = percentRe.exec(string.slice(i, i + 1));
+	  return n ? i + n[0].length : -1;
+	}
+
+	function parseUnixTimestamp(d, string, i) {
+	  var n = numberRe.exec(string.slice(i));
+	  return n ? (d.Q = +n[0], i + n[0].length) : -1;
+	}
+
+	function parseUnixTimestampSeconds(d, string, i) {
+	  var n = numberRe.exec(string.slice(i));
+	  return n ? (d.Q = (+n[0]) * 1000, i + n[0].length) : -1;
+	}
+
+	function formatDayOfMonth(d, p) {
+	  return pad(d.getDate(), p, 2);
+	}
+
+	function formatHour24(d, p) {
+	  return pad(d.getHours(), p, 2);
+	}
+
+	function formatHour12(d, p) {
+	  return pad(d.getHours() % 12 || 12, p, 2);
+	}
+
+	function formatDayOfYear(d, p) {
+	  return pad(1 + d3Time.timeDay.count(d3Time.timeYear(d), d), p, 3);
+	}
+
+	function formatMilliseconds(d, p) {
+	  return pad(d.getMilliseconds(), p, 3);
+	}
+
+	function formatMicroseconds(d, p) {
+	  return formatMilliseconds(d, p) + "000";
+	}
+
+	function formatMonthNumber(d, p) {
+	  return pad(d.getMonth() + 1, p, 2);
+	}
+
+	function formatMinutes(d, p) {
+	  return pad(d.getMinutes(), p, 2);
+	}
+
+	function formatSeconds(d, p) {
+	  return pad(d.getSeconds(), p, 2);
+	}
+
+	function formatWeekdayNumberMonday(d) {
+	  var day = d.getDay();
+	  return day === 0 ? 7 : day;
+	}
+
+	function formatWeekNumberSunday(d, p) {
+	  return pad(d3Time.timeSunday.count(d3Time.timeYear(d), d), p, 2);
+	}
+
+	function formatWeekNumberISO(d, p) {
+	  var day = d.getDay();
+	  d = (day >= 4 || day === 0) ? d3Time.timeThursday(d) : d3Time.timeThursday.ceil(d);
+	  return pad(d3Time.timeThursday.count(d3Time.timeYear(d), d) + (d3Time.timeYear(d).getDay() === 4), p, 2);
+	}
+
+	function formatWeekdayNumberSunday(d) {
+	  return d.getDay();
+	}
+
+	function formatWeekNumberMonday(d, p) {
+	  return pad(d3Time.timeMonday.count(d3Time.timeYear(d), d), p, 2);
+	}
+
+	function formatYear(d, p) {
+	  return pad(d.getFullYear() % 100, p, 2);
+	}
+
+	function formatFullYear(d, p) {
+	  return pad(d.getFullYear() % 10000, p, 4);
+	}
+
+	function formatZone(d) {
+	  var z = d.getTimezoneOffset();
+	  return (z > 0 ? "-" : (z *= -1, "+"))
+	      + pad(z / 60 | 0, "0", 2)
+	      + pad(z % 60, "0", 2);
+	}
+
+	function formatUTCDayOfMonth(d, p) {
+	  return pad(d.getUTCDate(), p, 2);
+	}
+
+	function formatUTCHour24(d, p) {
+	  return pad(d.getUTCHours(), p, 2);
+	}
+
+	function formatUTCHour12(d, p) {
+	  return pad(d.getUTCHours() % 12 || 12, p, 2);
+	}
+
+	function formatUTCDayOfYear(d, p) {
+	  return pad(1 + d3Time.utcDay.count(d3Time.utcYear(d), d), p, 3);
+	}
+
+	function formatUTCMilliseconds(d, p) {
+	  return pad(d.getUTCMilliseconds(), p, 3);
+	}
+
+	function formatUTCMicroseconds(d, p) {
+	  return formatUTCMilliseconds(d, p) + "000";
+	}
+
+	function formatUTCMonthNumber(d, p) {
+	  return pad(d.getUTCMonth() + 1, p, 2);
+	}
+
+	function formatUTCMinutes(d, p) {
+	  return pad(d.getUTCMinutes(), p, 2);
+	}
+
+	function formatUTCSeconds(d, p) {
+	  return pad(d.getUTCSeconds(), p, 2);
+	}
+
+	function formatUTCWeekdayNumberMonday(d) {
+	  var dow = d.getUTCDay();
+	  return dow === 0 ? 7 : dow;
+	}
+
+	function formatUTCWeekNumberSunday(d, p) {
+	  return pad(d3Time.utcSunday.count(d3Time.utcYear(d), d), p, 2);
+	}
+
+	function formatUTCWeekNumberISO(d, p) {
+	  var day = d.getUTCDay();
+	  d = (day >= 4 || day === 0) ? d3Time.utcThursday(d) : d3Time.utcThursday.ceil(d);
+	  return pad(d3Time.utcThursday.count(d3Time.utcYear(d), d) + (d3Time.utcYear(d).getUTCDay() === 4), p, 2);
+	}
+
+	function formatUTCWeekdayNumberSunday(d) {
+	  return d.getUTCDay();
+	}
+
+	function formatUTCWeekNumberMonday(d, p) {
+	  return pad(d3Time.utcMonday.count(d3Time.utcYear(d), d), p, 2);
+	}
+
+	function formatUTCYear(d, p) {
+	  return pad(d.getUTCFullYear() % 100, p, 2);
+	}
+
+	function formatUTCFullYear(d, p) {
+	  return pad(d.getUTCFullYear() % 10000, p, 4);
+	}
+
+	function formatUTCZone() {
+	  return "+0000";
+	}
+
+	function formatLiteralPercent() {
+	  return "%";
+	}
+
+	function formatUnixTimestamp(d) {
+	  return +d;
+	}
+
+	function formatUnixTimestampSeconds(d) {
+	  return Math.floor(+d / 1000);
+	}
+
+	var locale;
+
+	defaultLocale({
+	  dateTime: "%x, %X",
+	  date: "%-m/%-d/%Y",
+	  time: "%-I:%M:%S %p",
+	  periods: ["AM", "PM"],
+	  days: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+	  shortDays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+	  months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+	  shortMonths: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+	});
+
+	function defaultLocale(definition) {
+	  locale = formatLocale(definition);
+	  exports.timeFormat = locale.format;
+	  exports.timeParse = locale.parse;
+	  exports.utcFormat = locale.utcFormat;
+	  exports.utcParse = locale.utcParse;
+	  return locale;
+	}
+
+	var isoSpecifier = "%Y-%m-%dT%H:%M:%S.%LZ";
+
+	function formatIsoNative(date) {
+	  return date.toISOString();
+	}
+
+	var formatIso = Date.prototype.toISOString
+	    ? formatIsoNative
+	    : exports.utcFormat(isoSpecifier);
+
+	function parseIsoNative(string) {
+	  var date = new Date(string);
+	  return isNaN(date) ? null : date;
+	}
+
+	var parseIso = +new Date("2000-01-01T00:00:00.000Z")
+	    ? parseIsoNative
+	    : exports.utcParse(isoSpecifier);
+
+	exports.timeFormatDefaultLocale = defaultLocale;
+	exports.timeFormatLocale = formatLocale;
+	exports.isoFormat = formatIso;
+	exports.isoParse = parseIso;
+
+	Object.defineProperty(exports, '__esModule', { value: true });
+
+	})));
+
+
+/***/ }),
+/* 67 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	// https://d3js.org/d3-scale-chromatic/ v1.3.3 Copyright 2018 Mike Bostock
+	(function (global, factory) {
+	 true ? factory(exports, __webpack_require__(62), __webpack_require__(63)) :
+	typeof define === 'function' && define.amd ? define(['exports', 'd3-interpolate', 'd3-color'], factory) :
+	(factory((global.d3 = global.d3 || {}),global.d3,global.d3));
+	}(this, (function (exports,d3Interpolate,d3Color) { 'use strict';
+
+	function colors(specifier) {
+	  var n = specifier.length / 6 | 0, colors = new Array(n), i = 0;
+	  while (i < n) colors[i] = "#" + specifier.slice(i * 6, ++i * 6);
+	  return colors;
+	}
+
+	var category10 = colors("1f77b4ff7f0e2ca02cd627289467bd8c564be377c27f7f7fbcbd2217becf");
+
+	var Accent = colors("7fc97fbeaed4fdc086ffff99386cb0f0027fbf5b17666666");
+
+	var Dark2 = colors("1b9e77d95f027570b3e7298a66a61ee6ab02a6761d666666");
+
+	var Paired = colors("a6cee31f78b4b2df8a33a02cfb9a99e31a1cfdbf6fff7f00cab2d66a3d9affff99b15928");
+
+	var Pastel1 = colors("fbb4aeb3cde3ccebc5decbe4fed9a6ffffcce5d8bdfddaecf2f2f2");
+
+	var Pastel2 = colors("b3e2cdfdcdaccbd5e8f4cae4e6f5c9fff2aef1e2cccccccc");
+
+	var Set1 = colors("e41a1c377eb84daf4a984ea3ff7f00ffff33a65628f781bf999999");
+
+	var Set2 = colors("66c2a5fc8d628da0cbe78ac3a6d854ffd92fe5c494b3b3b3");
+
+	var Set3 = colors("8dd3c7ffffb3bebadafb807280b1d3fdb462b3de69fccde5d9d9d9bc80bdccebc5ffed6f");
+
+	function ramp(scheme) {
+	  return d3Interpolate.interpolateRgbBasis(scheme[scheme.length - 1]);
+	}
+
+	var scheme = new Array(3).concat(
+	  "d8b365f5f5f55ab4ac",
+	  "a6611adfc27d80cdc1018571",
+	  "a6611adfc27df5f5f580cdc1018571",
+	  "8c510ad8b365f6e8c3c7eae55ab4ac01665e",
+	  "8c510ad8b365f6e8c3f5f5f5c7eae55ab4ac01665e",
+	  "8c510abf812ddfc27df6e8c3c7eae580cdc135978f01665e",
+	  "8c510abf812ddfc27df6e8c3f5f5f5c7eae580cdc135978f01665e",
+	  "5430058c510abf812ddfc27df6e8c3c7eae580cdc135978f01665e003c30",
+	  "5430058c510abf812ddfc27df6e8c3f5f5f5c7eae580cdc135978f01665e003c30"
+	).map(colors);
+
+	var BrBG = ramp(scheme);
+
+	var scheme$1 = new Array(3).concat(
+	  "af8dc3f7f7f77fbf7b",
+	  "7b3294c2a5cfa6dba0008837",
+	  "7b3294c2a5cff7f7f7a6dba0008837",
+	  "762a83af8dc3e7d4e8d9f0d37fbf7b1b7837",
+	  "762a83af8dc3e7d4e8f7f7f7d9f0d37fbf7b1b7837",
+	  "762a839970abc2a5cfe7d4e8d9f0d3a6dba05aae611b7837",
+	  "762a839970abc2a5cfe7d4e8f7f7f7d9f0d3a6dba05aae611b7837",
+	  "40004b762a839970abc2a5cfe7d4e8d9f0d3a6dba05aae611b783700441b",
+	  "40004b762a839970abc2a5cfe7d4e8f7f7f7d9f0d3a6dba05aae611b783700441b"
+	).map(colors);
+
+	var PRGn = ramp(scheme$1);
+
+	var scheme$2 = new Array(3).concat(
+	  "e9a3c9f7f7f7a1d76a",
+	  "d01c8bf1b6dab8e1864dac26",
+	  "d01c8bf1b6daf7f7f7b8e1864dac26",
+	  "c51b7de9a3c9fde0efe6f5d0a1d76a4d9221",
+	  "c51b7de9a3c9fde0eff7f7f7e6f5d0a1d76a4d9221",
+	  "c51b7dde77aef1b6dafde0efe6f5d0b8e1867fbc414d9221",
+	  "c51b7dde77aef1b6dafde0eff7f7f7e6f5d0b8e1867fbc414d9221",
+	  "8e0152c51b7dde77aef1b6dafde0efe6f5d0b8e1867fbc414d9221276419",
+	  "8e0152c51b7dde77aef1b6dafde0eff7f7f7e6f5d0b8e1867fbc414d9221276419"
+	).map(colors);
+
+	var PiYG = ramp(scheme$2);
+
+	var scheme$3 = new Array(3).concat(
+	  "998ec3f7f7f7f1a340",
+	  "5e3c99b2abd2fdb863e66101",
+	  "5e3c99b2abd2f7f7f7fdb863e66101",
+	  "542788998ec3d8daebfee0b6f1a340b35806",
+	  "542788998ec3d8daebf7f7f7fee0b6f1a340b35806",
+	  "5427888073acb2abd2d8daebfee0b6fdb863e08214b35806",
+	  "5427888073acb2abd2d8daebf7f7f7fee0b6fdb863e08214b35806",
+	  "2d004b5427888073acb2abd2d8daebfee0b6fdb863e08214b358067f3b08",
+	  "2d004b5427888073acb2abd2d8daebf7f7f7fee0b6fdb863e08214b358067f3b08"
+	).map(colors);
+
+	var PuOr = ramp(scheme$3);
+
+	var scheme$4 = new Array(3).concat(
+	  "ef8a62f7f7f767a9cf",
+	  "ca0020f4a58292c5de0571b0",
+	  "ca0020f4a582f7f7f792c5de0571b0",
+	  "b2182bef8a62fddbc7d1e5f067a9cf2166ac",
+	  "b2182bef8a62fddbc7f7f7f7d1e5f067a9cf2166ac",
+	  "b2182bd6604df4a582fddbc7d1e5f092c5de4393c32166ac",
+	  "b2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac",
+	  "67001fb2182bd6604df4a582fddbc7d1e5f092c5de4393c32166ac053061",
+	  "67001fb2182bd6604df4a582fddbc7f7f7f7d1e5f092c5de4393c32166ac053061"
+	).map(colors);
+
+	var RdBu = ramp(scheme$4);
+
+	var scheme$5 = new Array(3).concat(
+	  "ef8a62ffffff999999",
+	  "ca0020f4a582bababa404040",
+	  "ca0020f4a582ffffffbababa404040",
+	  "b2182bef8a62fddbc7e0e0e09999994d4d4d",
+	  "b2182bef8a62fddbc7ffffffe0e0e09999994d4d4d",
+	  "b2182bd6604df4a582fddbc7e0e0e0bababa8787874d4d4d",
+	  "b2182bd6604df4a582fddbc7ffffffe0e0e0bababa8787874d4d4d",
+	  "67001fb2182bd6604df4a582fddbc7e0e0e0bababa8787874d4d4d1a1a1a",
+	  "67001fb2182bd6604df4a582fddbc7ffffffe0e0e0bababa8787874d4d4d1a1a1a"
+	).map(colors);
+
+	var RdGy = ramp(scheme$5);
+
+	var scheme$6 = new Array(3).concat(
+	  "fc8d59ffffbf91bfdb",
+	  "d7191cfdae61abd9e92c7bb6",
+	  "d7191cfdae61ffffbfabd9e92c7bb6",
+	  "d73027fc8d59fee090e0f3f891bfdb4575b4",
+	  "d73027fc8d59fee090ffffbfe0f3f891bfdb4575b4",
+	  "d73027f46d43fdae61fee090e0f3f8abd9e974add14575b4",
+	  "d73027f46d43fdae61fee090ffffbfe0f3f8abd9e974add14575b4",
+	  "a50026d73027f46d43fdae61fee090e0f3f8abd9e974add14575b4313695",
+	  "a50026d73027f46d43fdae61fee090ffffbfe0f3f8abd9e974add14575b4313695"
+	).map(colors);
+
+	var RdYlBu = ramp(scheme$6);
+
+	var scheme$7 = new Array(3).concat(
+	  "fc8d59ffffbf91cf60",
+	  "d7191cfdae61a6d96a1a9641",
+	  "d7191cfdae61ffffbfa6d96a1a9641",
+	  "d73027fc8d59fee08bd9ef8b91cf601a9850",
+	  "d73027fc8d59fee08bffffbfd9ef8b91cf601a9850",
+	  "d73027f46d43fdae61fee08bd9ef8ba6d96a66bd631a9850",
+	  "d73027f46d43fdae61fee08bffffbfd9ef8ba6d96a66bd631a9850",
+	  "a50026d73027f46d43fdae61fee08bd9ef8ba6d96a66bd631a9850006837",
+	  "a50026d73027f46d43fdae61fee08bffffbfd9ef8ba6d96a66bd631a9850006837"
+	).map(colors);
+
+	var RdYlGn = ramp(scheme$7);
+
+	var scheme$8 = new Array(3).concat(
+	  "fc8d59ffffbf99d594",
+	  "d7191cfdae61abdda42b83ba",
+	  "d7191cfdae61ffffbfabdda42b83ba",
+	  "d53e4ffc8d59fee08be6f59899d5943288bd",
+	  "d53e4ffc8d59fee08bffffbfe6f59899d5943288bd",
+	  "d53e4ff46d43fdae61fee08be6f598abdda466c2a53288bd",
+	  "d53e4ff46d43fdae61fee08bffffbfe6f598abdda466c2a53288bd",
+	  "9e0142d53e4ff46d43fdae61fee08be6f598abdda466c2a53288bd5e4fa2",
+	  "9e0142d53e4ff46d43fdae61fee08bffffbfe6f598abdda466c2a53288bd5e4fa2"
+	).map(colors);
+
+	var Spectral = ramp(scheme$8);
+
+	var scheme$9 = new Array(3).concat(
+	  "e5f5f999d8c92ca25f",
+	  "edf8fbb2e2e266c2a4238b45",
+	  "edf8fbb2e2e266c2a42ca25f006d2c",
+	  "edf8fbccece699d8c966c2a42ca25f006d2c",
+	  "edf8fbccece699d8c966c2a441ae76238b45005824",
+	  "f7fcfde5f5f9ccece699d8c966c2a441ae76238b45005824",
+	  "f7fcfde5f5f9ccece699d8c966c2a441ae76238b45006d2c00441b"
+	).map(colors);
+
+	var BuGn = ramp(scheme$9);
+
+	var scheme$a = new Array(3).concat(
+	  "e0ecf49ebcda8856a7",
+	  "edf8fbb3cde38c96c688419d",
+	  "edf8fbb3cde38c96c68856a7810f7c",
+	  "edf8fbbfd3e69ebcda8c96c68856a7810f7c",
+	  "edf8fbbfd3e69ebcda8c96c68c6bb188419d6e016b",
+	  "f7fcfde0ecf4bfd3e69ebcda8c96c68c6bb188419d6e016b",
+	  "f7fcfde0ecf4bfd3e69ebcda8c96c68c6bb188419d810f7c4d004b"
+	).map(colors);
+
+	var BuPu = ramp(scheme$a);
+
+	var scheme$b = new Array(3).concat(
+	  "e0f3dba8ddb543a2ca",
+	  "f0f9e8bae4bc7bccc42b8cbe",
+	  "f0f9e8bae4bc7bccc443a2ca0868ac",
+	  "f0f9e8ccebc5a8ddb57bccc443a2ca0868ac",
+	  "f0f9e8ccebc5a8ddb57bccc44eb3d32b8cbe08589e",
+	  "f7fcf0e0f3dbccebc5a8ddb57bccc44eb3d32b8cbe08589e",
+	  "f7fcf0e0f3dbccebc5a8ddb57bccc44eb3d32b8cbe0868ac084081"
+	).map(colors);
+
+	var GnBu = ramp(scheme$b);
+
+	var scheme$c = new Array(3).concat(
+	  "fee8c8fdbb84e34a33",
+	  "fef0d9fdcc8afc8d59d7301f",
+	  "fef0d9fdcc8afc8d59e34a33b30000",
+	  "fef0d9fdd49efdbb84fc8d59e34a33b30000",
+	  "fef0d9fdd49efdbb84fc8d59ef6548d7301f990000",
+	  "fff7ecfee8c8fdd49efdbb84fc8d59ef6548d7301f990000",
+	  "fff7ecfee8c8fdd49efdbb84fc8d59ef6548d7301fb300007f0000"
+	).map(colors);
+
+	var OrRd = ramp(scheme$c);
+
+	var scheme$d = new Array(3).concat(
+	  "ece2f0a6bddb1c9099",
+	  "f6eff7bdc9e167a9cf02818a",
+	  "f6eff7bdc9e167a9cf1c9099016c59",
+	  "f6eff7d0d1e6a6bddb67a9cf1c9099016c59",
+	  "f6eff7d0d1e6a6bddb67a9cf3690c002818a016450",
+	  "fff7fbece2f0d0d1e6a6bddb67a9cf3690c002818a016450",
+	  "fff7fbece2f0d0d1e6a6bddb67a9cf3690c002818a016c59014636"
+	).map(colors);
+
+	var PuBuGn = ramp(scheme$d);
+
+	var scheme$e = new Array(3).concat(
+	  "ece7f2a6bddb2b8cbe",
+	  "f1eef6bdc9e174a9cf0570b0",
+	  "f1eef6bdc9e174a9cf2b8cbe045a8d",
+	  "f1eef6d0d1e6a6bddb74a9cf2b8cbe045a8d",
+	  "f1eef6d0d1e6a6bddb74a9cf3690c00570b0034e7b",
+	  "fff7fbece7f2d0d1e6a6bddb74a9cf3690c00570b0034e7b",
+	  "fff7fbece7f2d0d1e6a6bddb74a9cf3690c00570b0045a8d023858"
+	).map(colors);
+
+	var PuBu = ramp(scheme$e);
+
+	var scheme$f = new Array(3).concat(
+	  "e7e1efc994c7dd1c77",
+	  "f1eef6d7b5d8df65b0ce1256",
+	  "f1eef6d7b5d8df65b0dd1c77980043",
+	  "f1eef6d4b9dac994c7df65b0dd1c77980043",
+	  "f1eef6d4b9dac994c7df65b0e7298ace125691003f",
+	  "f7f4f9e7e1efd4b9dac994c7df65b0e7298ace125691003f",
+	  "f7f4f9e7e1efd4b9dac994c7df65b0e7298ace125698004367001f"
+	).map(colors);
+
+	var PuRd = ramp(scheme$f);
+
+	var scheme$g = new Array(3).concat(
+	  "fde0ddfa9fb5c51b8a",
+	  "feebe2fbb4b9f768a1ae017e",
+	  "feebe2fbb4b9f768a1c51b8a7a0177",
+	  "feebe2fcc5c0fa9fb5f768a1c51b8a7a0177",
+	  "feebe2fcc5c0fa9fb5f768a1dd3497ae017e7a0177",
+	  "fff7f3fde0ddfcc5c0fa9fb5f768a1dd3497ae017e7a0177",
+	  "fff7f3fde0ddfcc5c0fa9fb5f768a1dd3497ae017e7a017749006a"
+	).map(colors);
+
+	var RdPu = ramp(scheme$g);
+
+	var scheme$h = new Array(3).concat(
+	  "edf8b17fcdbb2c7fb8",
+	  "ffffcca1dab441b6c4225ea8",
+	  "ffffcca1dab441b6c42c7fb8253494",
+	  "ffffccc7e9b47fcdbb41b6c42c7fb8253494",
+	  "ffffccc7e9b47fcdbb41b6c41d91c0225ea80c2c84",
+	  "ffffd9edf8b1c7e9b47fcdbb41b6c41d91c0225ea80c2c84",
+	  "ffffd9edf8b1c7e9b47fcdbb41b6c41d91c0225ea8253494081d58"
+	).map(colors);
+
+	var YlGnBu = ramp(scheme$h);
+
+	var scheme$i = new Array(3).concat(
+	  "f7fcb9addd8e31a354",
+	  "ffffccc2e69978c679238443",
+	  "ffffccc2e69978c67931a354006837",
+	  "ffffccd9f0a3addd8e78c67931a354006837",
+	  "ffffccd9f0a3addd8e78c67941ab5d238443005a32",
+	  "ffffe5f7fcb9d9f0a3addd8e78c67941ab5d238443005a32",
+	  "ffffe5f7fcb9d9f0a3addd8e78c67941ab5d238443006837004529"
+	).map(colors);
+
+	var YlGn = ramp(scheme$i);
+
+	var scheme$j = new Array(3).concat(
+	  "fff7bcfec44fd95f0e",
+	  "ffffd4fed98efe9929cc4c02",
+	  "ffffd4fed98efe9929d95f0e993404",
+	  "ffffd4fee391fec44ffe9929d95f0e993404",
+	  "ffffd4fee391fec44ffe9929ec7014cc4c028c2d04",
+	  "ffffe5fff7bcfee391fec44ffe9929ec7014cc4c028c2d04",
+	  "ffffe5fff7bcfee391fec44ffe9929ec7014cc4c02993404662506"
+	).map(colors);
+
+	var YlOrBr = ramp(scheme$j);
+
+	var scheme$k = new Array(3).concat(
+	  "ffeda0feb24cf03b20",
+	  "ffffb2fecc5cfd8d3ce31a1c",
+	  "ffffb2fecc5cfd8d3cf03b20bd0026",
+	  "ffffb2fed976feb24cfd8d3cf03b20bd0026",
+	  "ffffb2fed976feb24cfd8d3cfc4e2ae31a1cb10026",
+	  "ffffccffeda0fed976feb24cfd8d3cfc4e2ae31a1cb10026",
+	  "ffffccffeda0fed976feb24cfd8d3cfc4e2ae31a1cbd0026800026"
+	).map(colors);
+
+	var YlOrRd = ramp(scheme$k);
+
+	var scheme$l = new Array(3).concat(
+	  "deebf79ecae13182bd",
+	  "eff3ffbdd7e76baed62171b5",
+	  "eff3ffbdd7e76baed63182bd08519c",
+	  "eff3ffc6dbef9ecae16baed63182bd08519c",
+	  "eff3ffc6dbef9ecae16baed64292c62171b5084594",
+	  "f7fbffdeebf7c6dbef9ecae16baed64292c62171b5084594",
+	  "f7fbffdeebf7c6dbef9ecae16baed64292c62171b508519c08306b"
+	).map(colors);
+
+	var Blues = ramp(scheme$l);
+
+	var scheme$m = new Array(3).concat(
+	  "e5f5e0a1d99b31a354",
+	  "edf8e9bae4b374c476238b45",
+	  "edf8e9bae4b374c47631a354006d2c",
+	  "edf8e9c7e9c0a1d99b74c47631a354006d2c",
+	  "edf8e9c7e9c0a1d99b74c47641ab5d238b45005a32",
+	  "f7fcf5e5f5e0c7e9c0a1d99b74c47641ab5d238b45005a32",
+	  "f7fcf5e5f5e0c7e9c0a1d99b74c47641ab5d238b45006d2c00441b"
+	).map(colors);
+
+	var Greens = ramp(scheme$m);
+
+	var scheme$n = new Array(3).concat(
+	  "f0f0f0bdbdbd636363",
+	  "f7f7f7cccccc969696525252",
+	  "f7f7f7cccccc969696636363252525",
+	  "f7f7f7d9d9d9bdbdbd969696636363252525",
+	  "f7f7f7d9d9d9bdbdbd969696737373525252252525",
+	  "fffffff0f0f0d9d9d9bdbdbd969696737373525252252525",
+	  "fffffff0f0f0d9d9d9bdbdbd969696737373525252252525000000"
+	).map(colors);
+
+	var Greys = ramp(scheme$n);
+
+	var scheme$o = new Array(3).concat(
+	  "efedf5bcbddc756bb1",
+	  "f2f0f7cbc9e29e9ac86a51a3",
+	  "f2f0f7cbc9e29e9ac8756bb154278f",
+	  "f2f0f7dadaebbcbddc9e9ac8756bb154278f",
+	  "f2f0f7dadaebbcbddc9e9ac8807dba6a51a34a1486",
+	  "fcfbfdefedf5dadaebbcbddc9e9ac8807dba6a51a34a1486",
+	  "fcfbfdefedf5dadaebbcbddc9e9ac8807dba6a51a354278f3f007d"
+	).map(colors);
+
+	var Purples = ramp(scheme$o);
+
+	var scheme$p = new Array(3).concat(
+	  "fee0d2fc9272de2d26",
+	  "fee5d9fcae91fb6a4acb181d",
+	  "fee5d9fcae91fb6a4ade2d26a50f15",
+	  "fee5d9fcbba1fc9272fb6a4ade2d26a50f15",
+	  "fee5d9fcbba1fc9272fb6a4aef3b2ccb181d99000d",
+	  "fff5f0fee0d2fcbba1fc9272fb6a4aef3b2ccb181d99000d",
+	  "fff5f0fee0d2fcbba1fc9272fb6a4aef3b2ccb181da50f1567000d"
+	).map(colors);
+
+	var Reds = ramp(scheme$p);
+
+	var scheme$q = new Array(3).concat(
+	  "fee6cefdae6be6550d",
+	  "feeddefdbe85fd8d3cd94701",
+	  "feeddefdbe85fd8d3ce6550da63603",
+	  "feeddefdd0a2fdae6bfd8d3ce6550da63603",
+	  "feeddefdd0a2fdae6bfd8d3cf16913d948018c2d04",
+	  "fff5ebfee6cefdd0a2fdae6bfd8d3cf16913d948018c2d04",
+	  "fff5ebfee6cefdd0a2fdae6bfd8d3cf16913d94801a636037f2704"
+	).map(colors);
+
+	var Oranges = ramp(scheme$q);
+
+	var cubehelix = d3Interpolate.interpolateCubehelixLong(d3Color.cubehelix(300, 0.5, 0.0), d3Color.cubehelix(-240, 0.5, 1.0));
+
+	var warm = d3Interpolate.interpolateCubehelixLong(d3Color.cubehelix(-100, 0.75, 0.35), d3Color.cubehelix(80, 1.50, 0.8));
+
+	var cool = d3Interpolate.interpolateCubehelixLong(d3Color.cubehelix(260, 0.75, 0.35), d3Color.cubehelix(80, 1.50, 0.8));
+
+	var c = d3Color.cubehelix();
+
+	function rainbow(t) {
+	  if (t < 0 || t > 1) t -= Math.floor(t);
+	  var ts = Math.abs(t - 0.5);
+	  c.h = 360 * t - 100;
+	  c.s = 1.5 - 1.5 * ts;
+	  c.l = 0.8 - 0.9 * ts;
+	  return c + "";
+	}
+
+	var c$1 = d3Color.rgb(),
+	    pi_1_3 = Math.PI / 3,
+	    pi_2_3 = Math.PI * 2 / 3;
+
+	function sinebow(t) {
+	  var x;
+	  t = (0.5 - t) * Math.PI;
+	  c$1.r = 255 * (x = Math.sin(t)) * x;
+	  c$1.g = 255 * (x = Math.sin(t + pi_1_3)) * x;
+	  c$1.b = 255 * (x = Math.sin(t + pi_2_3)) * x;
+	  return c$1 + "";
+	}
+
+	function ramp$1(range) {
+	  var n = range.length;
+	  return function(t) {
+	    return range[Math.max(0, Math.min(n - 1, Math.floor(t * n)))];
+	  };
+	}
+
+	var viridis = ramp$1(colors("44015444025645045745055946075a46085c460a5d460b5e470d60470e6147106347116447136548146748166848176948186a481a6c481b6d481c6e481d6f481f70482071482173482374482475482576482677482878482979472a7a472c7a472d7b472e7c472f7d46307e46327e46337f463480453581453781453882443983443a83443b84433d84433e85423f854240864241864142874144874045884046883f47883f48893e49893e4a893e4c8a3d4d8a3d4e8a3c4f8a3c508b3b518b3b528b3a538b3a548c39558c39568c38588c38598c375a8c375b8d365c8d365d8d355e8d355f8d34608d34618d33628d33638d32648e32658e31668e31678e31688e30698e306a8e2f6b8e2f6c8e2e6d8e2e6e8e2e6f8e2d708e2d718e2c718e2c728e2c738e2b748e2b758e2a768e2a778e2a788e29798e297a8e297b8e287c8e287d8e277e8e277f8e27808e26818e26828e26828e25838e25848e25858e24868e24878e23888e23898e238a8d228b8d228c8d228d8d218e8d218f8d21908d21918c20928c20928c20938c1f948c1f958b1f968b1f978b1f988b1f998a1f9a8a1e9b8a1e9c891e9d891f9e891f9f881fa0881fa1881fa1871fa28720a38620a48621a58521a68522a78522a88423a98324aa8325ab8225ac8226ad8127ad8128ae8029af7f2ab07f2cb17e2db27d2eb37c2fb47c31b57b32b67a34b67935b77937b87838b9773aba763bbb753dbc743fbc7340bd7242be7144bf7046c06f48c16e4ac16d4cc26c4ec36b50c46a52c56954c56856c66758c7655ac8645cc8635ec96260ca6063cb5f65cb5e67cc5c69cd5b6ccd5a6ece5870cf5773d05675d05477d1537ad1517cd2507fd34e81d34d84d44b86d54989d5488bd6468ed64590d74393d74195d84098d83e9bd93c9dd93ba0da39a2da37a5db36a8db34aadc32addc30b0dd2fb2dd2db5de2bb8de29bade28bddf26c0df25c2df23c5e021c8e020cae11fcde11dd0e11cd2e21bd5e21ad8e219dae319dde318dfe318e2e418e5e419e7e419eae51aece51befe51cf1e51df4e61ef6e620f8e621fbe723fde725"));
+
+	var magma = ramp$1(colors("00000401000501010601010802010902020b02020d03030f03031204041405041606051806051a07061c08071e0907200a08220b09240c09260d0a290e0b2b100b2d110c2f120d31130d34140e36150e38160f3b180f3d19103f1a10421c10441d11471e114920114b21114e22115024125325125527125829115a2a115c2c115f2d11612f116331116533106734106936106b38106c390f6e3b0f703d0f713f0f72400f74420f75440f764510774710784910784a10794c117a4e117b4f127b51127c52137c54137d56147d57157e59157e5a167e5c167f5d177f5f187f601880621980641a80651a80671b80681c816a1c816b1d816d1d816e1e81701f81721f817320817521817621817822817922827b23827c23827e24828025828125818326818426818627818827818928818b29818c29818e2a81902a81912b81932b80942c80962c80982d80992d809b2e7f9c2e7f9e2f7fa02f7fa1307ea3307ea5317ea6317da8327daa337dab337cad347cae347bb0357bb2357bb3367ab5367ab73779b83779ba3878bc3978bd3977bf3a77c03a76c23b75c43c75c53c74c73d73c83e73ca3e72cc3f71cd4071cf4070d0416fd2426fd3436ed5446dd6456cd8456cd9466bdb476adc4869de4968df4a68e04c67e24d66e34e65e44f64e55064e75263e85362e95462ea5661eb5760ec5860ed5a5fee5b5eef5d5ef05f5ef1605df2625df2645cf3655cf4675cf4695cf56b5cf66c5cf66e5cf7705cf7725cf8745cf8765cf9785df9795df97b5dfa7d5efa7f5efa815ffb835ffb8560fb8761fc8961fc8a62fc8c63fc8e64fc9065fd9266fd9467fd9668fd9869fd9a6afd9b6bfe9d6cfe9f6dfea16efea36ffea571fea772fea973feaa74feac76feae77feb078feb27afeb47bfeb67cfeb77efeb97ffebb81febd82febf84fec185fec287fec488fec68afec88cfeca8dfecc8ffecd90fecf92fed194fed395fed597fed799fed89afdda9cfddc9efddea0fde0a1fde2a3fde3a5fde5a7fde7a9fde9aafdebacfcecaefceeb0fcf0b2fcf2b4fcf4b6fcf6b8fcf7b9fcf9bbfcfbbdfcfdbf"));
+
+	var inferno = ramp$1(colors("00000401000501010601010802010a02020c02020e03021004031204031405041706041907051b08051d09061f0a07220b07240c08260d08290e092b10092d110a30120a32140b34150b37160b39180c3c190c3e1b0c411c0c431e0c451f0c48210c4a230c4c240c4f260c51280b53290b552b0b572d0b592f0a5b310a5c320a5e340a5f3609613809623909633b09643d09653e0966400a67420a68440a68450a69470b6a490b6a4a0c6b4c0c6b4d0d6c4f0d6c510e6c520e6d540f6d550f6d57106e59106e5a116e5c126e5d126e5f136e61136e62146e64156e65156e67166e69166e6a176e6c186e6d186e6f196e71196e721a6e741a6e751b6e771c6d781c6d7a1d6d7c1d6d7d1e6d7f1e6c801f6c82206c84206b85216b87216b88226a8a226a8c23698d23698f24699025689225689326679526679727669827669a28659b29649d29649f2a63a02a63a22b62a32c61a52c60a62d60a82e5fa92e5eab2f5ead305dae305cb0315bb1325ab3325ab43359b63458b73557b93556ba3655bc3754bd3853bf3952c03a51c13a50c33b4fc43c4ec63d4dc73e4cc83f4bca404acb4149cc4248ce4347cf4446d04545d24644d34743d44842d54a41d74b3fd84c3ed94d3dda4e3cdb503bdd513ade5238df5337e05536e15635e25734e35933e45a31e55c30e65d2fe75e2ee8602de9612bea632aeb6429eb6628ec6726ed6925ee6a24ef6c23ef6e21f06f20f1711ff1731df2741cf3761bf37819f47918f57b17f57d15f67e14f68013f78212f78410f8850ff8870ef8890cf98b0bf98c0af98e09fa9008fa9207fa9407fb9606fb9706fb9906fb9b06fb9d07fc9f07fca108fca309fca50afca60cfca80dfcaa0ffcac11fcae12fcb014fcb216fcb418fbb61afbb81dfbba1ffbbc21fbbe23fac026fac228fac42afac62df9c72ff9c932f9cb35f8cd37f8cf3af7d13df7d340f6d543f6d746f5d949f5db4cf4dd4ff4df53f4e156f3e35af3e55df2e661f2e865f2ea69f1ec6df1ed71f1ef75f1f179f2f27df2f482f3f586f3f68af4f88ef5f992f6fa96f8fb9af9fc9dfafda1fcffa4"));
+
+	var plasma = ramp$1(colors("0d088710078813078916078a19068c1b068d1d068e20068f2206902406912605912805922a05932c05942e05952f059631059733059735049837049938049a3a049a3c049b3e049c3f049c41049d43039e44039e46039f48039f4903a04b03a14c02a14e02a25002a25102a35302a35502a45601a45801a45901a55b01a55c01a65e01a66001a66100a76300a76400a76600a76700a86900a86a00a86c00a86e00a86f00a87100a87201a87401a87501a87701a87801a87a02a87b02a87d03a87e03a88004a88104a78305a78405a78606a68707a68808a68a09a58b0aa58d0ba58e0ca48f0da4910ea3920fa39410a29511a19613a19814a099159f9a169f9c179e9d189d9e199da01a9ca11b9ba21d9aa31e9aa51f99a62098a72197a82296aa2395ab2494ac2694ad2793ae2892b02991b12a90b22b8fb32c8eb42e8db52f8cb6308bb7318ab83289ba3388bb3488bc3587bd3786be3885bf3984c03a83c13b82c23c81c33d80c43e7fc5407ec6417dc7427cc8437bc9447aca457acb4679cc4778cc4977cd4a76ce4b75cf4c74d04d73d14e72d24f71d35171d45270d5536fd5546ed6556dd7566cd8576bd9586ada5a6ada5b69db5c68dc5d67dd5e66de5f65de6164df6263e06363e16462e26561e26660e3685fe4695ee56a5de56b5de66c5ce76e5be76f5ae87059e97158e97257ea7457eb7556eb7655ec7754ed7953ed7a52ee7b51ef7c51ef7e50f07f4ff0804ef1814df1834cf2844bf3854bf3874af48849f48948f58b47f58c46f68d45f68f44f79044f79143f79342f89441f89540f9973ff9983ef99a3efa9b3dfa9c3cfa9e3bfb9f3afba139fba238fca338fca537fca636fca835fca934fdab33fdac33fdae32fdaf31fdb130fdb22ffdb42ffdb52efeb72dfeb82cfeba2cfebb2bfebd2afebe2afec029fdc229fdc328fdc527fdc627fdc827fdca26fdcb26fccd25fcce25fcd025fcd225fbd324fbd524fbd724fad824fada24f9dc24f9dd25f8df25f8e125f7e225f7e425f6e626f6e826f5e926f5eb27f4ed27f3ee27f3f027f2f227f1f426f1f525f0f724f0f921"));
+
+	exports.schemeCategory10 = category10;
+	exports.schemeAccent = Accent;
+	exports.schemeDark2 = Dark2;
+	exports.schemePaired = Paired;
+	exports.schemePastel1 = Pastel1;
+	exports.schemePastel2 = Pastel2;
+	exports.schemeSet1 = Set1;
+	exports.schemeSet2 = Set2;
+	exports.schemeSet3 = Set3;
+	exports.interpolateBrBG = BrBG;
+	exports.schemeBrBG = scheme;
+	exports.interpolatePRGn = PRGn;
+	exports.schemePRGn = scheme$1;
+	exports.interpolatePiYG = PiYG;
+	exports.schemePiYG = scheme$2;
+	exports.interpolatePuOr = PuOr;
+	exports.schemePuOr = scheme$3;
+	exports.interpolateRdBu = RdBu;
+	exports.schemeRdBu = scheme$4;
+	exports.interpolateRdGy = RdGy;
+	exports.schemeRdGy = scheme$5;
+	exports.interpolateRdYlBu = RdYlBu;
+	exports.schemeRdYlBu = scheme$6;
+	exports.interpolateRdYlGn = RdYlGn;
+	exports.schemeRdYlGn = scheme$7;
+	exports.interpolateSpectral = Spectral;
+	exports.schemeSpectral = scheme$8;
+	exports.interpolateBuGn = BuGn;
+	exports.schemeBuGn = scheme$9;
+	exports.interpolateBuPu = BuPu;
+	exports.schemeBuPu = scheme$a;
+	exports.interpolateGnBu = GnBu;
+	exports.schemeGnBu = scheme$b;
+	exports.interpolateOrRd = OrRd;
+	exports.schemeOrRd = scheme$c;
+	exports.interpolatePuBuGn = PuBuGn;
+	exports.schemePuBuGn = scheme$d;
+	exports.interpolatePuBu = PuBu;
+	exports.schemePuBu = scheme$e;
+	exports.interpolatePuRd = PuRd;
+	exports.schemePuRd = scheme$f;
+	exports.interpolateRdPu = RdPu;
+	exports.schemeRdPu = scheme$g;
+	exports.interpolateYlGnBu = YlGnBu;
+	exports.schemeYlGnBu = scheme$h;
+	exports.interpolateYlGn = YlGn;
+	exports.schemeYlGn = scheme$i;
+	exports.interpolateYlOrBr = YlOrBr;
+	exports.schemeYlOrBr = scheme$j;
+	exports.interpolateYlOrRd = YlOrRd;
+	exports.schemeYlOrRd = scheme$k;
+	exports.interpolateBlues = Blues;
+	exports.schemeBlues = scheme$l;
+	exports.interpolateGreens = Greens;
+	exports.schemeGreens = scheme$m;
+	exports.interpolateGreys = Greys;
+	exports.schemeGreys = scheme$n;
+	exports.interpolatePurples = Purples;
+	exports.schemePurples = scheme$o;
+	exports.interpolateReds = Reds;
+	exports.schemeReds = scheme$p;
+	exports.interpolateOranges = Oranges;
+	exports.schemeOranges = scheme$q;
+	exports.interpolateCubehelixDefault = cubehelix;
+	exports.interpolateRainbow = rainbow;
+	exports.interpolateWarm = warm;
+	exports.interpolateCool = cool;
+	exports.interpolateSinebow = sinebow;
+	exports.interpolateViridis = viridis;
+	exports.interpolateMagma = magma;
+	exports.interpolateInferno = inferno;
+	exports.interpolatePlasma = plasma;
+
+	Object.defineProperty(exports, '__esModule', { value: true });
+
+	})));
+
+
+/***/ }),
+/* 68 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_RESULT__;// TinyColor v1.4.1
