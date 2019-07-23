@@ -45,6 +45,7 @@ AFRAME.registerComponent('forcegraph', {
     nodeDesc: {parse: parseAccessor, default: 'desc'},
     nodeVal: {parse: parseAccessor, default: 'val'},
     nodeResolution: {type: 'number', default: 8}, // how many slice segments in the sphere's circumference
+    nodeVisibility: {parse: parseAccessor, default: true},
     nodeColor: {parse: parseAccessor, default: 'color'},
     nodeAutoColorBy: {parse: parseAccessor, default: ''}, // color nodes with the same field equally
     nodeOpacity: {type: 'number', default: 0.75},
@@ -185,6 +186,7 @@ AFRAME.registerComponent('forcegraph', {
       'nodeId',
       'nodeVal',
       'nodeResolution',
+      'nodeVisibility',
       'nodeColor',
       'nodeAutoColorBy',
       'nodeOpacity',

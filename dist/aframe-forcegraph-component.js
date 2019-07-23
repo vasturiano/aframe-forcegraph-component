@@ -91,6 +91,7 @@
 	    nodeDesc: {parse: parseAccessor, default: 'desc'},
 	    nodeVal: {parse: parseAccessor, default: 'val'},
 	    nodeResolution: {type: 'number', default: 8}, // how many slice segments in the sphere's circumference
+	    nodeVisibility: {parse: parseAccessor, default: true},
 	    nodeColor: {parse: parseAccessor, default: 'color'},
 	    nodeAutoColorBy: {parse: parseAccessor, default: ''}, // color nodes with the same field equally
 	    nodeOpacity: {type: 'number', default: 0.75},
@@ -231,6 +232,7 @@
 	      'nodeId',
 	      'nodeVal',
 	      'nodeResolution',
+	      'nodeVisibility',
 	      'nodeColor',
 	      'nodeAutoColorBy',
 	      'nodeOpacity',
@@ -688,6 +690,12 @@
 	    },
 	    nodeOpacity: {
 	      "default": 0.75,
+	      onChange: function onChange(_, state) {
+	        state.sceneNeedsRepopulating = true;
+	      }
+	    },
+	    nodeVisibility: {
+	      "default": true,
 	      onChange: function onChange(_, state) {
 	        state.sceneNeedsRepopulating = true;
 	      }
@@ -1232,11 +1240,18 @@
 	      var customNodeObjectExtendAccessor = accessorFn(state.nodeThreeObjectExtend);
 	      var valAccessor = accessorFn(state.nodeVal);
 	      var colorAccessor = accessorFn(state.nodeColor);
+	      var visibilityAccessor = accessorFn(state.nodeVisibility);
 	      var sphereGeometries = {}; // indexed by node value
 
 	      var sphereMaterials = {}; // indexed by color
 
 	      state.graphData.nodes.forEach(function (node) {
+	        if (!visibilityAccessor(node)) {
+	          // Exclude non-visible nodes
+	          node.__threeObj = null;
+	          return;
+	        }
+
 	        var customObj = customNodeObjectAccessor(node);
 	        var extendObj = customNodeObjectExtendAccessor(node);
 

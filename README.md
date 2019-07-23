@@ -30,6 +30,7 @@ See also the [standalone VR component version](https://github.com/vasturiano/3d-
 | node-desc            | Node object accessor function or attribute for description (shown under label).                                            | desc          |
 | node-val             | Node object accessor function, attribute or a numeric constant for the node numeric value (affects sphere volume).         | val           |
 | node-resolution      | Geometric resolution of each node, expressed in how many slice segments to divide the circumference. Higher values yield smoother spheres. | 8 |
+| node-visibility      | Node object accessor function, attribute or a boolean constant for whether to display the node. | true          |
 | node-color           | Node object accessor function or attribute for node color (affects sphere color).                                          | color         |
 | node-auto-color-by   | Node object accessor function (`fn(node)`) or attribute (e.g. `'type'`) to automatically group colors by. Only affects nodes without a color attribute. |               |
 | node-opacity         | Nodes sphere opacity, between [0,1].                                                                                       | 0.75          |
