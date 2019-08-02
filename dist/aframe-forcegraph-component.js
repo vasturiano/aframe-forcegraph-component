@@ -1578,7 +1578,7 @@
 /* 4 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://github.com/vasturiano/d3-force-3d v2.0.1 Copyright 2018 Vasco Asturiano
+	// https://github.com/vasturiano/d3-force-3d v2.0.3 Copyright 2019 Vasco Asturiano
 	(function (global, factory) {
 	 true ? factory(exports, __webpack_require__(5), __webpack_require__(6), __webpack_require__(7), __webpack_require__(8), __webpack_require__(9)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-binarytree', 'd3-quadtree', 'd3-octree', 'd3-dispatch', 'd3-timer'], factory) :
@@ -1772,7 +1772,7 @@
 
 	function find(nodeById, nodeId) {
 	  var node = nodeById.get(nodeId);
-	  if (!node) throw new Error("missing: " + nodeId);
+	  if (!node) throw new Error("node not found: " + nodeId);
 	  return node;
 	}
 
@@ -1962,9 +1962,9 @@
 	  function initializeNodes() {
 	    for (var i = 0, n = nodes.length, node; i < n; ++i) {
 	      node = nodes[i], node.index = i;
-	      if (!isNaN(node.fx)) node.x = node.fx;
-	      if (!isNaN(node.fy)) node.y = node.fy;
-	      if (!isNaN(node.fz)) node.z = node.fz;
+	      if (node.fx != null) node.x = node.fx;
+	      if (node.fy != null) node.y = node.fy;
+	      if (node.fz != null) node.z = node.fz;
 	      if (isNaN(node.x) || (nDim > 1 && isNaN(node.y)) || (nDim > 2 && isNaN(node.z))) {
 	        var radius = initialRadius * (nDim > 2 ? Math.cbrt(i) : (nDim > 1 ? Math.sqrt(i) : i)),
 	          rollAngle = i * initialAngleRoll,
@@ -2102,14 +2102,17 @@
 
 	  function accumulate(treeNode) {
 	    var strength = 0, q, c, weight = 0, x, y, z, i;
+	    var numChildren = treeNode.length;
 
 	    // For internal nodes, accumulate forces from children.
-	    if (treeNode.length) {
-	      for (x = y = z = i = 0; i < 4; ++i) {
+	    if (numChildren) {
+	      for (x = y = z = i = 0; i < numChildren; ++i) {
 	        if ((q = treeNode[i]) && (c = Math.abs(q.value))) {
 	          strength += q.value, weight += c, x += c * (q.x || 0), y += c * (q.y || 0), z += c * (q.z || 0);
 	        }
 	      }
+	      strength *= Math.sqrt(4 / numChildren); // scale accumulated strength according to number of dimensions
+
 	      treeNode.x = x / weight;
 	      if (nDim > 1) { treeNode.y = y / weight; }
 	      if (nDim > 2) { treeNode.z = z / weight; }
@@ -9242,7 +9245,7 @@
 /* 60 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-scale/ v3.0.0 Copyright 2019 Mike Bostock
+	// https://d3js.org/d3-scale/ v3.0.1 Copyright 2019 Mike Bostock
 	(function (global, factory) {
 	 true ? factory(exports, __webpack_require__(61), __webpack_require__(62), __webpack_require__(64), __webpack_require__(65), __webpack_require__(66)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-array', 'd3-interpolate', 'd3-format', 'd3-time', 'd3-time-format'], factory) :
@@ -10104,7 +10107,7 @@
 	        : formatYear)(date);
 	  }
 
-	  function tickInterval(interval, start, stop, step) {
+	  function tickInterval(interval, start, stop) {
 	    if (interval == null) interval = 10;
 
 	    // If a desired tick count is specified, pick a reasonable tick interval
@@ -10112,7 +10115,8 @@
 	    // Otherwise, assume interval is already a time interval and use it.
 	    if (typeof interval === "number") {
 	      var target = Math.abs(stop - start) / interval,
-	          i = d3Array.bisector(function(i) { return i[2]; }).right(tickIntervals, target);
+	          i = d3Array.bisector(function(i) { return i[2]; }).right(tickIntervals, target),
+	          step;
 	      if (i === tickIntervals.length) {
 	        step = d3Array.tickStep(start / durationYear, stop / durationYear, interval);
 	        interval = year;
@@ -10124,9 +10128,10 @@
 	        step = Math.max(d3Array.tickStep(start, stop, interval), 1);
 	        interval = millisecond;
 	      }
+	      return interval.every(step);
 	    }
 
-	    return step == null ? interval : interval.every(step);
+	    return interval;
 	  }
 
 	  scale.invert = function(y) {
@@ -10137,14 +10142,14 @@
 	    return arguments.length ? domain(Array.from(_, number$1)) : domain().map(date);
 	  };
 
-	  scale.ticks = function(interval, step) {
+	  scale.ticks = function(interval) {
 	    var d = domain(),
 	        t0 = d[0],
 	        t1 = d[d.length - 1],
 	        r = t1 < t0,
 	        t;
 	    if (r) t = t0, t0 = t1, t1 = t;
-	    t = tickInterval(interval, t0, t1, step);
+	    t = tickInterval(interval, t0, t1);
 	    t = t ? t.range(t0, t1 + 1) : []; // inclusive stop
 	    return r ? t.reverse() : t;
 	  };
@@ -10153,9 +10158,9 @@
 	    return specifier == null ? tickFormat : format(specifier);
 	  };
 
-	  scale.nice = function(interval, step) {
+	  scale.nice = function(interval) {
 	    var d = domain();
-	    return (interval = tickInterval(interval, d[0], d[d.length - 1], step))
+	    return (interval = tickInterval(interval, d[0], d[d.length - 1]))
 	        ? domain(nice(d, interval))
 	        : scale;
 	  };
