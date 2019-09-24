@@ -104,6 +104,11 @@ AFRAME.registerComponent('forcegraph', {
       : returnVal;
   },
 
+  d3ReheatSimulation: function() {
+    this.forceGraph && this.forceGraph.d3ReheatSimulation();
+    return this;
+  },
+
   refresh: function() {
     this.forceGraph && this.forceGraph.refresh();
     return this;

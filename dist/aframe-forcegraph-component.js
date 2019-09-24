@@ -150,6 +150,11 @@
 	      : returnVal;
 	  },
 
+	  d3ReheatSimulation: function() {
+	    this.forceGraph && this.forceGraph.d3ReheatSimulation();
+	    return this;
+	  },
+
 	  refresh: function() {
 	    this.forceGraph && this.forceGraph.refresh();
 	    return this;
@@ -350,9 +355,10 @@
 	var forcelayout3d = _interopDefault(__webpack_require__(31));
 	var Kapsule = _interopDefault(__webpack_require__(58));
 	var accessorFn = _interopDefault(__webpack_require__(1));
-	var d3Scale = __webpack_require__(60);
-	var d3ScaleChromatic = __webpack_require__(67);
-	var tinyColor = _interopDefault(__webpack_require__(68));
+	var dataJoint = _interopDefault(__webpack_require__(60));
+	var d3Scale = __webpack_require__(62);
+	var d3ScaleChromatic = __webpack_require__(69);
+	var tinyColor = _interopDefault(__webpack_require__(70));
 
 	function _typeof(obj) {
 	  if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
@@ -372,6 +378,55 @@
 	  if (!(instance instanceof Constructor)) {
 	    throw new TypeError("Cannot call a class as a function");
 	  }
+	}
+
+	function _defineProperty(obj, key, value) {
+	  if (key in obj) {
+	    Object.defineProperty(obj, key, {
+	      value: value,
+	      enumerable: true,
+	      configurable: true,
+	      writable: true
+	    });
+	  } else {
+	    obj[key] = value;
+	  }
+
+	  return obj;
+	}
+
+	function ownKeys(object, enumerableOnly) {
+	  var keys = Object.keys(object);
+
+	  if (Object.getOwnPropertySymbols) {
+	    var symbols = Object.getOwnPropertySymbols(object);
+	    if (enumerableOnly) symbols = symbols.filter(function (sym) {
+	      return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+	    });
+	    keys.push.apply(keys, symbols);
+	  }
+
+	  return keys;
+	}
+
+	function _objectSpread2(target) {
+	  for (var i = 1; i < arguments.length; i++) {
+	    var source = arguments[i] != null ? arguments[i] : {};
+
+	    if (i % 2) {
+	      ownKeys(source, true).forEach(function (key) {
+	        _defineProperty(target, key, source[key]);
+	      });
+	    } else if (Object.getOwnPropertyDescriptors) {
+	      Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
+	    } else {
+	      ownKeys(source).forEach(function (key) {
+	        Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+	      });
+	    }
+	  }
+
+	  return target;
 	}
 
 	function _inherits(subClass, superClass) {
@@ -435,6 +490,42 @@
 	  return _construct.apply(null, arguments);
 	}
 
+	function _objectWithoutPropertiesLoose(source, excluded) {
+	  if (source == null) return {};
+	  var target = {};
+	  var sourceKeys = Object.keys(source);
+	  var key, i;
+
+	  for (i = 0; i < sourceKeys.length; i++) {
+	    key = sourceKeys[i];
+	    if (excluded.indexOf(key) >= 0) continue;
+	    target[key] = source[key];
+	  }
+
+	  return target;
+	}
+
+	function _objectWithoutProperties(source, excluded) {
+	  if (source == null) return {};
+
+	  var target = _objectWithoutPropertiesLoose(source, excluded);
+
+	  var key, i;
+
+	  if (Object.getOwnPropertySymbols) {
+	    var sourceSymbolKeys = Object.getOwnPropertySymbols(source);
+
+	    for (i = 0; i < sourceSymbolKeys.length; i++) {
+	      key = sourceSymbolKeys[i];
+	      if (excluded.indexOf(key) >= 0) continue;
+	      if (!Object.prototype.propertyIsEnumerable.call(source, key)) continue;
+	      target[key] = source[key];
+	    }
+	  }
+
+	  return target;
+	}
+
 	function _assertThisInitialized(self) {
 	  if (self === void 0) {
 	    throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
@@ -469,6 +560,63 @@
 
 	function _nonIterableSpread() {
 	  throw new TypeError("Invalid attempt to spread non-iterable instance");
+	}
+
+	var materialDispose = function materialDispose(material) {
+	  if (material instanceof Array) {
+	    material.forEach(materialDispose);
+	  } else {
+	    if (material.map) {
+	      material.map.dispose();
+	    }
+
+	    material.dispose();
+	  }
+	};
+
+	var deallocate = function deallocate(obj) {
+	  if (obj.geometry) {
+	    obj.geometry.dispose();
+	  }
+
+	  if (obj.material) {
+	    materialDispose(obj.material);
+	  }
+
+	  if (obj.texture) {
+	    obj.texture.dispose();
+	  }
+
+	  if (obj.children) {
+	    obj.children.forEach(deallocate);
+	  }
+	};
+
+	var emptyObject = function emptyObject(obj) {
+	  while (obj.children.length) {
+	    var childObj = obj.children[0];
+	    obj.remove(childObj);
+	    deallocate(childObj);
+	  }
+	};
+
+	function threeDigest(data, scene) {
+	  var _ref = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+
+	  var _ref$objFilter = _ref.objFilter,
+	      objFilter = _ref$objFilter === void 0 ? function () {
+	    return true;
+	  } : _ref$objFilter,
+	      options = _objectWithoutProperties(_ref, ["objFilter"]);
+
+	  return dataJoint(data, scene.children.filter(objFilter), function (obj) {
+	    return scene.add(obj);
+	  }, function (obj) {
+	    scene.remove(obj);
+	    emptyObject(obj);
+	  }, _objectSpread2({
+	    objBindAttr: '__threeObj'
+	  }, options));
 	}
 
 	var colorStr2Hex = function colorStr2Hex(str) {
@@ -551,8 +699,10 @@
 
 	var three = window.THREE ? window.THREE // Prefer consumption from global THREE, if exists
 	: {
+	  Group: three$2.Group,
 	  Mesh: three$2.Mesh,
 	  MeshLambertMaterial: three$2.MeshLambertMaterial,
+	  Color: three$2.Color,
 	  BufferGeometry: three$2.BufferGeometry,
 	  BufferAttribute: three$2.BufferAttribute,
 	  Matrix4: three$2.Matrix4,
@@ -586,6 +736,7 @@
 	            return r.json();
 	          }).then(function (json) {
 	            state.fetchingJson = false;
+	            state.onFinishLoading(json);
 
 	            _this.graphData(json);
 	          });
@@ -604,15 +755,11 @@
 	        }
 
 	        state.engineRunning = false; // Pause simulation immediately
-
-	        state.sceneNeedsRepopulating = true;
-	        state.simulationNeedsReheating = true;
 	      }
 	    },
 	    numDimensions: {
 	      "default": 3,
 	      onChange: function onChange(numDim, state) {
-	        state.simulationNeedsReheating = true;
 	        var chargeForce = state.d3ForceLayout.force('charge'); // Increase repulsion on 3D mode for improved spatial separation
 
 	        if (chargeForce) {
@@ -642,121 +789,57 @@
 	        !dagMode && state.forceEngine === 'd3' && (state.graphData.nodes || []).forEach(function (n) {
 	          return n.fx = n.fy = n.fz = undefined;
 	        }); // unfix nodes when disabling dag mode
-
-	        state.simulationNeedsReheating = true;
 	      }
 	    },
-	    dagLevelDistance: {
-	      onChange: function onChange(_, state) {
-	        state.simulationNeedsReheating = true;
-	      }
-	    },
+	    dagLevelDistance: {},
 	    nodeRelSize: {
-	      "default": 4,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": 4
 	    },
 	    // volume per val unit
 	    nodeId: {
-	      "default": 'id',
-	      onChange: function onChange(_, state) {
-	        state.simulationNeedsReheating = true;
-	      }
+	      "default": 'id'
 	    },
 	    nodeVal: {
-	      "default": 'val',
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": 'val'
 	    },
 	    nodeResolution: {
-	      "default": 8,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": 8
 	    },
 	    // how many slice segments in the sphere's circumference
 	    nodeColor: {
-	      "default": 'color',
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": 'color'
 	    },
-	    nodeAutoColorBy: {
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
-	    },
+	    nodeAutoColorBy: {},
 	    nodeOpacity: {
-	      "default": 0.75,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": 0.75
 	    },
 	    nodeVisibility: {
-	      "default": true,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": true
 	    },
-	    nodeThreeObject: {
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
-	    },
+	    nodeThreeObject: {},
 	    nodeThreeObjectExtend: {
-	      "default": false,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": false
 	    },
 	    linkSource: {
-	      "default": 'source',
-	      onChange: function onChange(_, state) {
-	        state.simulationNeedsReheating = true;
-	      }
+	      "default": 'source'
 	    },
 	    linkTarget: {
-	      "default": 'target',
-	      onChange: function onChange(_, state) {
-	        state.simulationNeedsReheating = true;
-	      }
+	      "default": 'target'
 	    },
 	    linkVisibility: {
-	      "default": true,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": true
 	    },
 	    linkColor: {
-	      "default": 'color',
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": 'color'
 	    },
-	    linkAutoColorBy: {
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
-	    },
+	    linkAutoColorBy: {},
 	    linkOpacity: {
-	      "default": 0.2,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": 0.2
 	    },
-	    linkWidth: {
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
-	    },
+	    linkWidth: {},
 	    // Rounded to nearest decimal. For falsy values use dimensionless line with 1px regardless of distance.
 	    linkResolution: {
-	      "default": 6,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": 6
 	    },
 	    // how many radial segments in each line tube's geometry
 	    linkCurvature: {
@@ -769,54 +852,30 @@
 	      triggerUpdate: false
 	    },
 	    // line curve rotation along the line axis (0: interection with XY plane, PI: upside down)
-	    linkMaterial: {
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
-	    },
-	    linkThreeObject: {
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
-	    },
+	    linkMaterial: {},
+	    linkThreeObject: {},
 	    linkThreeObjectExtend: {
-	      "default": false,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": false
 	    },
 	    linkPositionUpdate: {
 	      triggerUpdate: false
 	    },
 	    // custom function to call for updating the link's position. Signature: (threeObj, { start: { x, y, z},  end: { x, y, z }}, link). If the function returns a truthy value, the regular link position update will not run.
 	    linkDirectionalArrowLength: {
-	      "default": 0,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": 0
 	    },
-	    linkDirectionalArrowColor: {
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
-	    },
+	    linkDirectionalArrowColor: {},
 	    linkDirectionalArrowRelPos: {
 	      "default": 0.5,
 	      triggerUpdate: false
 	    },
 	    // value between 0<>1 indicating the relative pos along the (exposed) line
 	    linkDirectionalArrowResolution: {
-	      "default": 8,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": 8
 	    },
 	    // how many slice segments in the arrow's conic circumference
 	    linkDirectionalParticles: {
-	      "default": 0,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": 0
 	    },
 	    // animate photons travelling in the link direction
 	    linkDirectionalParticleSpeed: {
@@ -825,28 +884,15 @@
 	    },
 	    // in link length ratio per frame
 	    linkDirectionalParticleWidth: {
-	      "default": 0.5,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": 0.5
 	    },
-	    linkDirectionalParticleColor: {
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
-	    },
+	    linkDirectionalParticleColor: {},
 	    linkDirectionalParticleResolution: {
-	      "default": 4,
-	      onChange: function onChange(_, state) {
-	        state.sceneNeedsRepopulating = true;
-	      }
+	      "default": 4
 	    },
 	    // how many slice segments in the particle sphere's circumference
 	    forceEngine: {
-	      "default": 'd3',
-	      onChange: function onChange(_, state) {
-	        state.simulationNeedsReheating = true;
-	      }
+	      "default": 'd3'
 	    },
 	    // d3 or ngraph
 	    d3AlphaDecay: {
@@ -892,6 +938,14 @@
 	      "default": function _default() {},
 	      triggerUpdate: false
 	    },
+	    onUpdate: {
+	      "default": function _default() {},
+	      triggerUpdate: false
+	    },
+	    onFinishUpdate: {
+	      "default": function _default() {},
+	      triggerUpdate: false
+	    },
 	    onEngineTick: {
 	      "default": function _default() {},
 	      triggerUpdate: false
@@ -903,8 +957,7 @@
 	  },
 	  methods: {
 	    refresh: function refresh(state) {
-	      state.sceneNeedsRepopulating = true;
-	      state.simulationNeedsReheating = true;
+	      state._flushObjects = true;
 
 	      state._rerender();
 
@@ -918,6 +971,10 @@
 
 	      state.d3ForceLayout.force(forceName, forceFn); // Force setter
 
+	      return this;
+	    },
+	    d3ReheatSimulation: function d3ReheatSimulation(state) {
+	      state.d3ForceLayout.alpha(1);
 	      return this;
 	    },
 	    _updateScene: function _updateScene(state) {},
@@ -1136,7 +1193,7 @@
 	        // update link particle positions
 	        var particleSpeedAccessor = accessorFn(state.linkDirectionalParticleSpeed);
 	        state.graphData.links.forEach(function (link) {
-	          var photons = link.__photonObjs;
+	          var photons = link.__photonsObj && link.__photonsObj.children;
 	          if (!photons || !photons.length) return;
 	          var pos = isD3Sim ? link : state.layout.getLinkPosition(state.layout.graph.getLink(link.source, link.target).id);
 	          var start = pos[isD3Sim ? 'source' : 'from'];
@@ -1173,71 +1230,38 @@
 	  stateInit: function stateInit() {
 	    return {
 	      d3ForceLayout: d3Force3d.forceSimulation().force('link', d3Force3d.forceLink()).force('charge', d3Force3d.forceManyBody()).force('center', d3Force3d.forceCenter()).force('dagRadial', null).stop(),
-	      engineRunning: false,
-	      sceneNeedsRepopulating: true,
-	      simulationNeedsReheating: true
+	      engineRunning: false
 	    };
 	  },
 	  init: function init(threeObj, state) {
 	    // Main three object to manipulate
 	    state.graphScene = threeObj;
 	  },
-	  update: function update(state) {
+	  update: function update(state, changedProps) {
+	    var hasAnyPropChanged = function hasAnyPropChanged(propList) {
+	      return propList.some(function (p) {
+	        return changedProps.hasOwnProperty(p);
+	      });
+	    };
+
 	    state.engineRunning = false; // pause simulation
 
-	    if (state.sceneNeedsRepopulating) {
-	      state.sceneNeedsRepopulating = false;
+	    state.onUpdate();
 
-	      if (state.nodeAutoColorBy !== null) {
-	        // Auto add color to uncolored nodes
-	        autoColorObjects(state.graphData.nodes, accessorFn(state.nodeAutoColorBy), state.nodeColor);
-	      }
+	    if (state.nodeAutoColorBy !== null && hasAnyPropChanged(['nodeAutoColorBy', 'graphData', 'nodeColor'])) {
+	      // Auto add color to uncolored nodes
+	      autoColorObjects(state.graphData.nodes, accessorFn(state.nodeAutoColorBy), state.nodeColor);
+	    }
 
-	      if (state.linkAutoColorBy !== null) {
-	        // Auto add color to uncolored links
-	        autoColorObjects(state.graphData.links, accessorFn(state.linkAutoColorBy), state.linkColor);
-	      } // Clear the scene
-
-
-	      var materialDispose = function materialDispose(material) {
-	        if (material instanceof Array) {
-	          material.forEach(materialDispose);
-	        } else {
-	          if (material.map) {
-	            material.map.dispose();
-	          }
-
-	          material.dispose();
-	        }
-	      };
-
-	      var deallocate = function deallocate(obj) {
-	        if (obj.geometry) {
-	          obj.geometry.dispose();
-	        }
-
-	        if (obj.material) {
-	          materialDispose(obj.material);
-	        }
-
-	        if (obj.texture) {
-	          obj.texture.dispose();
-	        }
-
-	        if (obj.children) {
-	          obj.children.forEach(deallocate);
-	        }
-	      };
-
-	      while (state.graphScene.children.length) {
-	        var obj = state.graphScene.children[0];
-	        state.graphScene.remove(obj);
-	        deallocate(obj);
-	      } // Add WebGL objects
+	    if (state.linkAutoColorBy !== null && hasAnyPropChanged(['linkAutoColorBy', 'graphData', 'linkColor'])) {
+	      // Auto add color to uncolored links
+	      autoColorObjects(state.graphData.links, accessorFn(state.linkAutoColorBy), state.linkColor);
+	    } // Digest nodes WebGL objects
 
 
-	      var customNodeObjectAccessor = accessorFn(state.nodeThreeObject);
-	      var customNodeObjectExtendAccessor = accessorFn(state.nodeThreeObjectExtend);
+	    if (state._flushObjects || hasAnyPropChanged(['graphData', 'nodeThreeObject', 'nodeThreeObjectExtend', 'nodeVal', 'nodeColor', 'nodeVisibility', 'nodeRelSize', 'nodeResolution', 'nodeOpacity'])) {
+	      var customObjectAccessor = accessorFn(state.nodeThreeObject);
+	      var customObjectExtendAccessor = accessorFn(state.nodeThreeObjectExtend);
 	      var valAccessor = accessorFn(state.nodeVal);
 	      var colorAccessor = accessorFn(state.nodeColor);
 	      var visibilityAccessor = accessorFn(state.nodeVisibility);
@@ -1245,199 +1269,317 @@
 
 	      var sphereMaterials = {}; // indexed by color
 
-	      state.graphData.nodes.forEach(function (node) {
-	        if (!visibilityAccessor(node)) {
-	          // Exclude non-visible nodes
-	          node.__threeObj = null;
-	          return;
-	        }
+	      var bypassUpdObjs = new Set(); // keep track of custom objects to bypass update
 
-	        var customObj = customNodeObjectAccessor(node);
-	        var extendObj = customNodeObjectExtendAccessor(node);
+	      threeDigest(state.graphData.nodes.filter(visibilityAccessor), state.graphScene, {
+	        purge: state._flushObjects || hasAnyPropChanged([// recreate objects if any of these props have changed
+	        'nodeThreeObject', 'nodeThreeObjectExtend']),
+	        objFilter: function objFilter(obj) {
+	          return obj.__graphObjType === 'node';
+	        },
+	        createObj: function createObj(node) {
+	          var customObj = customObjectAccessor(node);
+	          var extendObj = customObjectExtendAccessor(node);
 
-	        if (customObj && state.nodeThreeObject === customObj) {
-	          // clone object if it's a shared object among all nodes
-	          customObj = customObj.clone();
-	        }
-
-	        var obj;
-
-	        if (customObj && !extendObj) {
-	          obj = customObj;
-	        } else {
-	          // Add default object (sphere mesh)
-	          var val = valAccessor(node) || 1;
-
-	          if (!sphereGeometries.hasOwnProperty(val)) {
-	            sphereGeometries[val] = new three.SphereBufferGeometry(Math.cbrt(val) * state.nodeRelSize, state.nodeResolution, state.nodeResolution);
+	          if (customObj && state.nodeThreeObject === customObj) {
+	            // clone object if it's a shared object among all nodes
+	            customObj = customObj.clone();
 	          }
 
-	          var color = colorAccessor(node);
+	          var obj;
 
-	          if (!sphereMaterials.hasOwnProperty(color)) {
-	            sphereMaterials[color] = new three.MeshLambertMaterial({
-	              color: colorStr2Hex(color || '#ffffaa'),
-	              transparent: true,
-	              opacity: state.nodeOpacity * colorAlpha(color)
-	            });
+	          if (customObj && !extendObj) {
+	            obj = customObj;
+	            bypassUpdObjs.add(obj);
+	          } else {
+	            // Add default object (sphere mesh)
+	            obj = new three.Mesh();
+
+	            if (customObj && extendObj) {
+	              obj.add(customObj); // extend default with custom
+	            }
 	          }
 
-	          obj = new three.Mesh(sphereGeometries[val], sphereMaterials[color]);
+	          obj.__graphObjType = 'node'; // Add object type
 
-	          if (customObj && extendObj) {
-	            obj.add(customObj); // extend default with custom
+	          return obj;
+	        },
+	        updateObj: function updateObj(obj, node) {
+	          if (!bypassUpdObjs.has(obj)) {
+	            var val = valAccessor(node) || 1;
+	            var radius = Math.cbrt(val) * state.nodeRelSize;
+	            var numSegments = state.nodeResolution;
+
+	            if (obj.geometry.type !== 'SphereBufferGeometry' || obj.geometry.parameters.radius !== radius || obj.geometry.parameters.widthSegments !== numSegments) {
+	              if (!sphereGeometries.hasOwnProperty(val)) {
+	                sphereGeometries[val] = new three.SphereBufferGeometry(radius, numSegments, numSegments);
+	              }
+
+	              obj.geometry.dispose();
+	              obj.geometry = sphereGeometries[val];
+	            }
+
+	            var color = colorAccessor(node);
+	            var materialColor = new three.Color(colorStr2Hex(color || '#ffffaa'));
+	            var opacity = state.nodeOpacity * colorAlpha(color);
+
+	            if (obj.material.type !== 'MeshLambertMaterial' || !obj.material.color.equals(materialColor) || obj.material.opacity !== opacity) {
+	              if (!sphereMaterials.hasOwnProperty(color)) {
+	                sphereMaterials[color] = new three.MeshLambertMaterial({
+	                  color: materialColor,
+	                  transparent: true,
+	                  opacity: opacity
+	                });
+	              }
+
+	              obj.material.dispose();
+	              obj.material = sphereMaterials[color];
+	            }
 	          }
 	        }
-
-	        obj.__graphObjType = 'node'; // Add object type
-
-	        obj.__data = node; // Attach node data
-
-	        state.graphScene.add(node.__threeObj = obj);
 	      });
-	      var customLinkObjectAccessor = accessorFn(state.linkThreeObject);
-	      var customLinkObjectExtendAccessor = accessorFn(state.linkThreeObjectExtend);
-	      var customLinkMaterialAccessor = accessorFn(state.linkMaterial);
-	      var linkVisibilityAccessor = accessorFn(state.linkVisibility);
-	      var linkColorAccessor = accessorFn(state.linkColor);
-	      var linkWidthAccessor = accessorFn(state.linkWidth);
-	      var linkArrowLengthAccessor = accessorFn(state.linkDirectionalArrowLength);
-	      var linkArrowColorAccessor = accessorFn(state.linkDirectionalArrowColor);
-	      var linkParticlesAccessor = accessorFn(state.linkDirectionalParticles);
-	      var linkParticleWidthAccessor = accessorFn(state.linkDirectionalParticleWidth);
-	      var linkParticleColorAccessor = accessorFn(state.linkDirectionalParticleColor);
+	    } // Digest links WebGL objects
+
+
+	    if (state._flushObjects || hasAnyPropChanged(['graphData', 'linkThreeObject', 'linkThreeObjectExtend', 'linkMaterial', 'linkColor', 'linkWidth', 'linkVisibility', 'linkResolution', 'linkOpacity', 'linkDirectionalArrowLength', 'linkDirectionalArrowColor', 'linkDirectionalArrowResolution', 'linkDirectionalParticles', 'linkDirectionalParticleWidth', 'linkDirectionalParticleColor', 'linkDirectionalParticleResolution'])) {
+	      var _customObjectAccessor = accessorFn(state.linkThreeObject);
+
+	      var _customObjectExtendAccessor = accessorFn(state.linkThreeObjectExtend);
+
+	      var customMaterialAccessor = accessorFn(state.linkMaterial);
+
+	      var _visibilityAccessor = accessorFn(state.linkVisibility);
+
+	      var _colorAccessor = accessorFn(state.linkColor);
+
+	      var widthAccessor = accessorFn(state.linkWidth);
 	      var lineMaterials = {}; // indexed by link color
 
 	      var cylinderGeometries = {}; // indexed by link width
 
-	      var particleMaterials = {}; // indexed by link color
+	      var visibleLinks = state.graphData.links.filter(_visibilityAccessor);
 
-	      var particleGeometries = {}; // indexed by particle width
+	      var _bypassUpdObjs = new Set(); // keep track of custom objects to bypass update
+	      // lines digest cycle
 
-	      state.graphData.links.forEach(function (link) {
-	        if (!linkVisibilityAccessor(link)) {
-	          // Exclude non-visible links
-	          link.__lineObj = link.__arrowObj = link.__photonObjs = null;
-	          return;
-	        }
 
-	        var color = linkColorAccessor(link);
-	        var customObj = customLinkObjectAccessor(link);
-	        var extendObj = customLinkObjectExtendAccessor(link);
+	      threeDigest(visibleLinks, state.graphScene, {
+	        objBindAttr: '__lineObj',
+	        purge: state._flushObjects || hasAnyPropChanged([// recreate objects if any of these props have changed
+	        'linkThreeObject', 'linkThreeObjectExtend', 'linkWidth']),
+	        objFilter: function objFilter(obj) {
+	          return obj.__graphObjType === 'link';
+	        },
+	        createObj: function createObj(link) {
+	          var customObj = _customObjectAccessor(link);
 
-	        if (customObj && state.linkThreeObject === customObj) {
-	          // clone object if it's a shared object among all links
-	          customObj = customObj.clone();
-	        }
+	          var extendObj = _customObjectExtendAccessor(link);
 
-	        var lineObj;
+	          if (customObj && state.linkThreeObject === customObj) {
+	            // clone object if it's a shared object among all links
+	            customObj = customObj.clone();
+	          }
 
-	        if (customObj && !extendObj) {
-	          lineObj = customObj;
-	        } else {
-	          // Add default line object
-	          var linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
-	          var useCylinder = !!linkWidth;
-	          var geometry;
+	          var obj;
 
-	          if (useCylinder) {
-	            if (!cylinderGeometries.hasOwnProperty(linkWidth)) {
-	              var r = linkWidth / 2;
-	              geometry = new three.CylinderBufferGeometry(r, r, 1, state.linkResolution, 1, false);
-	              geometry.applyMatrix(new three.Matrix4().makeTranslation(0, 1 / 2, 0));
-	              geometry.applyMatrix(new three.Matrix4().makeRotationX(Math.PI / 2));
-	              cylinderGeometries[linkWidth] = geometry;
-	            }
+	          if (customObj && !extendObj) {
+	            obj = customObj;
 
-	            geometry = cylinderGeometries[linkWidth];
+	            _bypassUpdObjs.add(obj);
 	          } else {
-	            // Use plain line (constant width)
-	            geometry = new three.BufferGeometry();
-	            geometry.addAttribute('position', new three.BufferAttribute(new Float32Array(2 * 3), 3));
-	          }
+	            // Add default line object
+	            var useCylinder = !!widthAccessor(link);
 
-	          var lineMaterial = customLinkMaterialAccessor(link);
-
-	          if (!lineMaterial) {
-	            if (!lineMaterials.hasOwnProperty(color)) {
-	              var lineOpacity = state.linkOpacity * colorAlpha(color);
-	              lineMaterials[color] = new three.MeshLambertMaterial({
-	                color: colorStr2Hex(color || '#f0f0f0'),
-	                transparent: lineOpacity < 1,
-	                opacity: lineOpacity,
-	                depthWrite: lineOpacity >= 1 // Prevent transparency issues
-
-	              });
+	            if (useCylinder) {
+	              obj = new three.Mesh();
+	            } else {
+	              // Use plain line (constant width)
+	              var lineGeometry = new three.BufferGeometry();
+	              lineGeometry.addAttribute('position', new three.BufferAttribute(new Float32Array(2 * 3), 3));
+	              obj = new three.Line(lineGeometry);
 	            }
 
-	            lineMaterial = lineMaterials[color];
+	            if (customObj && extendObj) {
+	              obj.add(customObj); // extend default with custom
+	            }
 	          }
 
-	          lineObj = new three[useCylinder ? 'Mesh' : 'Line'](geometry, lineMaterial);
+	          obj.renderOrder = 10; // Prevent visual glitches of dark lines on top of nodes by rendering them last
 
-	          if (customObj && extendObj) {
-	            lineObj.add(customObj); // extend default with custom
+	          obj.__graphObjType = 'link'; // Add object type
+
+	          return obj;
+	        },
+	        updateObj: function updateObj(obj, link) {
+	          if (!_bypassUpdObjs.has(obj)) {
+	            var linkWidth = Math.ceil(widthAccessor(link) * 10) / 10;
+	            var useCylinder = !!linkWidth;
+
+	            if (useCylinder) {
+	              var r = linkWidth / 2;
+	              var numSegments = state.linkResolution;
+
+	              if (obj.geometry.type !== 'CylinderBufferGeometry' || obj.geometry.parameters.radiusTop !== r || obj.geometry.parameters.radialSegments !== numSegments) {
+	                if (!cylinderGeometries.hasOwnProperty(linkWidth)) {
+	                  var geometry = new three.CylinderBufferGeometry(r, r, 1, numSegments, 1, false);
+	                  geometry.applyMatrix(new three.Matrix4().makeTranslation(0, 1 / 2, 0));
+	                  geometry.applyMatrix(new three.Matrix4().makeRotationX(Math.PI / 2));
+	                  cylinderGeometries[linkWidth] = geometry;
+	                }
+
+	                obj.geometry.dispose();
+	                obj.geometry = cylinderGeometries[linkWidth];
+	              }
+	            }
+
+	            var customMaterial = customMaterialAccessor(link);
+
+	            if (customMaterial) {
+	              obj.material = customMaterial;
+	            } else {
+	              var color = _colorAccessor(link);
+
+	              var materialColor = new three.Color(colorStr2Hex(color || '#f0f0f0'));
+	              var opacity = state.linkOpacity * colorAlpha(color);
+
+	              if (obj.material.type !== 'MeshLambertMaterial' || !obj.material.color.equals(materialColor) || obj.material.opacity !== opacity) {
+	                if (!lineMaterials.hasOwnProperty(color)) {
+	                  lineMaterials[color] = new three.MeshLambertMaterial({
+	                    color: materialColor,
+	                    transparent: opacity < 1,
+	                    opacity: opacity,
+	                    depthWrite: opacity >= 1 // Prevent transparency issues
+
+	                  });
+	                }
+
+	                obj.material.dispose();
+	                obj.material = lineMaterials[color];
+	              }
+	            }
 	          }
 	        }
+	      }); // Arrows digest cycle
 
-	        lineObj.renderOrder = 10; // Prevent visual glitches of dark lines on top of nodes by rendering them last
+	      if (state.linkDirectionalArrowLength || changedProps.hasOwnProperty('linkDirectionalArrowLength')) {
+	        var arrowLengthAccessor = accessorFn(state.linkDirectionalArrowLength);
+	        var arrowColorAccessor = accessorFn(state.linkDirectionalArrowColor);
+	        threeDigest(visibleLinks.filter(arrowLengthAccessor), state.graphScene, {
+	          objBindAttr: '__arrowObj',
+	          objFilter: function objFilter(obj) {
+	            return obj.__linkThreeObjType === 'arrow';
+	          },
+	          createObj: function createObj() {
+	            var obj = new three.Mesh(undefined, new three.MeshLambertMaterial({
+	              transparent: true
+	            }));
+	            obj.__linkThreeObjType = 'arrow'; // Add object type
 
-	        lineObj.__graphObjType = 'link'; // Add object type
+	            return obj;
+	          },
+	          updateObj: function updateObj(obj, link) {
+	            var arrowLength = arrowLengthAccessor(link);
+	            var numSegments = state.linkDirectionalArrowResolution;
 
-	        lineObj.__data = link; // Attach link data
+	            if (obj.geometry.type !== 'ConeBufferGeometry' || obj.geometry.parameters.height !== arrowLength || obj.geometry.parameters.radialSegments !== numSegments) {
+	              var coneGeometry = new three.ConeBufferGeometry(arrowLength * 0.25, arrowLength, numSegments); // Correct orientation
 
-	        state.graphScene.add(link.__lineObj = lineObj); // Add arrow
+	              coneGeometry.translate(0, arrowLength / 2, 0);
+	              coneGeometry.rotateX(Math.PI / 2);
+	              obj.geometry.dispose();
+	              obj.geometry = coneGeometry;
+	            }
 
-	        var arrowLength = linkArrowLengthAccessor(link);
-
-	        if (arrowLength && arrowLength > 0) {
-	          var arrowColor = linkArrowColorAccessor(link) || color || '#f0f0f0';
-	          var coneGeometry = new three.ConeBufferGeometry(arrowLength * 0.25, arrowLength, state.linkDirectionalArrowResolution); // Correct orientation
-
-	          coneGeometry.translate(0, arrowLength / 2, 0);
-	          coneGeometry.rotateX(Math.PI / 2);
-	          var arrowObj = new three.Mesh(coneGeometry, new three.MeshLambertMaterial({
-	            color: colorStr2Hex(arrowColor),
-	            transparent: true,
-	            opacity: state.linkOpacity * 3
-	          }));
-	          state.graphScene.add(link.__arrowObj = arrowObj);
-	        } // Add photon particles
-
-
-	        var numPhotons = Math.round(Math.abs(linkParticlesAccessor(link)));
-	        var photonR = Math.ceil(linkParticleWidthAccessor(link) * 10) / 10 / 2;
-	        var photonColor = linkParticleColorAccessor(link) || color || '#f0f0f0';
-
-	        if (!particleGeometries.hasOwnProperty(photonR)) {
-	          particleGeometries[photonR] = new three.SphereBufferGeometry(photonR, state.linkDirectionalParticleResolution, state.linkDirectionalParticleResolution);
-	        }
-
-	        var particleGeometry = particleGeometries[photonR];
-
-	        if (!particleMaterials.hasOwnProperty(photonColor)) {
-	          particleMaterials[photonColor] = new three.MeshLambertMaterial({
-	            color: colorStr2Hex(photonColor),
-	            transparent: true,
-	            opacity: state.linkOpacity * 3
-	          });
-	        }
-
-	        var particleMaterial = particleMaterials[photonColor];
-
-	        var photons = _toConsumableArray(Array(numPhotons)).map(function () {
-	          return new three.Mesh(particleGeometry, particleMaterial);
+	            obj.material.color = new three.Color(arrowColorAccessor(link) || _colorAccessor(link) || '#f0f0f0');
+	            obj.material.opacity = state.linkOpacity * 3;
+	          }
 	        });
+	      } // Photon particles digest cycle
 
-	        photons.forEach(function (photon) {
-	          return state.graphScene.add(photon);
+
+	      if (state.linkDirectionalParticles || changedProps.hasOwnProperty('linkDirectionalParticles')) {
+	        var particlesAccessor = accessorFn(state.linkDirectionalParticles);
+	        var particleWidthAccessor = accessorFn(state.linkDirectionalParticleWidth);
+	        var particleColorAccessor = accessorFn(state.linkDirectionalParticleColor);
+	        var particleMaterials = {}; // indexed by link color
+
+	        var particleGeometries = {}; // indexed by particle width
+
+	        threeDigest(visibleLinks.filter(particlesAccessor), state.graphScene, {
+	          objBindAttr: '__photonsObj',
+	          objFilter: function objFilter(obj) {
+	            return obj.__linkThreeObjType === 'photons';
+	          },
+	          createObj: function createObj() {
+	            var obj = new three.Group();
+	            obj.__linkThreeObjType = 'photons'; // Add object type
+
+	            return obj;
+	          },
+	          updateObj: function updateObj(obj, link) {
+	            var numPhotons = Math.round(Math.abs(particlesAccessor(link)));
+	            var curPhoton = !!obj.children.length && obj.children[0];
+	            var photonR = Math.ceil(particleWidthAccessor(link) * 10) / 10 / 2;
+	            var numSegments = state.linkDirectionalParticleResolution;
+	            var particleGeometry;
+
+	            if (curPhoton && curPhoton.geometry.parameters.radius === photonR && curPhoton.geometry.parameters.widthSegments === numSegments) {
+	              particleGeometry = curPhoton.geometry;
+	            } else {
+	              if (!particleGeometries.hasOwnProperty(photonR)) {
+	                particleGeometries[photonR] = new three.SphereBufferGeometry(photonR, numSegments, numSegments);
+	              }
+
+	              particleGeometry = particleGeometries[photonR];
+	              curPhoton && curPhoton.geometry.dispose();
+	            }
+
+	            var photonColor = particleColorAccessor(link) || _colorAccessor(link) || '#f0f0f0';
+	            var materialColor = new three.Color(colorStr2Hex(photonColor));
+	            var opacity = state.linkOpacity * 3;
+	            var particleMaterial;
+
+	            if (curPhoton && curPhoton.material.color.equals(materialColor) && curPhoton.material.opacity === opacity) {
+	              particleMaterial = curPhoton.material;
+	            } else {
+	              if (!particleMaterials.hasOwnProperty(photonColor)) {
+	                particleMaterials[photonColor] = new three.MeshLambertMaterial({
+	                  color: materialColor,
+	                  transparent: true,
+	                  opacity: opacity
+	                });
+	              }
+
+	              particleMaterial = particleMaterials[photonColor];
+	              curPhoton && curPhoton.material.dispose();
+	            } // digest cycle for each photon
+
+
+	            threeDigest(_toConsumableArray(new Array(numPhotons)).map(function (_, idx) {
+	              return {
+	                idx: idx
+	              };
+	            }), obj, {
+	              idAccessor: function idAccessor(d) {
+	                return d.idx;
+	              },
+	              createObj: function createObj() {
+	                return new three.Mesh(particleGeometry, particleMaterial);
+	              },
+	              updateObj: function updateObj(obj) {
+	                obj.geometry = particleGeometry;
+	                obj.material = particleMaterial;
+	              }
+	            });
+	          }
 	        });
-	        link.__photonObjs = photons;
-	      });
+	      }
 	    }
 
-	    if (state.simulationNeedsReheating) {
-	      state.simulationNeedsReheating = false;
+	    state._flushObjects = false; // reset objects refresh flag
+	    // simulation engine
+
+	    if (hasAnyPropChanged(['graphData', 'nodeId', 'linkSource', 'linkTarget', 'numDimensions', 'forceEngine', 'dagMode', 'dagLevelDistance'])) {
 	      state.engineRunning = false; // Pause simulation
 	      // parse links
 
@@ -1484,7 +1626,8 @@
 	            node.fy = fyFn(node);
 	            node.fz = fzFn(node);
 	          });
-	        }
+	        } // Use radial force for radial dags
+
 
 	        state.d3ForceLayout.force('dagRadial', ['radialin', 'radialout'].indexOf(state.dagMode) !== -1 ? d3Force3d.forceRadial(function (node) {
 	          var nodeDepth = nodeDepths[node[state.nodeId]];
@@ -1511,10 +1654,11 @@
 
 	      state.layout = layout;
 	      this.resetCountdown();
-	      state.onFinishLoading();
 	    }
 
 	    state.engineRunning = true; // resume simulation
+
+	    state.onFinishUpdate();
 	  }
 	});
 
@@ -9009,6 +9153,10 @@
 	}
 
 	function _iterableToArrayLimit(arr, i) {
+	  if (!(Symbol.iterator in Object(arr) || Object.prototype.toString.call(arr) === "[object Arguments]")) {
+	    return;
+	  }
+
 	  var _arr = [];
 	  var _n = true;
 	  var _d = false;
@@ -9079,7 +9227,9 @@
 	    var state = Object.assign({}, stateInit instanceof Function ? stateInit(options) : stateInit, // Support plain objects for backwards compatibility
 	    {
 	      initialised: false
-	    }); // Component constructor
+	    }); // keeps track of which props triggered an update
+
+	    var changedProps = {}; // Component constructor
 
 	    function comp(nodeElement) {
 	      initStatic(nodeElement, options);
@@ -9097,15 +9247,21 @@
 	        return;
 	      }
 
-	      updateFn.call(comp, state);
+	      updateFn.call(comp, state, changedProps);
+	      changedProps = {};
 	    }, 1); // Getter/setter methods
 
 	    props.forEach(function (prop) {
-	      comp[prop.name] = getSetProp(prop.name, prop.triggerUpdate, prop.onChange);
+	      comp[prop.name] = getSetProp(prop);
 
-	      function getSetProp(prop) {
-	        var redigest = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
-	        var onChange = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : function (newVal, state) {};
+	      function getSetProp(_ref3) {
+	        var prop = _ref3.name,
+	            _ref3$triggerUpdate = _ref3.triggerUpdate,
+	            redigest = _ref3$triggerUpdate === void 0 ? false : _ref3$triggerUpdate,
+	            _ref3$onChange = _ref3.onChange,
+	            onChange = _ref3$onChange === void 0 ? function (newVal, state) {} : _ref3$onChange,
+	            _ref3$defaultVal = _ref3.defaultVal,
+	            defaultVal = _ref3$defaultVal === void 0 ? null : _ref3$defaultVal;
 	        return function (_) {
 	          var curVal = state[prop];
 
@@ -9114,8 +9270,12 @@
 	          } // Getter mode
 
 
-	          state[prop] = _;
-	          onChange.call(comp, _, state, curVal);
+	          var val = _ === undefined ? defaultVal : _; // pick default if value passed is undefined
+
+	          state[prop] = val;
+	          onChange.call(comp, val, state, curVal); // track changed props
+
+	          !changedProps.hasOwnProperty(prop) && (changedProps[prop] = curVal);
 
 	          if (redigest) {
 	            digest();
@@ -9138,10 +9298,10 @@
 	      };
 	    }); // Link aliases
 
-	    Object.entries(aliases).forEach(function (_ref3) {
-	      var _ref4 = _slicedToArray(_ref3, 2),
-	          alias = _ref4[0],
-	          target = _ref4[1];
+	    Object.entries(aliases).forEach(function (_ref4) {
+	      var _ref5 = _slicedToArray(_ref4, 2),
+	          alias = _ref5[0],
+	          target = _ref5[1];
 
 	      return comp[alias] = comp[target];
 	    }); // Reset all component props to their default value
@@ -9245,12 +9405,536 @@
 /* 60 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-scale/ v3.0.1 Copyright 2019 Mike Bostock
+	'use strict';
+
+	function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
+
+	var indexBy = _interopDefault(__webpack_require__(61));
+
+	function _defineProperty(obj, key, value) {
+	  if (key in obj) {
+	    Object.defineProperty(obj, key, {
+	      value: value,
+	      enumerable: true,
+	      configurable: true,
+	      writable: true
+	    });
+	  } else {
+	    obj[key] = value;
+	  }
+
+	  return obj;
+	}
+
+	function ownKeys(object, enumerableOnly) {
+	  var keys = Object.keys(object);
+
+	  if (Object.getOwnPropertySymbols) {
+	    var symbols = Object.getOwnPropertySymbols(object);
+	    if (enumerableOnly) symbols = symbols.filter(function (sym) {
+	      return Object.getOwnPropertyDescriptor(object, sym).enumerable;
+	    });
+	    keys.push.apply(keys, symbols);
+	  }
+
+	  return keys;
+	}
+
+	function _objectSpread2(target) {
+	  for (var i = 1; i < arguments.length; i++) {
+	    var source = arguments[i] != null ? arguments[i] : {};
+
+	    if (i % 2) {
+	      ownKeys(source, true).forEach(function (key) {
+	        _defineProperty(target, key, source[key]);
+	      });
+	    } else if (Object.getOwnPropertyDescriptors) {
+	      Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
+	    } else {
+	      ownKeys(source).forEach(function (key) {
+	        Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+	      });
+	    }
+	  }
+
+	  return target;
+	}
+
+	function _objectWithoutPropertiesLoose(source, excluded) {
+	  if (source == null) return {};
+	  var target = {};
+	  var sourceKeys = Object.keys(source);
+	  var key, i;
+
+	  for (i = 0; i < sourceKeys.length; i++) {
+	    key = sourceKeys[i];
+	    if (excluded.indexOf(key) >= 0) continue;
+	    target[key] = source[key];
+	  }
+
+	  return target;
+	}
+
+	function _objectWithoutProperties(source, excluded) {
+	  if (source == null) return {};
+
+	  var target = _objectWithoutPropertiesLoose(source, excluded);
+
+	  var key, i;
+
+	  if (Object.getOwnPropertySymbols) {
+	    var sourceSymbolKeys = Object.getOwnPropertySymbols(source);
+
+	    for (i = 0; i < sourceSymbolKeys.length; i++) {
+	      key = sourceSymbolKeys[i];
+	      if (excluded.indexOf(key) >= 0) continue;
+	      if (!Object.prototype.propertyIsEnumerable.call(source, key)) continue;
+	      target[key] = source[key];
+	    }
+	  }
+
+	  return target;
+	}
+
+	function _slicedToArray(arr, i) {
+	  return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _nonIterableRest();
+	}
+
+	function _toConsumableArray(arr) {
+	  return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread();
+	}
+
+	function _arrayWithoutHoles(arr) {
+	  if (Array.isArray(arr)) {
+	    for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) arr2[i] = arr[i];
+
+	    return arr2;
+	  }
+	}
+
+	function _arrayWithHoles(arr) {
+	  if (Array.isArray(arr)) return arr;
+	}
+
+	function _iterableToArray(iter) {
+	  if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter);
+	}
+
+	function _iterableToArrayLimit(arr, i) {
+	  if (!(Symbol.iterator in Object(arr) || Object.prototype.toString.call(arr) === "[object Arguments]")) {
+	    return;
+	  }
+
+	  var _arr = [];
+	  var _n = true;
+	  var _d = false;
+	  var _e = undefined;
+
+	  try {
+	    for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+	      _arr.push(_s.value);
+
+	      if (i && _arr.length === i) break;
+	    }
+	  } catch (err) {
+	    _d = true;
+	    _e = err;
+	  } finally {
+	    try {
+	      if (!_n && _i["return"] != null) _i["return"]();
+	    } finally {
+	      if (_d) throw _e;
+	    }
+	  }
+
+	  return _arr;
+	}
+
+	function _nonIterableSpread() {
+	  throw new TypeError("Invalid attempt to spread non-iterable instance");
+	}
+
+	function _nonIterableRest() {
+	  throw new TypeError("Invalid attempt to destructure non-iterable instance");
+	}
+
+	function diffArrays(prev, next, idAccessor) {
+	  var result = {
+	    enter: [],
+	    update: [],
+	    exit: []
+	  };
+
+	  if (!idAccessor) {
+	    // use object references for comparison
+	    var prevSet = new Set(prev);
+	    var nextSet = new Set(next);
+	    new Set([].concat(_toConsumableArray(prevSet), _toConsumableArray(nextSet))).forEach(function (item) {
+	      var type = !prevSet.has(item) ? 'enter' : !nextSet.has(item) ? 'exit' : 'update';
+	      result[type].push(type === 'update' ? [item, item] : item);
+	    });
+	  } else {
+	    // compare by id (duplicate keys are ignored)
+	    var prevById = indexBy(prev, idAccessor, false);
+	    var nextById = indexBy(next, idAccessor, false);
+	    var byId = Object.assign({}, prevById, nextById);
+	    Object.entries(byId).forEach(function (_ref) {
+	      var _ref2 = _slicedToArray(_ref, 2),
+	          id = _ref2[0],
+	          item = _ref2[1];
+
+	      var type = !prevById.hasOwnProperty(id) ? 'enter' : !nextById.hasOwnProperty(id) ? 'exit' : 'update';
+	      result[type].push(type === 'update' ? [prevById[id], nextById[id]] : item);
+	    });
+	  }
+
+	  return result;
+	}
+
+	function dataBindDiff(data, existingObjs, _ref3) {
+	  var _ref3$objBindAttr = _ref3.objBindAttr,
+	      objBindAttr = _ref3$objBindAttr === void 0 ? '__obj' : _ref3$objBindAttr,
+	      _ref3$dataBindAttr = _ref3.dataBindAttr,
+	      dataBindAttr = _ref3$dataBindAttr === void 0 ? '__data' : _ref3$dataBindAttr,
+	      idAccessor = _ref3.idAccessor,
+	      _ref3$purge = _ref3.purge,
+	      purge = _ref3$purge === void 0 ? false : _ref3$purge;
+
+	  var isObjValid = function isObjValid(obj) {
+	    return obj.hasOwnProperty(dataBindAttr);
+	  };
+
+	  var removeObjs = existingObjs.filter(function (obj) {
+	    return !isObjValid(obj);
+	  });
+	  var prevD = existingObjs.filter(isObjValid).map(function (obj) {
+	    return obj[dataBindAttr];
+	  });
+	  var nextD = data;
+	  var diff = purge ? {
+	    enter: nextD,
+	    exit: prevD,
+	    update: []
+	  } // don't diff data in purge mode
+	  : diffArrays(prevD, nextD, idAccessor);
+	  diff.update = diff.update.map(function (_ref4) {
+	    var _ref5 = _slicedToArray(_ref4, 2),
+	        prevD = _ref5[0],
+	        nextD = _ref5[1];
+
+	    if (prevD !== nextD) {
+	      // transfer obj to new data point (if different)
+	      nextD[objBindAttr] = prevD[objBindAttr];
+	      nextD[objBindAttr][dataBindAttr] = nextD;
+	    }
+
+	    return nextD;
+	  });
+	  diff.exit = diff.exit.concat(removeObjs.map(function (obj) {
+	    return _defineProperty({}, objBindAttr, obj);
+	  }));
+	  return diff;
+	}
+
+	function viewDigest(data, existingObjs, // list
+	appendObj, // item => {...} function
+	removeObj, // item => {...} function
+	_ref7) {
+	  var _ref7$createObj = _ref7.createObj,
+	      createObj = _ref7$createObj === void 0 ? function (d) {
+	    return {};
+	  } : _ref7$createObj,
+	      _ref7$updateObj = _ref7.updateObj,
+	      updateObj = _ref7$updateObj === void 0 ? function (obj, d) {} : _ref7$updateObj,
+	      _ref7$exitObj = _ref7.exitObj,
+	      exitObj = _ref7$exitObj === void 0 ? function (obj) {} : _ref7$exitObj,
+	      _ref7$objBindAttr = _ref7.objBindAttr,
+	      objBindAttr = _ref7$objBindAttr === void 0 ? '__obj' : _ref7$objBindAttr,
+	      _ref7$dataBindAttr = _ref7.dataBindAttr,
+	      dataBindAttr = _ref7$dataBindAttr === void 0 ? '__data' : _ref7$dataBindAttr,
+	      dataDiffOptions = _objectWithoutProperties(_ref7, ["createObj", "updateObj", "exitObj", "objBindAttr", "dataBindAttr"]);
+
+	  var _dataBindDiff = dataBindDiff(data, existingObjs, _objectSpread2({
+	    objBindAttr: objBindAttr,
+	    dataBindAttr: dataBindAttr
+	  }, dataDiffOptions)),
+	      enter = _dataBindDiff.enter,
+	      update = _dataBindDiff.update,
+	      exit = _dataBindDiff.exit; // Remove exiting points
+
+
+	  exit.forEach(function (d) {
+	    var obj = d[objBindAttr];
+	    delete d[objBindAttr]; // unbind obj
+
+	    exitObj(obj);
+	    removeObj(obj);
+	  });
+	  var newObjs = createObjs(enter);
+	  var pointsData = [].concat(_toConsumableArray(enter), _toConsumableArray(update));
+	  updateObjs(pointsData); // Add new points
+
+	  newObjs.forEach(appendObj); //
+
+	  function createObjs(data) {
+	    var newObjs = [];
+	    data.forEach(function (d) {
+	      var obj = createObj(d);
+
+	      if (obj) {
+	        obj[dataBindAttr] = d;
+	        d[objBindAttr] = obj;
+	        newObjs.push(obj);
+	      }
+	    });
+	    return newObjs;
+	  }
+
+	  function updateObjs(data) {
+	    data.forEach(function (d) {
+	      var obj = d[objBindAttr];
+
+	      if (obj) {
+	        obj[dataBindAttr] = d;
+	        updateObj(obj, d);
+	      }
+	    });
+	  }
+	}
+
+	module.exports = viewDigest;
+
+
+/***/ }),
+/* 61 */
+/***/ (function(module, exports) {
+
+	'use strict';
+
+	function _objectWithoutPropertiesLoose(source, excluded) {
+	  if (source == null) return {};
+	  var target = {};
+	  var sourceKeys = Object.keys(source);
+	  var key, i;
+
+	  for (i = 0; i < sourceKeys.length; i++) {
+	    key = sourceKeys[i];
+	    if (excluded.indexOf(key) >= 0) continue;
+	    target[key] = source[key];
+	  }
+
+	  return target;
+	}
+
+	function _objectWithoutProperties(source, excluded) {
+	  if (source == null) return {};
+
+	  var target = _objectWithoutPropertiesLoose(source, excluded);
+
+	  var key, i;
+
+	  if (Object.getOwnPropertySymbols) {
+	    var sourceSymbolKeys = Object.getOwnPropertySymbols(source);
+
+	    for (i = 0; i < sourceSymbolKeys.length; i++) {
+	      key = sourceSymbolKeys[i];
+	      if (excluded.indexOf(key) >= 0) continue;
+	      if (!Object.prototype.propertyIsEnumerable.call(source, key)) continue;
+	      target[key] = source[key];
+	    }
+	  }
+
+	  return target;
+	}
+
+	function _slicedToArray(arr, i) {
+	  return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _nonIterableRest();
+	}
+
+	function _toConsumableArray(arr) {
+	  return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread();
+	}
+
+	function _arrayWithoutHoles(arr) {
+	  if (Array.isArray(arr)) {
+	    for (var i = 0, arr2 = new Array(arr.length); i < arr.length; i++) arr2[i] = arr[i];
+
+	    return arr2;
+	  }
+	}
+
+	function _arrayWithHoles(arr) {
+	  if (Array.isArray(arr)) return arr;
+	}
+
+	function _iterableToArray(iter) {
+	  if (Symbol.iterator in Object(iter) || Object.prototype.toString.call(iter) === "[object Arguments]") return Array.from(iter);
+	}
+
+	function _iterableToArrayLimit(arr, i) {
+	  var _arr = [];
+	  var _n = true;
+	  var _d = false;
+	  var _e = undefined;
+
+	  try {
+	    for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
+	      _arr.push(_s.value);
+
+	      if (i && _arr.length === i) break;
+	    }
+	  } catch (err) {
+	    _d = true;
+	    _e = err;
+	  } finally {
+	    try {
+	      if (!_n && _i["return"] != null) _i["return"]();
+	    } finally {
+	      if (_d) throw _e;
+	    }
+	  }
+
+	  return _arr;
+	}
+
+	function _nonIterableSpread() {
+	  throw new TypeError("Invalid attempt to spread non-iterable instance");
+	}
+
+	function _nonIterableRest() {
+	  throw new TypeError("Invalid attempt to destructure non-iterable instance");
+	}
+
+	function _toPrimitive(input, hint) {
+	  if (typeof input !== "object" || input === null) return input;
+	  var prim = input[Symbol.toPrimitive];
+
+	  if (prim !== undefined) {
+	    var res = prim.call(input, hint || "default");
+	    if (typeof res !== "object") return res;
+	    throw new TypeError("@@toPrimitive must return a primitive value.");
+	  }
+
+	  return (hint === "string" ? String : Number)(input);
+	}
+
+	function _toPropertyKey(arg) {
+	  var key = _toPrimitive(arg, "string");
+
+	  return typeof key === "symbol" ? key : String(key);
+	}
+
+	var index = (function (list, keyAccessors) {
+	  var multiItem = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
+	  var flattenKeys = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : false;
+	  var keys = (keyAccessors instanceof Array ? keyAccessors : [keyAccessors]).map(function (key) {
+	    return {
+	      keyAccessor: key,
+	      isProp: !(key instanceof Function)
+	    };
+	  });
+	  var indexedResult = list.reduce(function (res, item) {
+	    var iterObj = res;
+	    var itemVal = item;
+	    keys.forEach(function (_ref, idx) {
+	      var keyAccessor = _ref.keyAccessor,
+	          isProp = _ref.isProp;
+	      var key;
+
+	      if (isProp) {
+	        var _itemVal = itemVal,
+	            propVal = _itemVal[keyAccessor],
+	            rest = _objectWithoutProperties(_itemVal, [keyAccessor].map(_toPropertyKey));
+
+	        key = propVal;
+	        itemVal = rest;
+	      } else {
+	        key = keyAccessor(itemVal, idx);
+	      }
+
+	      if (idx + 1 < keys.length) {
+	        if (!iterObj.hasOwnProperty(key)) {
+	          iterObj[key] = {};
+	        }
+
+	        iterObj = iterObj[key];
+	      } else {
+	        // Leaf key
+	        if (multiItem) {
+	          if (!iterObj.hasOwnProperty(key)) {
+	            iterObj[key] = [];
+	          }
+
+	          iterObj[key].push(itemVal);
+	        } else {
+	          iterObj[key] = itemVal;
+	        }
+	      }
+	    });
+	    return res;
+	  }, {});
+
+	  if (multiItem instanceof Function) {
+	    // Reduce leaf multiple values
+	    (function reduce(node) {
+	      var level = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 1;
+
+	      if (level === keys.length) {
+	        Object.keys(node).forEach(function (k) {
+	          return node[k] = multiItem(node[k]);
+	        });
+	      } else {
+	        Object.values(node).forEach(function (child) {
+	          return reduce(child, level + 1);
+	        });
+	      }
+	    })(indexedResult); // IIFE
+
+	  }
+
+	  var result = indexedResult;
+
+	  if (flattenKeys) {
+	    // flatten into array
+	    result = [];
+
+	    (function flatten(node) {
+	      var accKeys = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
+
+	      if (accKeys.length === keys.length) {
+	        result.push({
+	          keys: accKeys,
+	          vals: node
+	        });
+	      } else {
+	        Object.entries(node).forEach(function (_ref2) {
+	          var _ref3 = _slicedToArray(_ref2, 2),
+	              key = _ref3[0],
+	              val = _ref3[1];
+
+	          return flatten(val, [].concat(_toConsumableArray(accKeys), [key]));
+	        });
+	      }
+	    })(indexedResult); //IIFE
+
+	  }
+
+	  return result;
+	});
+
+	module.exports = index;
+
+
+/***/ }),
+/* 62 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	// https://d3js.org/d3-scale/ v3.1.0 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(61), __webpack_require__(62), __webpack_require__(64), __webpack_require__(65), __webpack_require__(66)) :
+	 true ? factory(exports, __webpack_require__(63), __webpack_require__(64), __webpack_require__(66), __webpack_require__(67), __webpack_require__(68)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-array', 'd3-interpolate', 'd3-format', 'd3-time', 'd3-time-format'], factory) :
-	(factory((global.d3 = global.d3 || {}),global.d3,global.d3,global.d3,global.d3,global.d3));
-	}(this, (function (exports,d3Array,d3Interpolate,d3Format,d3Time,d3TimeFormat) { 'use strict';
+	(global = global || self, factory(global.d3 = global.d3 || {}, global.d3, global.d3, global.d3, global.d3, global.d3));
+	}(this, function (exports, d3Array, d3Interpolate, d3Format, d3Time, d3TimeFormat) { 'use strict';
 
 	function initRange(domain, range) {
 	  switch (arguments.length) {
@@ -9435,8 +10119,8 @@
 	      : constant(isNaN(b) ? NaN : 0.5);
 	}
 
-	function clamper(domain) {
-	  var a = domain[0], b = domain[domain.length - 1], t;
+	function clamper(a, b) {
+	  var t;
 	  if (a > b) t = a, a = b, b = t;
 	  return function(x) { return Math.max(a, Math.min(b, x)); };
 	}
@@ -9495,7 +10179,9 @@
 	      input;
 
 	  function rescale() {
-	    piecewise = Math.min(domain.length, range.length) > 2 ? polymap : bimap;
+	    var n = Math.min(domain.length, range.length);
+	    if (clamp !== identity) clamp = clamper(domain[0], domain[n - 1]);
+	    piecewise = n > 2 ? polymap : bimap;
 	    output = input = null;
 	    return scale;
 	  }
@@ -9509,7 +10195,7 @@
 	  };
 
 	  scale.domain = function(_) {
-	    return arguments.length ? (domain = Array.from(_, number), clamp === identity || (clamp = clamper(domain)), rescale()) : domain.slice();
+	    return arguments.length ? (domain = Array.from(_, number), rescale()) : domain.slice();
 	  };
 
 	  scale.range = function(_) {
@@ -9521,7 +10207,7 @@
 	  };
 
 	  scale.clamp = function(_) {
-	    return arguments.length ? (clamp = _ ? clamper(domain) : identity, scale) : clamp !== identity;
+	    return arguments.length ? (clamp = _ ? true : identity, rescale()) : clamp !== identity;
 	  };
 
 	  scale.interpolate = function(_) {
@@ -9538,8 +10224,8 @@
 	  };
 	}
 
-	function continuous(transform, untransform) {
-	  return transformer()(transform, untransform);
+	function continuous() {
+	  return transformer()(identity, identity);
 	}
 
 	function tickFormat(start, stop, count, specifier) {
@@ -9626,7 +10312,7 @@
 	}
 
 	function linear() {
-	  var scale = continuous(identity, identity);
+	  var scale = continuous();
 
 	  scale.copy = function() {
 	    return copy(scale, linear());
@@ -9764,15 +10450,15 @@
 	        z = [];
 
 	    if (!(base % 1) && j - i < n) {
-	      i = Math.round(i) - 1, j = Math.round(j) + 1;
-	      if (u > 0) for (; i < j; ++i) {
+	      i = Math.floor(i), j = Math.ceil(j);
+	      if (u > 0) for (; i <= j; ++i) {
 	        for (k = 1, p = pows(i); k < base; ++k) {
 	          t = p * k;
 	          if (t < u) continue;
 	          if (t > v) break;
 	          z.push(t);
 	        }
-	      } else for (; i < j; ++i) {
+	      } else for (; i <= j; ++i) {
 	        for (k = base - 1, p = pows(i); k >= 1; --k) {
 	          t = p * k;
 	          if (t < u) continue;
@@ -9780,6 +10466,7 @@
 	          z.push(t);
 	        }
 	      }
+	      if (!z.length) z = d3Array.ticks(u, v, n);
 	    } else {
 	      z = d3Array.ticks(i, j, Math.min(j - i, n)).map(pows);
 	    }
@@ -9899,6 +10586,65 @@
 
 	function sqrt() {
 	  return pow.apply(null, arguments).exponent(0.5);
+	}
+
+	function square(x) {
+	  return Math.sign(x) * x * x;
+	}
+
+	function unsquare(x) {
+	  return Math.sign(x) * Math.sqrt(Math.abs(x));
+	}
+
+	function radial() {
+	  var squared = continuous(),
+	      range = [0, 1],
+	      round = false,
+	      unknown;
+
+	  function scale(x) {
+	    var y = unsquare(squared(x));
+	    return isNaN(y) ? unknown : round ? Math.round(y) : y;
+	  }
+
+	  scale.invert = function(y) {
+	    return squared.invert(square(y));
+	  };
+
+	  scale.domain = function(_) {
+	    return arguments.length ? (squared.domain(_), scale) : squared.domain();
+	  };
+
+	  scale.range = function(_) {
+	    return arguments.length ? (squared.range((range = Array.from(_, number)).map(square)), scale) : range.slice();
+	  };
+
+	  scale.rangeRound = function(_) {
+	    return scale.range(_).round(true);
+	  };
+
+	  scale.round = function(_) {
+	    return arguments.length ? (round = !!_, scale) : round;
+	  };
+
+	  scale.clamp = function(_) {
+	    return arguments.length ? (squared.clamp(_), scale) : squared.clamp();
+	  };
+
+	  scale.unknown = function(_) {
+	    return arguments.length ? (unknown = _, scale) : unknown;
+	  };
+
+	  scale.copy = function() {
+	    return radial(squared.domain(), range)
+	        .round(round)
+	        .clamp(squared.clamp())
+	        .unknown(unknown);
+	  };
+
+	  initRange.apply(scale, arguments);
+
+	  return linearish(scale);
 	}
 
 	function quantile() {
@@ -10063,7 +10809,7 @@
 	}
 
 	function calendar(year, month, week, day, hour, minute, second, millisecond, format) {
-	  var scale = continuous(identity, identity),
+	  var scale = continuous(),
 	      invert = scale.invert,
 	      domain = scale.domain;
 
@@ -10207,6 +10953,10 @@
 	    return arguments.length ? (interpolator = _, scale) : interpolator;
 	  };
 
+	  scale.range = function() {
+	    return [interpolator(0), interpolator(1)];
+	  };
+
 	  scale.unknown = function(_) {
 	    return arguments.length ? (unknown = _, scale) : unknown;
 	  };
@@ -10274,7 +11024,7 @@
 	      interpolator = identity;
 
 	  function scale(x) {
-	    if (!isNaN(x = +x)) return interpolator((d3Array.bisect(domain, x) - 1) / (domain.length - 1));
+	    if (!isNaN(x = +x)) return interpolator((d3Array.bisect(domain, x, 1) - 1) / (domain.length - 1));
 	  }
 
 	  scale.domain = function(_) {
@@ -10289,6 +11039,10 @@
 	    return arguments.length ? (interpolator = _, scale) : interpolator;
 	  };
 
+	  scale.range = function() {
+	    return domain.map((d, i) => interpolator(i / (domain.length - 1)));
+	  };
+
 	  scale.copy = function() {
 	    return sequentialQuantile(interpolator).domain(domain);
 	  };
@@ -10300,6 +11054,7 @@
 	  var x0 = 0,
 	      x1 = 0.5,
 	      x2 = 1,
+	      s = 1,
 	      t0,
 	      t1,
 	      t2,
@@ -10311,11 +11066,11 @@
 	      unknown;
 
 	  function scale(x) {
-	    return isNaN(x = +x) ? unknown : (x = 0.5 + ((x = +transform(x)) - t1) * (x < t1 ? k10 : k21), interpolator(clamp ? Math.max(0, Math.min(1, x)) : x));
+	    return isNaN(x = +x) ? unknown : (x = 0.5 + ((x = +transform(x)) - t1) * (s * x < s * t1 ? k10 : k21), interpolator(clamp ? Math.max(0, Math.min(1, x)) : x));
 	  }
 
 	  scale.domain = function(_) {
-	    return arguments.length ? ([x0, x1, x2] = _, t0 = transform(x0 = +x0), t1 = transform(x1 = +x1), t2 = transform(x2 = +x2), k10 = t0 === t1 ? 0 : 0.5 / (t1 - t0), k21 = t1 === t2 ? 0 : 0.5 / (t2 - t1), scale) : [x0, x1, x2];
+	    return arguments.length ? ([x0, x1, x2] = _, t0 = transform(x0 = +x0), t1 = transform(x1 = +x1), t2 = transform(x2 = +x2), k10 = t0 === t1 ? 0 : 0.5 / (t1 - t0), k21 = t1 === t2 ? 0 : 0.5 / (t2 - t1), s = t1 < t0 ? -1 : 1, scale) : [x0, x1, x2];
 	  };
 
 	  scale.clamp = function(_) {
@@ -10326,12 +11081,16 @@
 	    return arguments.length ? (interpolator = _, scale) : interpolator;
 	  };
 
+	  scale.range = function() {
+	    return [interpolator(0), interpolator(0.5), interpolator(1)];
+	  };
+
 	  scale.unknown = function(_) {
 	    return arguments.length ? (unknown = _, scale) : unknown;
 	  };
 
 	  return function(t) {
-	    transform = t, t0 = t(x0), t1 = t(x1), t2 = t(x2), k10 = t0 === t1 ? 0 : 0.5 / (t1 - t0), k21 = t1 === t2 ? 0 : 0.5 / (t2 - t1);
+	    transform = t, t0 = t(x0), t1 = t(x1), t2 = t(x2), k10 = t0 === t1 ? 0 : 0.5 / (t1 - t0), k21 = t1 === t2 ? 0 : 0.5 / (t2 - t1), s = t1 < t0 ? -1 : 1;
 	    return scale;
 	  };
 	}
@@ -10381,40 +11140,41 @@
 	}
 
 	exports.scaleBand = band;
-	exports.scalePoint = point;
-	exports.scaleIdentity = identity$1;
-	exports.scaleLinear = linear;
-	exports.scaleLog = log;
-	exports.scaleSymlog = symlog;
-	exports.scaleOrdinal = ordinal;
-	exports.scaleImplicit = implicit;
-	exports.scalePow = pow;
-	exports.scaleSqrt = sqrt;
-	exports.scaleQuantile = quantile;
-	exports.scaleQuantize = quantize;
-	exports.scaleThreshold = threshold;
-	exports.scaleTime = time;
-	exports.scaleUtc = utcTime;
-	exports.scaleSequential = sequential;
-	exports.scaleSequentialLog = sequentialLog;
-	exports.scaleSequentialPow = sequentialPow;
-	exports.scaleSequentialSqrt = sequentialSqrt;
-	exports.scaleSequentialSymlog = sequentialSymlog;
-	exports.scaleSequentialQuantile = sequentialQuantile;
 	exports.scaleDiverging = diverging;
 	exports.scaleDivergingLog = divergingLog;
 	exports.scaleDivergingPow = divergingPow;
 	exports.scaleDivergingSqrt = divergingSqrt;
 	exports.scaleDivergingSymlog = divergingSymlog;
+	exports.scaleIdentity = identity$1;
+	exports.scaleImplicit = implicit;
+	exports.scaleLinear = linear;
+	exports.scaleLog = log;
+	exports.scaleOrdinal = ordinal;
+	exports.scalePoint = point;
+	exports.scalePow = pow;
+	exports.scaleQuantile = quantile;
+	exports.scaleQuantize = quantize;
+	exports.scaleRadial = radial;
+	exports.scaleSequential = sequential;
+	exports.scaleSequentialLog = sequentialLog;
+	exports.scaleSequentialPow = sequentialPow;
+	exports.scaleSequentialQuantile = sequentialQuantile;
+	exports.scaleSequentialSqrt = sequentialSqrt;
+	exports.scaleSequentialSymlog = sequentialSymlog;
+	exports.scaleSqrt = sqrt;
+	exports.scaleSymlog = symlog;
+	exports.scaleThreshold = threshold;
+	exports.scaleTime = time;
+	exports.scaleUtc = utcTime;
 	exports.tickFormat = tickFormat;
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	})));
+	}));
 
 
 /***/ }),
-/* 61 */
+/* 63 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-array/ v2.2.0 Copyright 2019 Mike Bostock
@@ -11167,12 +11927,12 @@
 
 
 /***/ }),
-/* 62 */
+/* 64 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-interpolate/ v1.3.2 Copyright 2018 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(63)) :
+	 true ? factory(exports, __webpack_require__(65)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-color'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Color) { 'use strict';
@@ -11745,7 +12505,7 @@
 
 
 /***/ }),
-/* 63 */
+/* 65 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-color/ v1.2.3 Copyright 2018 Mike Bostock
@@ -12300,7 +13060,7 @@
 
 
 /***/ }),
-/* 64 */
+/* 66 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-format/ v1.3.2 Copyright 2018 Mike Bostock
@@ -12626,7 +13386,7 @@
 
 
 /***/ }),
-/* 65 */
+/* 67 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-time/ v1.0.11 Copyright 2019 Mike Bostock
@@ -13003,12 +13763,12 @@
 
 
 /***/ }),
-/* 66 */
+/* 68 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-time-format/ v2.1.3 Copyright 2018 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(65)) :
+	 true ? factory(exports, __webpack_require__(67)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-time'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Time) { 'use strict';
@@ -13693,15 +14453,15 @@
 
 
 /***/ }),
-/* 67 */
+/* 69 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-scale-chromatic/ v1.3.3 Copyright 2018 Mike Bostock
+	// https://d3js.org/d3-scale-chromatic/ v1.5.0 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(62), __webpack_require__(63)) :
+	 true ? factory(exports, __webpack_require__(64), __webpack_require__(65)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-interpolate', 'd3-color'], factory) :
-	(factory((global.d3 = global.d3 || {}),global.d3,global.d3));
-	}(this, (function (exports,d3Interpolate,d3Color) { 'use strict';
+	(global = global || self, factory(global.d3 = global.d3 || {}, global.d3, global.d3));
+	}(this, function (exports, d3Interpolate, d3Color) { 'use strict';
 
 	function colors(specifier) {
 	  var n = specifier.length / 6 | 0, colors = new Array(n), i = 0;
@@ -13726,6 +14486,8 @@
 	var Set2 = colors("66c2a5fc8d628da0cbe78ac3a6d854ffd92fe5c494b3b3b3");
 
 	var Set3 = colors("8dd3c7ffffb3bebadafb807280b1d3fdb462b3de69fccde5d9d9d9bc80bdccebc5ffed6f");
+
+	var Tableau10 = colors("4e79a7f28e2ce1575976b7b259a14fedc949af7aa1ff9da79c755fbab0ab");
 
 	function ramp(scheme) {
 	  return d3Interpolate.interpolateRgbBasis(scheme[scheme.length - 1]);
@@ -14073,6 +14835,15 @@
 
 	var Oranges = ramp(scheme$q);
 
+	function cividis(t) {
+	  t = Math.max(0, Math.min(1, t));
+	  return "rgb("
+	      + Math.max(0, Math.min(255, Math.round(-4.54 - t * (35.34 - t * (2381.73 - t * (6402.7 - t * (7024.72 - t * 2710.57))))))) + ", "
+	      + Math.max(0, Math.min(255, Math.round(32.49 + t * (170.73 + t * (52.82 - t * (131.46 - t * (176.58 - t * 67.37))))))) + ", "
+	      + Math.max(0, Math.min(255, Math.round(81.24 + t * (442.36 - t * (2482.43 - t * (6167.24 - t * (6614.94 - t * 2475.67)))))))
+	      + ")";
+	}
+
 	var cubehelix = d3Interpolate.interpolateCubehelixLong(d3Color.cubehelix(300, 0.5, 0.0), d3Color.cubehelix(-240, 0.5, 1.0));
 
 	var warm = d3Interpolate.interpolateCubehelixLong(d3Color.cubehelix(-100, 0.75, 0.35), d3Color.cubehelix(80, 1.50, 0.8));
@@ -14103,6 +14874,15 @@
 	  return c$1 + "";
 	}
 
+	function turbo(t) {
+	  t = Math.max(0, Math.min(1, t));
+	  return "rgb("
+	      + Math.max(0, Math.min(255, Math.round(34.61 + t * (1172.33 - t * (10793.56 - t * (33300.12 - t * (38394.49 - t * 14825.05))))))) + ", "
+	      + Math.max(0, Math.min(255, Math.round(23.31 + t * (557.33 + t * (1225.33 - t * (3574.96 - t * (1073.77 + t * 707.56))))))) + ", "
+	      + Math.max(0, Math.min(255, Math.round(27.2 + t * (3211.1 - t * (15327.97 - t * (27814 - t * (22569.18 - t * 6838.66)))))))
+	      + ")";
+	}
+
 	function ramp$1(range) {
 	  var n = range.length;
 	  return function(t) {
@@ -14118,86 +14898,89 @@
 
 	var plasma = ramp$1(colors("0d088710078813078916078a19068c1b068d1d068e20068f2206902406912605912805922a05932c05942e05952f059631059733059735049837049938049a3a049a3c049b3e049c3f049c41049d43039e44039e46039f48039f4903a04b03a14c02a14e02a25002a25102a35302a35502a45601a45801a45901a55b01a55c01a65e01a66001a66100a76300a76400a76600a76700a86900a86a00a86c00a86e00a86f00a87100a87201a87401a87501a87701a87801a87a02a87b02a87d03a87e03a88004a88104a78305a78405a78606a68707a68808a68a09a58b0aa58d0ba58e0ca48f0da4910ea3920fa39410a29511a19613a19814a099159f9a169f9c179e9d189d9e199da01a9ca11b9ba21d9aa31e9aa51f99a62098a72197a82296aa2395ab2494ac2694ad2793ae2892b02991b12a90b22b8fb32c8eb42e8db52f8cb6308bb7318ab83289ba3388bb3488bc3587bd3786be3885bf3984c03a83c13b82c23c81c33d80c43e7fc5407ec6417dc7427cc8437bc9447aca457acb4679cc4778cc4977cd4a76ce4b75cf4c74d04d73d14e72d24f71d35171d45270d5536fd5546ed6556dd7566cd8576bd9586ada5a6ada5b69db5c68dc5d67dd5e66de5f65de6164df6263e06363e16462e26561e26660e3685fe4695ee56a5de56b5de66c5ce76e5be76f5ae87059e97158e97257ea7457eb7556eb7655ec7754ed7953ed7a52ee7b51ef7c51ef7e50f07f4ff0804ef1814df1834cf2844bf3854bf3874af48849f48948f58b47f58c46f68d45f68f44f79044f79143f79342f89441f89540f9973ff9983ef99a3efa9b3dfa9c3cfa9e3bfb9f3afba139fba238fca338fca537fca636fca835fca934fdab33fdac33fdae32fdaf31fdb130fdb22ffdb42ffdb52efeb72dfeb82cfeba2cfebb2bfebd2afebe2afec029fdc229fdc328fdc527fdc627fdc827fdca26fdcb26fccd25fcce25fcd025fcd225fbd324fbd524fbd724fad824fada24f9dc24f9dd25f8df25f8e125f7e225f7e425f6e626f6e826f5e926f5eb27f4ed27f3ee27f3f027f2f227f1f426f1f525f0f724f0f921"));
 
-	exports.schemeCategory10 = category10;
+	exports.interpolateBlues = Blues;
+	exports.interpolateBrBG = BrBG;
+	exports.interpolateBuGn = BuGn;
+	exports.interpolateBuPu = BuPu;
+	exports.interpolateCividis = cividis;
+	exports.interpolateCool = cool;
+	exports.interpolateCubehelixDefault = cubehelix;
+	exports.interpolateGnBu = GnBu;
+	exports.interpolateGreens = Greens;
+	exports.interpolateGreys = Greys;
+	exports.interpolateInferno = inferno;
+	exports.interpolateMagma = magma;
+	exports.interpolateOrRd = OrRd;
+	exports.interpolateOranges = Oranges;
+	exports.interpolatePRGn = PRGn;
+	exports.interpolatePiYG = PiYG;
+	exports.interpolatePlasma = plasma;
+	exports.interpolatePuBu = PuBu;
+	exports.interpolatePuBuGn = PuBuGn;
+	exports.interpolatePuOr = PuOr;
+	exports.interpolatePuRd = PuRd;
+	exports.interpolatePurples = Purples;
+	exports.interpolateRainbow = rainbow;
+	exports.interpolateRdBu = RdBu;
+	exports.interpolateRdGy = RdGy;
+	exports.interpolateRdPu = RdPu;
+	exports.interpolateRdYlBu = RdYlBu;
+	exports.interpolateRdYlGn = RdYlGn;
+	exports.interpolateReds = Reds;
+	exports.interpolateSinebow = sinebow;
+	exports.interpolateSpectral = Spectral;
+	exports.interpolateTurbo = turbo;
+	exports.interpolateViridis = viridis;
+	exports.interpolateWarm = warm;
+	exports.interpolateYlGn = YlGn;
+	exports.interpolateYlGnBu = YlGnBu;
+	exports.interpolateYlOrBr = YlOrBr;
+	exports.interpolateYlOrRd = YlOrRd;
 	exports.schemeAccent = Accent;
+	exports.schemeBlues = scheme$l;
+	exports.schemeBrBG = scheme;
+	exports.schemeBuGn = scheme$9;
+	exports.schemeBuPu = scheme$a;
+	exports.schemeCategory10 = category10;
 	exports.schemeDark2 = Dark2;
+	exports.schemeGnBu = scheme$b;
+	exports.schemeGreens = scheme$m;
+	exports.schemeGreys = scheme$n;
+	exports.schemeOrRd = scheme$c;
+	exports.schemeOranges = scheme$q;
+	exports.schemePRGn = scheme$1;
 	exports.schemePaired = Paired;
 	exports.schemePastel1 = Pastel1;
 	exports.schemePastel2 = Pastel2;
+	exports.schemePiYG = scheme$2;
+	exports.schemePuBu = scheme$e;
+	exports.schemePuBuGn = scheme$d;
+	exports.schemePuOr = scheme$3;
+	exports.schemePuRd = scheme$f;
+	exports.schemePurples = scheme$o;
+	exports.schemeRdBu = scheme$4;
+	exports.schemeRdGy = scheme$5;
+	exports.schemeRdPu = scheme$g;
+	exports.schemeRdYlBu = scheme$6;
+	exports.schemeRdYlGn = scheme$7;
+	exports.schemeReds = scheme$p;
 	exports.schemeSet1 = Set1;
 	exports.schemeSet2 = Set2;
 	exports.schemeSet3 = Set3;
-	exports.interpolateBrBG = BrBG;
-	exports.schemeBrBG = scheme;
-	exports.interpolatePRGn = PRGn;
-	exports.schemePRGn = scheme$1;
-	exports.interpolatePiYG = PiYG;
-	exports.schemePiYG = scheme$2;
-	exports.interpolatePuOr = PuOr;
-	exports.schemePuOr = scheme$3;
-	exports.interpolateRdBu = RdBu;
-	exports.schemeRdBu = scheme$4;
-	exports.interpolateRdGy = RdGy;
-	exports.schemeRdGy = scheme$5;
-	exports.interpolateRdYlBu = RdYlBu;
-	exports.schemeRdYlBu = scheme$6;
-	exports.interpolateRdYlGn = RdYlGn;
-	exports.schemeRdYlGn = scheme$7;
-	exports.interpolateSpectral = Spectral;
 	exports.schemeSpectral = scheme$8;
-	exports.interpolateBuGn = BuGn;
-	exports.schemeBuGn = scheme$9;
-	exports.interpolateBuPu = BuPu;
-	exports.schemeBuPu = scheme$a;
-	exports.interpolateGnBu = GnBu;
-	exports.schemeGnBu = scheme$b;
-	exports.interpolateOrRd = OrRd;
-	exports.schemeOrRd = scheme$c;
-	exports.interpolatePuBuGn = PuBuGn;
-	exports.schemePuBuGn = scheme$d;
-	exports.interpolatePuBu = PuBu;
-	exports.schemePuBu = scheme$e;
-	exports.interpolatePuRd = PuRd;
-	exports.schemePuRd = scheme$f;
-	exports.interpolateRdPu = RdPu;
-	exports.schemeRdPu = scheme$g;
-	exports.interpolateYlGnBu = YlGnBu;
-	exports.schemeYlGnBu = scheme$h;
-	exports.interpolateYlGn = YlGn;
+	exports.schemeTableau10 = Tableau10;
 	exports.schemeYlGn = scheme$i;
-	exports.interpolateYlOrBr = YlOrBr;
+	exports.schemeYlGnBu = scheme$h;
 	exports.schemeYlOrBr = scheme$j;
-	exports.interpolateYlOrRd = YlOrRd;
 	exports.schemeYlOrRd = scheme$k;
-	exports.interpolateBlues = Blues;
-	exports.schemeBlues = scheme$l;
-	exports.interpolateGreens = Greens;
-	exports.schemeGreens = scheme$m;
-	exports.interpolateGreys = Greys;
-	exports.schemeGreys = scheme$n;
-	exports.interpolatePurples = Purples;
-	exports.schemePurples = scheme$o;
-	exports.interpolateReds = Reds;
-	exports.schemeReds = scheme$p;
-	exports.interpolateOranges = Oranges;
-	exports.schemeOranges = scheme$q;
-	exports.interpolateCubehelixDefault = cubehelix;
-	exports.interpolateRainbow = rainbow;
-	exports.interpolateWarm = warm;
-	exports.interpolateCool = cool;
-	exports.interpolateSinebow = sinebow;
-	exports.interpolateViridis = viridis;
-	exports.interpolateMagma = magma;
-	exports.interpolateInferno = inferno;
-	exports.interpolatePlasma = plasma;
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	})));
+	}));
 
 
 /***/ }),
-/* 68 */
+/* 70 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_RESULT__;// TinyColor v1.4.1

@@ -78,6 +78,7 @@ There are also internal methods that can be invoked via the [components object](
 | Method | Arguments | Description |
 | --- | --- | --- |
 | d3Force | id: <i>string</i>, [force: <i>function</i>] | Getter/setter for the internal forces that control the d3 simulation engine. Follows the same interface as `d3-force-3d`'s [simulation.force](https://github.com/vasturiano/d3-force-3d#simulation_force). Three forces are included by default: `'link'` (based on [forceLink](https://github.com/vasturiano/d3-force-3d#forceLink)), `'charge'` (based on [forceManyBody](https://github.com/vasturiano/d3-force-3d#forceManyBody)) and `'center'` (based on [forceCenter](https://github.com/vasturiano/d3-force-3d#forceCenter)). Each of these forces can be reconfigured, or new forces can be added to the system. This method is only applicable if using the d3 simulation engine. |
+| d3ReheatSimulation | - | Reheats the force simulation engine, by setting the `alpha` value to `1`. Only applicable if using the d3 simulation engine. |
 | refresh | - | Redraws all the nodes/links. |
 
 ### Installation
