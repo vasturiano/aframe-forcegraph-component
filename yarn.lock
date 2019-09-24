@@ -1700,18 +1700,18 @@ d3-quadtree@1:
   resolved "https://registry.yarnpkg.com/d3-quadtree/-/d3-quadtree-1.0.6.tgz#d1ab2a95a7f27bbde88582c94166f6ae35f32056"
   integrity sha512-NUgeo9G+ENQCQ1LsRr2qJg3MQ4DJvxcDNCiohdJGHt5gRhBW6orIB5m5FJ9kK3HNL8g9F4ERVoBzcEwQBfXWVA==
 
-d3-scale-chromatic@^1.3.3:
-  version "1.3.3"
-  resolved "https://registry.yarnpkg.com/d3-scale-chromatic/-/d3-scale-chromatic-1.3.3.tgz#dad4366f0edcb288f490128979c3c793583ed3c0"
-  integrity sha512-BWTipif1CimXcYfT02LKjAyItX5gKiwxuPRgr4xM58JwlLocWbjPLI7aMEjkcoOQXMkYsmNsvv3d2yl/OKuHHw==
+d3-scale-chromatic@^1.5.0:
+  version "1.5.0"
+  resolved "https://registry.yarnpkg.com/d3-scale-chromatic/-/d3-scale-chromatic-1.5.0.tgz#54e333fc78212f439b14641fb55801dd81135a98"
+  integrity sha512-ACcL46DYImpRFMBcpk9HhtIyC7bTBR4fNOPxwVSl0LfulDAwyiHyPOTqcDG1+t5d4P9W7t/2NAuWu59aKko/cg==
   dependencies:
     d3-color "1"
     d3-interpolate "1"
 
-d3-scale@^3.0.1:
-  version "3.0.1"
-  resolved "https://registry.yarnpkg.com/d3-scale/-/d3-scale-3.0.1.tgz#f7b5e7046ad83b35399639455bf5218a3cc1d1bc"
-  integrity sha512-f+OsXyd0claf6ufjI52zBHyOnm6mmfFvYiGUU8UB2VumZpqCcxds5iWN1rcOACIHgw9MntTFLXmi4LBRmY4DwQ==
+d3-scale@^3.1.0:
+  version "3.1.0"
+  resolved "https://registry.yarnpkg.com/d3-scale/-/d3-scale-3.1.0.tgz#e8af005101502dbf26c505d9f40cf88bcb75b2e1"
+  integrity sha512-3edyEBwbwQG400VbgaepQC9ZYFX3h92flLHIUa1+nvZp/mqCYdxNM9zGTjKtPcSAuBCyPePdMQOapsD0qNALrg==
   dependencies:
     d3-array "1.2.0 - 2"
     d3-format "1"
@@ -1747,6 +1747,13 @@ dash-ast@^1.0.0:
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/dash-ast/-/dash-ast-1.0.0.tgz#12029ba5fb2f8aa6f0a861795b23c1b4b6c27d37"
   integrity sha512-Vy4dx7gquTeMcQR/hDkYLGUnwVil6vk4FOOct+djUnHOUWt+zJPJAaRIXaAFkPXtJjvlY7o3rfRu0/3hpnwoUA==
+
+data-joint@^1.2.1:
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/data-joint/-/data-joint-1.2.1.tgz#b624ff28bf71388c5a40cc03fdef4d27b12e6bf3"
+  integrity sha512-b+PfObWOlt+R/FHd0zADUOyQw1NNGzlTe/e5YhiWtdSF+ytMMIYO/DI2FLYmZZohlvXDdD/ECF3x68YZHi+dTQ==
+  dependencies:
+    index-array-by "^1.2.6"
 
 date-format@^2.0.0:
   version "2.0.0"
@@ -3501,6 +3508,11 @@ indent-string@^2.1.0:
   dependencies:
     repeating "^2.0.0"
 
+index-array-by@^1.2.6:
+  version "1.2.6"
+  resolved "https://registry.yarnpkg.com/index-array-by/-/index-array-by-1.2.6.tgz#931ed40128e107dc9d4ef06e23ec1c6652b8d11b"
+  integrity sha512-IlJMBsvyUMibCPaHJh+kc9xDSPU2Sy7JhT2SHMRBiPsVtfqD17dc8WaiqunxnQ2kxDvYZQN/IoC0aeKU43Qziw==
+
 indexof@0.0.1:
   version "0.0.1"
   resolved "https://registry.yarnpkg.com/indexof/-/indexof-0.0.1.tgz#82dc336d232b9062179d05ab3293a66059fd435d"
@@ -4052,10 +4064,10 @@ jsx-ast-utils@^1.2.1:
   resolved "https://registry.yarnpkg.com/jsx-ast-utils/-/jsx-ast-utils-1.4.1.tgz#3867213e8dd79bf1e8f2300c0cfc1efb182c0df1"
   integrity sha1-OGchPo3Xm/Ho8jAMDPwe+xgsDfE=
 
-kapsule@^1.10.1:
-  version "1.10.1"
-  resolved "https://registry.yarnpkg.com/kapsule/-/kapsule-1.10.1.tgz#8a5442899b5f0835bfc9ce3f331c2e0df653cc07"
-  integrity sha512-Cprn3DhiFMBviPupeh6AGZzvdskJ4aLCEUwGu8/FBKVy++vwwvsVDS4Q5Bm2q+zwrLCC9eaacMAkQ1BvkbAi3A==
+kapsule@^1.12.1:
+  version "1.12.1"
+  resolved "https://registry.yarnpkg.com/kapsule/-/kapsule-1.12.1.tgz#29b24a9cc1c5a1e5a0ba8a6d74dc6288eaff5ea1"
+  integrity sha512-vFbJfsDOU0I96UsRIMUHzI5CbHoy+X8ddzY19Llv7qI+eHX0AAqZVk/WfS6xqwcR4X/glnqLY9zjqAiz+C3vhw==
   dependencies:
     debounce "^1.2.0"
 
@@ -7027,16 +7039,17 @@ three-buffer-vertex-data@^1.0.0:
   dependencies:
     flatten-vertex-data "^1.0.0"
 
-three-forcegraph@^1.25.0:
-  version "1.25.0"
-  resolved "https://registry.yarnpkg.com/three-forcegraph/-/three-forcegraph-1.25.0.tgz#413141ff7fe1cad6dc4e21c0dc297bc383289c7d"
-  integrity sha512-hobYko7eppUbn/9HEs5M0OZq23dvTABKRRn8UEeW5SbOz/kgn5tu8raGPHMKl8ZZfaoyFPIoMsN4Cd3Hk+siEg==
+three-forcegraph@^1.27.0:
+  version "1.27.0"
+  resolved "https://registry.yarnpkg.com/three-forcegraph/-/three-forcegraph-1.27.0.tgz#39a99f47b5404eb65506a8b1ef769b352d47d950"
+  integrity sha512-pnI7KER2Phf2s9PGjuKGDXF1f14g42sCZw5jrLJFvAKrOXvKZ2AnH+/tgoESJPoIapvEk0RvbV533g1ODGmtFA==
   dependencies:
     accessor-fn "^1.2.2"
     d3-force-3d "^2.0.3"
-    d3-scale "^3.0.1"
-    d3-scale-chromatic "^1.3.3"
-    kapsule "^1.10.1"
+    d3-scale "^3.1.0"
+    d3-scale-chromatic "^1.5.0"
+    data-joint "^1.2.1"
+    kapsule "^1.12.1"
     ngraph.forcelayout "^1.0.0"
     ngraph.forcelayout3d "^0.0.16"
     ngraph.graph "^18.0.0"
