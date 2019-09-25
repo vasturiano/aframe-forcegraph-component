@@ -7039,10 +7039,10 @@ three-buffer-vertex-data@^1.0.0:
   dependencies:
     flatten-vertex-data "^1.0.0"
 
-three-forcegraph@^1.27.0:
-  version "1.27.0"
-  resolved "https://registry.yarnpkg.com/three-forcegraph/-/three-forcegraph-1.27.0.tgz#39a99f47b5404eb65506a8b1ef769b352d47d950"
-  integrity sha512-pnI7KER2Phf2s9PGjuKGDXF1f14g42sCZw5jrLJFvAKrOXvKZ2AnH+/tgoESJPoIapvEk0RvbV533g1ODGmtFA==
+three-forcegraph@^1.28.0:
+  version "1.28.0"
+  resolved "https://registry.yarnpkg.com/three-forcegraph/-/three-forcegraph-1.28.0.tgz#fd59cfca431aa5df62bf7ba0e7f16cd551e21a79"
+  integrity sha512-KFJLS6REaQWfO96GcHUbekNpGFP2dplinqlHnRZSet1WDwI7nLSpDK9u7maYKgrhB+/BkE1+mL8R+/tJ03QDSQ==
   dependencies:
     accessor-fn "^1.2.2"
     d3-force-3d "^2.0.3"

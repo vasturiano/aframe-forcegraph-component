@@ -709,6 +709,7 @@
 	  Vector3: three$2.Vector3,
 	  SphereBufferGeometry: three$2.SphereBufferGeometry,
 	  CylinderBufferGeometry: three$2.CylinderBufferGeometry,
+	  TubeBufferGeometry: three$2.TubeBufferGeometry,
 	  ConeBufferGeometry: three$2.ConeBufferGeometry,
 	  Line: three$2.Line,
 	  LineBasicMaterial: three$2.LineBasicMaterial,
@@ -977,7 +978,6 @@
 	      state.d3ForceLayout.alpha(1);
 	      return this;
 	    },
-	    _updateScene: function _updateScene(state) {},
 	    // reset cooldown state
 	    resetCountdown: function resetCountdown(state) {
 	      state.cntTicks = 0;
@@ -1017,6 +1017,7 @@
 	          obj.position.z = pos.z || 0;
 	        }); // Update links position
 
+	        var linkWidthAccessor = accessorFn(state.linkWidth);
 	        var linkCurvatureAccessor = accessorFn(state.linkCurvature);
 	        var linkCurveRotationAccessor = accessorFn(state.linkCurveRotation);
 	        var linkThreeObjectExtendAccessor = accessorFn(state.linkThreeObjectExtend);
@@ -1049,12 +1050,12 @@
 	            return;
 	          }
 
+	          var curveResolution = 30; // # line segments
+
+	          var curve = link.__curve;
+
 	          if (line.type === 'Line') {
 	            // Update line geometry
-	            var curveResolution = 30; // # line segments
-
-	            var curve = link.__curve;
-
 	            if (!curve) {
 	              // straight line
 	              var linePos = line.geometry.getAttribute('position');
@@ -1078,19 +1079,46 @@
 	            line.geometry.computeBoundingSphere();
 	          } else if (line.type === 'Mesh') {
 	            // Update cylinder geometry
-	            // links with width ignore linkCurvature because TubeGeometries can't be updated
-	            link.__curve = null; // force reset link curve
+	            if (!curve) {
+	              // straight tube
+	              if (line.geometry.type !== 'CylinderBufferGeometry') {
+	                var linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
+	                var r = linkWidth / 2;
+	                var geometry = new three.CylinderBufferGeometry(r, r, 1, state.linkResolution, 1, false);
+	                geometry.applyMatrix(new three.Matrix4().makeTranslation(0, 1 / 2, 0));
+	                geometry.applyMatrix(new three.Matrix4().makeRotationX(Math.PI / 2));
+	                line.geometry.dispose();
+	                line.geometry = geometry;
+	              }
 
-	            var vStart = new three.Vector3(start.x, start.y || 0, start.z || 0);
-	            var vEnd = new three.Vector3(end.x, end.y || 0, end.z || 0);
-	            var distance = vStart.distanceTo(vEnd);
-	            line.position.x = vStart.x;
-	            line.position.y = vStart.y;
-	            line.position.z = vStart.z;
-	            line.scale.z = distance;
-	            line.parent.localToWorld(vEnd); // lookAt requires world coords
+	              var vStart = new three.Vector3(start.x, start.y || 0, start.z || 0);
+	              var vEnd = new three.Vector3(end.x, end.y || 0, end.z || 0);
+	              var distance = vStart.distanceTo(vEnd);
+	              line.position.x = vStart.x;
+	              line.position.y = vStart.y;
+	              line.position.z = vStart.z;
+	              line.scale.z = distance;
+	              line.parent.localToWorld(vEnd); // lookAt requires world coords
 
-	            line.lookAt(vEnd);
+	              line.lookAt(vEnd);
+	            } else {
+	              // curved tube
+	              if (line.geometry.type !== 'TubeBufferGeometry') {
+	                // reset object positioning
+	                line.position.set(0, 0, 0);
+	                line.rotation.set(0, 0, 0);
+	                line.scale.set(1, 1, 1);
+	              }
+
+	              var _linkWidth = Math.ceil(linkWidthAccessor(link) * 10) / 10;
+
+	              var _r = _linkWidth / 2;
+
+	              var _geometry = new three.TubeBufferGeometry(curve, curveResolution, _r, state.linkResolution, false);
+
+	              line.geometry.dispose();
+	              line.geometry = _geometry;
+	            }
 	          }
 	        }); //
 
