@@ -136,6 +136,11 @@
 	  },
 
 	  // Bind component methods
+	  emitParticle: function(link) {
+	    this.forceGraph && this.forceGraph.emitParticle(link);
+	    return this;
+	  },
+
 	  d3Force: function() {
 	    if (!this.forceGraph) {
 	      // Got here before component init -> initialize forceGraph
@@ -976,6 +981,7 @@
 	    },
 	    d3ReheatSimulation: function d3ReheatSimulation(state) {
 	      state.d3ForceLayout.alpha(1);
+	      this.resetCountdown();
 	      return this;
 	    },
 	    // reset cooldown state
@@ -1221,8 +1227,9 @@
 	        // update link particle positions
 	        var particleSpeedAccessor = accessorFn(state.linkDirectionalParticleSpeed);
 	        state.graphData.links.forEach(function (link) {
-	          var photons = link.__photonsObj && link.__photonsObj.children;
-	          if (!photons || !photons.length) return;
+	          var cyclePhotons = link.__photonsObj && link.__photonsObj.children;
+	          var singleHopPhotons = link.__singleHopPhotonsObj && link.__singleHopPhotonsObj.children;
+	          if ((!singleHopPhotons || !singleHopPhotons.length) && (!cyclePhotons || !cyclePhotons.length)) return;
 	          var pos = isD3Sim ? link : state.layout.getLinkPosition(state.layout.graph.getLink(link.source, link.target).id);
 	          var start = pos[isD3Sim ? 'source' : 'from'];
 	          var end = pos[isD3Sim ? 'target' : 'to'];
@@ -1244,8 +1251,28 @@
 	              z: iplt('z', start, end, t)
 	            };
 	          };
+	          var photons = [].concat(_toConsumableArray(cyclePhotons || []), _toConsumableArray(singleHopPhotons || []));
 	          photons.forEach(function (photon, idx) {
-	            var photonPosRatio = photon.__progressRatio = ((photon.__progressRatio || idx / photons.length) + particleSpeed) % 1;
+	            var singleHop = photon.parent.__linkThreeObjType === 'singleHopPhotons';
+
+	            if (!photon.hasOwnProperty('__progressRatio')) {
+	              photon.__progressRatio = singleHop ? 0 : idx / cyclePhotons.length;
+	            }
+
+	            photon.__progressRatio += particleSpeed;
+
+	            if (photon.__progressRatio >= 1) {
+	              if (!singleHop) {
+	                photon.__progressRatio = photon.__progressRatio % 1;
+	              } else {
+	                // remove particle
+	                photon.parent.remove(photon);
+	                emptyObject(photon);
+	                return;
+	              }
+	            }
+
+	            var photonPosRatio = photon.__progressRatio;
 	            var pos = getPhotonPos(photonPosRatio);
 	            ['x', 'y', 'z'].forEach(function (dim) {
 	              return photon.position[dim] = pos[dim];
@@ -1253,6 +1280,35 @@
 	          });
 	        });
 	      }
+	    },
+	    emitParticle: function emitParticle(state, link) {
+	      if (link) {
+	        if (!link.__singleHopPhotonsObj) {
+	          var obj = new three.Group();
+	          obj.__linkThreeObjType = 'singleHopPhotons';
+	          link.__singleHopPhotonsObj = obj;
+	          state.graphScene.add(obj);
+	        }
+
+	        var particleWidthAccessor = accessorFn(state.linkDirectionalParticleWidth);
+	        var photonR = Math.ceil(particleWidthAccessor(link) * 10) / 10 / 2;
+	        var numSegments = state.linkDirectionalParticleResolution;
+	        var particleGeometry = new three.SphereBufferGeometry(photonR, numSegments, numSegments);
+	        var linkColorAccessor = accessorFn(state.linkColor);
+	        var particleColorAccessor = accessorFn(state.linkDirectionalParticleColor);
+	        var photonColor = particleColorAccessor(link) || linkColorAccessor(link) || '#f0f0f0';
+	        var materialColor = new three.Color(colorStr2Hex(photonColor));
+	        var opacity = state.linkOpacity * 3;
+	        var particleMaterial = new three.MeshLambertMaterial({
+	          color: materialColor,
+	          transparent: true,
+	          opacity: opacity
+	        }); // add a single hop particle
+
+	        link.__singleHopPhotonsObj.add(new three.Mesh(particleGeometry, particleMaterial));
+	      }
+
+	      return this;
 	    }
 	  },
 	  stateInit: function stateInit() {

@@ -90,6 +90,11 @@ AFRAME.registerComponent('forcegraph', {
   },
 
   // Bind component methods
+  emitParticle: function(link) {
+    this.forceGraph && this.forceGraph.emitParticle(link);
+    return this;
+  },
+
   d3Force: function() {
     if (!this.forceGraph) {
       // Got here before component init -> initialize forceGraph
