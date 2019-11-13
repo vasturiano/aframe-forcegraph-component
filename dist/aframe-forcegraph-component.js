@@ -352,13 +352,13 @@
 	var d3Force3d = __webpack_require__(4);
 	var graph = _interopDefault(__webpack_require__(10));
 	var forcelayout = _interopDefault(__webpack_require__(12));
-	var forcelayout3d = _interopDefault(__webpack_require__(31));
-	var Kapsule = _interopDefault(__webpack_require__(58));
+	var forcelayout3d = _interopDefault(__webpack_require__(29));
+	var Kapsule = _interopDefault(__webpack_require__(57));
 	var accessorFn = _interopDefault(__webpack_require__(1));
-	var dataJoint = _interopDefault(__webpack_require__(60));
-	var d3Scale = __webpack_require__(62);
-	var d3ScaleChromatic = __webpack_require__(69);
-	var tinyColor = _interopDefault(__webpack_require__(70));
+	var dataJoint = _interopDefault(__webpack_require__(59));
+	var d3Scale = __webpack_require__(61);
+	var d3ScaleChromatic = __webpack_require__(68);
+	var tinyColor = _interopDefault(__webpack_require__(69));
 
 	function _typeof(obj) {
 	  if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
@@ -1023,8 +1023,8 @@
 	        var linkCurveRotationAccessor = accessorFn(state.linkCurveRotation);
 	        var linkThreeObjectExtendAccessor = accessorFn(state.linkThreeObjectExtend);
 	        state.graphData.links.forEach(function (link) {
-	          var line = link.__lineObj;
-	          if (!line) return;
+	          var lineObj = link.__lineObj;
+	          if (!lineObj) return;
 	          var pos = isD3Sim ? link : state.layout.getLinkPosition(state.layout.graph.getLink(link.source, link.target).id);
 	          var start = pos[isD3Sim ? 'source' : 'from'];
 	          var end = pos[isD3Sim ? 'target' : 'to'];
@@ -1034,7 +1034,7 @@
 
 	          var extendedObj = linkThreeObjectExtendAccessor(link);
 
-	          if (state.linkPositionUpdate && state.linkPositionUpdate(extendedObj ? line.children[0] : line, // pass child custom object if extending the default
+	          if (state.linkPositionUpdate && state.linkPositionUpdate(extendedObj ? lineObj.children[1] : lineObj, // pass child custom object if extending the default
 	          {
 	            start: {
 	              x: start.x,
@@ -1053,7 +1053,9 @@
 
 	          var curveResolution = 30; // # line segments
 
-	          var curve = link.__curve;
+	          var curve = link.__curve; // select default line obj if it's an extended group
+
+	          var line = lineObj.children.length ? lineObj.children[0] : lineObj;
 
 	          if (line.type === 'Line') {
 	            // Update line geometry
@@ -1459,27 +1461,37 @@
 	            customObj = customObj.clone();
 	          }
 
-	          var obj;
+	          var defaultObj;
 
-	          if (customObj && !extendObj) {
-	            obj = customObj;
-
-	            _bypassUpdObjs.add(obj);
-	          } else {
-	            // Add default line object
+	          if (!customObj || extendObj) {
+	            // construct default line obj
 	            var useCylinder = !!widthAccessor(link);
 
 	            if (useCylinder) {
-	              obj = new three.Mesh();
+	              defaultObj = new three.Mesh();
 	            } else {
 	              // Use plain line (constant width)
 	              var lineGeometry = new three.BufferGeometry();
 	              lineGeometry.addAttribute('position', new three.BufferAttribute(new Float32Array(2 * 3), 3));
-	              obj = new three.Line(lineGeometry);
+	              defaultObj = new three.Line(lineGeometry);
 	            }
+	          }
 
-	            if (customObj && extendObj) {
-	              obj.add(customObj); // extend default with custom
+	          var obj;
+
+	          if (!customObj) {
+	            obj = defaultObj;
+	          } else {
+	            if (!extendObj) {
+	              // use custom object
+	              obj = customObj;
+
+	              _bypassUpdObjs.add(obj);
+	            } else {
+	              // extend default with custom in a group
+	              obj = new three.Group();
+	              obj.add(defaultObj);
+	              obj.add(customObj);
 	            }
 	          }
 
@@ -1489,8 +1501,10 @@
 
 	          return obj;
 	        },
-	        updateObj: function updateObj(obj, link) {
-	          if (!_bypassUpdObjs.has(obj)) {
+	        updateObj: function updateObj(updObj, link) {
+	          if (!_bypassUpdObjs.has(updObj)) {
+	            // select default object if it's an extended group
+	            var obj = updObj.children.length ? updObj.children[0] : updObj;
 	            var linkWidth = Math.ceil(widthAccessor(link) * 10) / 10;
 	            var useCylinder = !!linkWidth;
 
@@ -2628,12 +2642,12 @@
 /* 5 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://github.com/vasturiano/d3-binarytree v0.1.4 Copyright 2018 Vasco Asturiano
+	// https://github.com/vasturiano/d3-binarytree v0.1.5 Copyright 2019 Vasco Asturiano
 	(function (global, factory) {
 	 true ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(factory((global.d3 = global.d3 || {})));
-	}(this, (function (exports) { 'use strict';
+	(global = global || self, factory(global.d3 = global.d3 || {}));
+	}(this, function (exports) { 'use strict';
 
 	function tree_add(d) {
 	  var x = +this._x.call(null, d);
@@ -2994,7 +3008,7 @@
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	})));
+	}));
 
 
 /***/ }),
@@ -3426,12 +3440,12 @@
 /* 7 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://github.com/vasturiano/d3-octree v0.1.4 Copyright 2018 Vasco Asturiano
+	// https://github.com/vasturiano/d3-octree v0.1.5 Copyright 2019 Vasco Asturiano
 	(function (global, factory) {
 	 true ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(factory((global.d3 = global.d3 || {})));
-	}(this, (function (exports) { 'use strict';
+	(global = global || self, factory(global.d3 = global.d3 || {}));
+	}(this, function (exports) { 'use strict';
 
 	function tree_add(d) {
 	  var x = +this._x.call(null, d),
@@ -3942,7 +3956,7 @@
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	})));
+	}));
 
 
 /***/ }),
@@ -4909,7 +4923,7 @@
 	module.exports = createLayout;
 	module.exports.simulator = __webpack_require__(13);
 
-	var eventify = __webpack_require__(30);
+	var eventify = __webpack_require__(11);
 
 	/**
 	 * Creates force based layout for a given graph.
@@ -5296,7 +5310,7 @@
 	  var Spring = __webpack_require__(14);
 	  var expose = __webpack_require__(15);
 	  var merge = __webpack_require__(16);
-	  var eventify = __webpack_require__(17);
+	  var eventify = __webpack_require__(11);
 
 	  settings = merge(settings, {
 	      /**
@@ -5336,12 +5350,12 @@
 	  });
 
 	  // We allow clients to override basic factory methods:
-	  var createQuadTree = settings.createQuadTree || __webpack_require__(18);
-	  var createBounds = settings.createBounds || __webpack_require__(23);
-	  var createDragForce = settings.createDragForce || __webpack_require__(25);
-	  var createSpringForce = settings.createSpringForce || __webpack_require__(26);
-	  var integrate = settings.integrator || __webpack_require__(27);
-	  var createBody = settings.createBody || __webpack_require__(28);
+	  var createQuadTree = settings.createQuadTree || __webpack_require__(17);
+	  var createBounds = settings.createBounds || __webpack_require__(22);
+	  var createDragForce = settings.createDragForce || __webpack_require__(24);
+	  var createSpringForce = settings.createSpringForce || __webpack_require__(25);
+	  var integrate = settings.integrator || __webpack_require__(26);
+	  var createBody = settings.createBody || __webpack_require__(27);
 
 	  var bodies = [], // Bodies in this simulation.
 	      springs = [], // Springs in this simulation.
@@ -5674,100 +5688,6 @@
 
 /***/ }),
 /* 17 */
-/***/ (function(module, exports) {
-
-	module.exports = function(subject) {
-	  validateSubject(subject);
-
-	  var eventsStorage = createEventsStorage(subject);
-	  subject.on = eventsStorage.on;
-	  subject.off = eventsStorage.off;
-	  subject.fire = eventsStorage.fire;
-	  return subject;
-	};
-
-	function createEventsStorage(subject) {
-	  // Store all event listeners to this hash. Key is event name, value is array
-	  // of callback records.
-	  //
-	  // A callback record consists of callback function and its optional context:
-	  // { 'eventName' => [{callback: function, ctx: object}] }
-	  var registeredEvents = Object.create(null);
-
-	  return {
-	    on: function (eventName, callback, ctx) {
-	      if (typeof callback !== 'function') {
-	        throw new Error('callback is expected to be a function');
-	      }
-	      var handlers = registeredEvents[eventName];
-	      if (!handlers) {
-	        handlers = registeredEvents[eventName] = [];
-	      }
-	      handlers.push({callback: callback, ctx: ctx});
-
-	      return subject;
-	    },
-
-	    off: function (eventName, callback) {
-	      var wantToRemoveAll = (typeof eventName === 'undefined');
-	      if (wantToRemoveAll) {
-	        // Killing old events storage should be enough in this case:
-	        registeredEvents = Object.create(null);
-	        return subject;
-	      }
-
-	      if (registeredEvents[eventName]) {
-	        var deleteAllCallbacksForEvent = (typeof callback !== 'function');
-	        if (deleteAllCallbacksForEvent) {
-	          delete registeredEvents[eventName];
-	        } else {
-	          var callbacks = registeredEvents[eventName];
-	          for (var i = 0; i < callbacks.length; ++i) {
-	            if (callbacks[i].callback === callback) {
-	              callbacks.splice(i, 1);
-	            }
-	          }
-	        }
-	      }
-
-	      return subject;
-	    },
-
-	    fire: function (eventName) {
-	      var callbacks = registeredEvents[eventName];
-	      if (!callbacks) {
-	        return subject;
-	      }
-
-	      var fireArguments;
-	      if (arguments.length > 1) {
-	        fireArguments = Array.prototype.splice.call(arguments, 1);
-	      }
-	      for(var i = 0; i < callbacks.length; ++i) {
-	        var callbackInfo = callbacks[i];
-	        callbackInfo.callback.apply(callbackInfo.ctx, fireArguments);
-	      }
-
-	      return subject;
-	    }
-	  };
-	}
-
-	function validateSubject(subject) {
-	  if (!subject) {
-	    throw new Error('Eventify cannot use falsy object as events subject');
-	  }
-	  var reservedWords = ['on', 'fire', 'off'];
-	  for (var i = 0; i < reservedWords.length; ++i) {
-	    if (subject.hasOwnProperty(reservedWords[i])) {
-	      throw new Error("Subject cannot be eventified, since it already has property '" + reservedWords[i] + "'");
-	    }
-	  }
-	}
-
-
-/***/ }),
-/* 18 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -5783,10 +5703,10 @@
 	  options.theta = typeof options.theta === 'number' ? options.theta : 0.8;
 
 	  // we require deterministic randomness here
-	  var random = __webpack_require__(19).random(1984),
-	    Node = __webpack_require__(20),
-	    InsertStack = __webpack_require__(21),
-	    isSamePosition = __webpack_require__(22);
+	  var random = __webpack_require__(18).random(1984),
+	    Node = __webpack_require__(19),
+	    InsertStack = __webpack_require__(20),
+	    isSamePosition = __webpack_require__(21);
 
 	  var gravity = options.gravity,
 	    updateQueue = [],
@@ -6100,7 +6020,7 @@
 
 
 /***/ }),
-/* 19 */
+/* 18 */
 /***/ (function(module, exports) {
 
 	module.exports = random;
@@ -6221,7 +6141,7 @@
 	}
 
 /***/ }),
-/* 20 */
+/* 19 */
 /***/ (function(module, exports) {
 
 	/**
@@ -6257,7 +6177,7 @@
 
 
 /***/ }),
-/* 21 */
+/* 20 */
 /***/ (function(module, exports) {
 
 	module.exports = InsertStack;
@@ -6305,7 +6225,7 @@
 
 
 /***/ }),
-/* 22 */
+/* 21 */
 /***/ (function(module, exports) {
 
 	module.exports = function isSamePosition(point1, point2) {
@@ -6317,11 +6237,11 @@
 
 
 /***/ }),
-/* 23 */
+/* 22 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = function (bodies, settings) {
-	  var random = __webpack_require__(24).random(42);
+	  var random = __webpack_require__(23).random(42);
 	  var boundingBox =  { x1: 0, y1: 0, x2: 0, y2: 0 };
 
 	  return {
@@ -6403,7 +6323,7 @@
 
 
 /***/ }),
-/* 24 */
+/* 23 */
 /***/ (function(module, exports) {
 
 	module.exports = random;
@@ -6524,7 +6444,7 @@
 	}
 
 /***/ }),
-/* 25 */
+/* 24 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -6557,7 +6477,7 @@
 
 
 /***/ }),
-/* 26 */
+/* 25 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -6570,7 +6490,7 @@
 	 */
 	module.exports = function (options) {
 	  var merge = __webpack_require__(16);
-	  var random = __webpack_require__(24).random(42);
+	  var random = __webpack_require__(23).random(42);
 	  var expose = __webpack_require__(15);
 
 	  options = merge(options, {
@@ -6613,7 +6533,7 @@
 
 
 /***/ }),
-/* 27 */
+/* 26 */
 /***/ (function(module, exports) {
 
 	/**
@@ -6666,10 +6586,10 @@
 
 
 /***/ }),
-/* 28 */
+/* 27 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var physics = __webpack_require__(29);
+	var physics = __webpack_require__(28);
 
 	module.exports = function(pos) {
 	  return new physics.Body(pos);
@@ -6677,7 +6597,7 @@
 
 
 /***/ }),
-/* 29 */
+/* 28 */
 /***/ (function(module, exports) {
 
 	module.exports = {
@@ -6748,101 +6668,7 @@
 
 
 /***/ }),
-/* 30 */
-/***/ (function(module, exports) {
-
-	module.exports = function(subject) {
-	  validateSubject(subject);
-
-	  var eventsStorage = createEventsStorage(subject);
-	  subject.on = eventsStorage.on;
-	  subject.off = eventsStorage.off;
-	  subject.fire = eventsStorage.fire;
-	  return subject;
-	};
-
-	function createEventsStorage(subject) {
-	  // Store all event listeners to this hash. Key is event name, value is array
-	  // of callback records.
-	  //
-	  // A callback record consists of callback function and its optional context:
-	  // { 'eventName' => [{callback: function, ctx: object}] }
-	  var registeredEvents = Object.create(null);
-
-	  return {
-	    on: function (eventName, callback, ctx) {
-	      if (typeof callback !== 'function') {
-	        throw new Error('callback is expected to be a function');
-	      }
-	      var handlers = registeredEvents[eventName];
-	      if (!handlers) {
-	        handlers = registeredEvents[eventName] = [];
-	      }
-	      handlers.push({callback: callback, ctx: ctx});
-
-	      return subject;
-	    },
-
-	    off: function (eventName, callback) {
-	      var wantToRemoveAll = (typeof eventName === 'undefined');
-	      if (wantToRemoveAll) {
-	        // Killing old events storage should be enough in this case:
-	        registeredEvents = Object.create(null);
-	        return subject;
-	      }
-
-	      if (registeredEvents[eventName]) {
-	        var deleteAllCallbacksForEvent = (typeof callback !== 'function');
-	        if (deleteAllCallbacksForEvent) {
-	          delete registeredEvents[eventName];
-	        } else {
-	          var callbacks = registeredEvents[eventName];
-	          for (var i = 0; i < callbacks.length; ++i) {
-	            if (callbacks[i].callback === callback) {
-	              callbacks.splice(i, 1);
-	            }
-	          }
-	        }
-	      }
-
-	      return subject;
-	    },
-
-	    fire: function (eventName) {
-	      var callbacks = registeredEvents[eventName];
-	      if (!callbacks) {
-	        return subject;
-	      }
-
-	      var fireArguments;
-	      if (arguments.length > 1) {
-	        fireArguments = Array.prototype.splice.call(arguments, 1);
-	      }
-	      for(var i = 0; i < callbacks.length; ++i) {
-	        var callbackInfo = callbacks[i];
-	        callbackInfo.callback.apply(callbackInfo.ctx, fireArguments);
-	      }
-
-	      return subject;
-	    }
-	  };
-	}
-
-	function validateSubject(subject) {
-	  if (!subject) {
-	    throw new Error('Eventify cannot use falsy object as events subject');
-	  }
-	  var reservedWords = ['on', 'fire', 'off'];
-	  for (var i = 0; i < reservedWords.length; ++i) {
-	    if (subject.hasOwnProperty(reservedWords[i])) {
-	      throw new Error("Subject cannot be eventified, since it already has property '" + reservedWords[i] + "'");
-	    }
-	  }
-	}
-
-
-/***/ }),
-/* 31 */
+/* 29 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -6852,17 +6678,17 @@
 	 * I was doing it wrong, will see if I can refactor/throw away this module.
 	 */
 	module.exports = createLayout;
-	createLayout.get2dLayout = __webpack_require__(32);
+	createLayout.get2dLayout = __webpack_require__(30);
 
 	function createLayout(graph, physicsSettings) {
-	  var merge = __webpack_require__(36);
+	  var merge = __webpack_require__(34);
 	  physicsSettings = merge(physicsSettings, {
-	        createQuadTree: __webpack_require__(48),
-	        createBounds: __webpack_require__(52),
-	        createDragForce: __webpack_require__(53),
-	        createSpringForce: __webpack_require__(54),
+	        createQuadTree: __webpack_require__(47),
+	        createBounds: __webpack_require__(51),
+	        createDragForce: __webpack_require__(52),
+	        createSpringForce: __webpack_require__(53),
 	        integrator: getIntegrator(physicsSettings),
-	        createBody: __webpack_require__(55)
+	        createBody: __webpack_require__(54)
 	      });
 
 	  return createLayout.get2dLayout(graph, physicsSettings);
@@ -6870,21 +6696,21 @@
 
 	function getIntegrator(physicsSettings) {
 	  if (physicsSettings && physicsSettings.integrator === 'verlet') {
-	    return __webpack_require__(56);
+	    return __webpack_require__(55);
 	  }
 
-	  return __webpack_require__(57)
+	  return __webpack_require__(56)
 	}
 
 
 /***/ }),
-/* 32 */
+/* 30 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = createLayout;
-	module.exports.simulator = __webpack_require__(33);
+	module.exports.simulator = __webpack_require__(31);
 
-	var eventify = __webpack_require__(11);
+	var eventify = __webpack_require__(35);
 
 	/**
 	 * Creates force based layout for a given graph.
@@ -6898,7 +6724,7 @@
 	    throw new Error('Graph structure cannot be undefined');
 	  }
 
-	  var createSimulator = __webpack_require__(33);
+	  var createSimulator = __webpack_require__(31);
 	  var physicsSimulator = createSimulator(physicsSettings);
 
 	  var nodeBodies = typeof Object.create === 'function' ? Object.create(null) : {};
@@ -7197,7 +7023,7 @@
 
 
 /***/ }),
-/* 33 */
+/* 31 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -7206,10 +7032,10 @@
 	module.exports = physicsSimulator;
 
 	function physicsSimulator(settings) {
-	  var Spring = __webpack_require__(34);
-	  var expose = __webpack_require__(35);
-	  var merge = __webpack_require__(36);
-	  var eventify = __webpack_require__(11);
+	  var Spring = __webpack_require__(32);
+	  var expose = __webpack_require__(33);
+	  var merge = __webpack_require__(34);
+	  var eventify = __webpack_require__(35);
 
 	  settings = merge(settings, {
 	      /**
@@ -7254,12 +7080,12 @@
 	  });
 
 	  // We allow clients to override basic factory methods:
-	  var createQuadTree = settings.createQuadTree || __webpack_require__(37);
-	  var createBounds = settings.createBounds || __webpack_require__(42);
-	  var createDragForce = settings.createDragForce || __webpack_require__(43);
-	  var createSpringForce = settings.createSpringForce || __webpack_require__(44);
-	  var integrate = settings.integrator || __webpack_require__(45);
-	  var createBody = settings.createBody || __webpack_require__(46);
+	  var createQuadTree = settings.createQuadTree || __webpack_require__(36);
+	  var createBounds = settings.createBounds || __webpack_require__(41);
+	  var createDragForce = settings.createDragForce || __webpack_require__(42);
+	  var createSpringForce = settings.createSpringForce || __webpack_require__(43);
+	  var integrate = settings.integrator || __webpack_require__(44);
+	  var createBody = settings.createBody || __webpack_require__(45);
 
 	  var bodies = [], // Bodies in this simulation.
 	      springs = [], // Springs in this simulation.
@@ -7479,7 +7305,7 @@
 
 
 /***/ }),
-/* 34 */
+/* 32 */
 /***/ (function(module, exports) {
 
 	module.exports = Spring;
@@ -7499,7 +7325,7 @@
 
 
 /***/ }),
-/* 35 */
+/* 33 */
 /***/ (function(module, exports) {
 
 	module.exports = exposeProperties;
@@ -7549,7 +7375,7 @@
 
 
 /***/ }),
-/* 36 */
+/* 34 */
 /***/ (function(module, exports) {
 
 	module.exports = merge;
@@ -7586,7 +7412,101 @@
 
 
 /***/ }),
-/* 37 */
+/* 35 */
+/***/ (function(module, exports) {
+
+	module.exports = function(subject) {
+	  validateSubject(subject);
+
+	  var eventsStorage = createEventsStorage(subject);
+	  subject.on = eventsStorage.on;
+	  subject.off = eventsStorage.off;
+	  subject.fire = eventsStorage.fire;
+	  return subject;
+	};
+
+	function createEventsStorage(subject) {
+	  // Store all event listeners to this hash. Key is event name, value is array
+	  // of callback records.
+	  //
+	  // A callback record consists of callback function and its optional context:
+	  // { 'eventName' => [{callback: function, ctx: object}] }
+	  var registeredEvents = Object.create(null);
+
+	  return {
+	    on: function (eventName, callback, ctx) {
+	      if (typeof callback !== 'function') {
+	        throw new Error('callback is expected to be a function');
+	      }
+	      var handlers = registeredEvents[eventName];
+	      if (!handlers) {
+	        handlers = registeredEvents[eventName] = [];
+	      }
+	      handlers.push({callback: callback, ctx: ctx});
+
+	      return subject;
+	    },
+
+	    off: function (eventName, callback) {
+	      var wantToRemoveAll = (typeof eventName === 'undefined');
+	      if (wantToRemoveAll) {
+	        // Killing old events storage should be enough in this case:
+	        registeredEvents = Object.create(null);
+	        return subject;
+	      }
+
+	      if (registeredEvents[eventName]) {
+	        var deleteAllCallbacksForEvent = (typeof callback !== 'function');
+	        if (deleteAllCallbacksForEvent) {
+	          delete registeredEvents[eventName];
+	        } else {
+	          var callbacks = registeredEvents[eventName];
+	          for (var i = 0; i < callbacks.length; ++i) {
+	            if (callbacks[i].callback === callback) {
+	              callbacks.splice(i, 1);
+	            }
+	          }
+	        }
+	      }
+
+	      return subject;
+	    },
+
+	    fire: function (eventName) {
+	      var callbacks = registeredEvents[eventName];
+	      if (!callbacks) {
+	        return subject;
+	      }
+
+	      var fireArguments;
+	      if (arguments.length > 1) {
+	        fireArguments = Array.prototype.splice.call(arguments, 1);
+	      }
+	      for(var i = 0; i < callbacks.length; ++i) {
+	        var callbackInfo = callbacks[i];
+	        callbackInfo.callback.apply(callbackInfo.ctx, fireArguments);
+	      }
+
+	      return subject;
+	    }
+	  };
+	}
+
+	function validateSubject(subject) {
+	  if (!subject) {
+	    throw new Error('Eventify cannot use falsy object as events subject');
+	  }
+	  var reservedWords = ['on', 'fire', 'off'];
+	  for (var i = 0; i < reservedWords.length; ++i) {
+	    if (subject.hasOwnProperty(reservedWords[i])) {
+	      throw new Error("Subject cannot be eventified, since it already has property '" + reservedWords[i] + "'");
+	    }
+	  }
+	}
+
+
+/***/ }),
+/* 36 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -7602,10 +7522,10 @@
 	  options.theta = typeof options.theta === 'number' ? options.theta : 0.8;
 
 	  // we require deterministic randomness here
-	  var random = __webpack_require__(38).random(1984),
-	    Node = __webpack_require__(39),
-	    InsertStack = __webpack_require__(40),
-	    isSamePosition = __webpack_require__(41);
+	  var random = __webpack_require__(37).random(1984),
+	    Node = __webpack_require__(38),
+	    InsertStack = __webpack_require__(39),
+	    isSamePosition = __webpack_require__(40);
 
 	  var gravity = options.gravity,
 	    updateQueue = [],
@@ -7916,7 +7836,7 @@
 
 
 /***/ }),
-/* 38 */
+/* 37 */
 /***/ (function(module, exports) {
 
 	module.exports = {
@@ -8007,7 +7927,7 @@
 
 
 /***/ }),
-/* 39 */
+/* 38 */
 /***/ (function(module, exports) {
 
 	/**
@@ -8043,7 +7963,7 @@
 
 
 /***/ }),
-/* 40 */
+/* 39 */
 /***/ (function(module, exports) {
 
 	module.exports = InsertStack;
@@ -8091,7 +8011,7 @@
 
 
 /***/ }),
-/* 41 */
+/* 40 */
 /***/ (function(module, exports) {
 
 	module.exports = function isSamePosition(point1, point2) {
@@ -8103,11 +8023,11 @@
 
 
 /***/ }),
-/* 42 */
+/* 41 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = function (bodies, settings) {
-	  var random = __webpack_require__(38).random(42);
+	  var random = __webpack_require__(37).random(42);
 	  var boundingBox =  { x1: 0, y1: 0, x2: 0, y2: 0 };
 
 	  return {
@@ -8189,7 +8109,7 @@
 
 
 /***/ }),
-/* 43 */
+/* 42 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -8200,8 +8120,8 @@
 	 * @param {Number=} options.dragCoeff drag force coefficient. 0.1 by default
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(36),
-	      expose = __webpack_require__(35);
+	  var merge = __webpack_require__(34),
+	      expose = __webpack_require__(33);
 
 	  options = merge(options, {
 	    dragCoeff: 0.02
@@ -8222,7 +8142,7 @@
 
 
 /***/ }),
-/* 44 */
+/* 43 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -8234,9 +8154,9 @@
 	 * @param {Number=} options.springLength desired length of a spring at rest.
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(36);
-	  var random = __webpack_require__(38).random(42);
-	  var expose = __webpack_require__(35);
+	  var merge = __webpack_require__(34);
+	  var random = __webpack_require__(37).random(42);
+	  var expose = __webpack_require__(33);
 
 	  options = merge(options, {
 	    springCoeff: 0.0002,
@@ -8278,7 +8198,7 @@
 
 
 /***/ }),
-/* 45 */
+/* 44 */
 /***/ (function(module, exports) {
 
 	/**
@@ -8329,10 +8249,10 @@
 
 
 /***/ }),
-/* 46 */
+/* 45 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var physics = __webpack_require__(47);
+	var physics = __webpack_require__(46);
 
 	module.exports = function(pos) {
 	  return new physics.Body(pos);
@@ -8340,7 +8260,7 @@
 
 
 /***/ }),
-/* 47 */
+/* 46 */
 /***/ (function(module, exports) {
 
 	module.exports = {
@@ -8411,7 +8331,7 @@
 
 
 /***/ }),
-/* 48 */
+/* 47 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -8432,10 +8352,10 @@
 	  options.theta = typeof options.theta === 'number' ? options.theta : 0.8;
 
 	  // we require deterministic randomness here
-	  var random = __webpack_require__(38).random(1984),
-	    Node = __webpack_require__(49),
-	    InsertStack = __webpack_require__(50),
-	    isSamePosition = __webpack_require__(51);
+	  var random = __webpack_require__(37).random(1984),
+	    Node = __webpack_require__(48),
+	    InsertStack = __webpack_require__(49),
+	    isSamePosition = __webpack_require__(50);
 
 	  var gravity = options.gravity,
 	    updateQueue = [],
@@ -8810,7 +8730,7 @@
 
 
 /***/ }),
-/* 49 */
+/* 48 */
 /***/ (function(module, exports) {
 
 	/**
@@ -8858,7 +8778,7 @@
 
 
 /***/ }),
-/* 50 */
+/* 49 */
 /***/ (function(module, exports) {
 
 	module.exports = InsertStack;
@@ -8906,7 +8826,7 @@
 
 
 /***/ }),
-/* 51 */
+/* 50 */
 /***/ (function(module, exports) {
 
 	module.exports = function isSamePosition(point1, point2) {
@@ -8919,11 +8839,11 @@
 
 
 /***/ }),
-/* 52 */
+/* 51 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = function (bodies, settings) {
-	  var random = __webpack_require__(38).random(42);
+	  var random = __webpack_require__(37).random(42);
 	  var boundingBox =  { x1: 0, y1: 0, z1: 0, x2: 0, y2: 0, z2: 0 };
 
 	  return {
@@ -9022,7 +8942,7 @@
 
 
 /***/ }),
-/* 53 */
+/* 52 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -9033,8 +8953,8 @@
 	 * @param {Number=} options.dragCoeff drag force coefficient. 0.1 by default
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(36),
-	      expose = __webpack_require__(35);
+	  var merge = __webpack_require__(34),
+	      expose = __webpack_require__(33);
 
 	  options = merge(options, {
 	    dragCoeff: 0.02
@@ -9056,7 +8976,7 @@
 
 
 /***/ }),
-/* 54 */
+/* 53 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -9068,9 +8988,9 @@
 	 * @param {Number=} options.springLength desired length of a spring at rest.
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(36);
-	  var random = __webpack_require__(38).random(42);
-	  var expose = __webpack_require__(35);
+	  var merge = __webpack_require__(34);
+	  var random = __webpack_require__(37).random(42);
+	  var expose = __webpack_require__(33);
 
 	  options = merge(options, {
 	    springCoeff: 0.0002,
@@ -9116,10 +9036,10 @@
 
 
 /***/ }),
-/* 55 */
+/* 54 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var physics = __webpack_require__(47);
+	var physics = __webpack_require__(46);
 
 	module.exports = function(pos) {
 	  return new physics.Body3d(pos);
@@ -9127,7 +9047,7 @@
 
 
 /***/ }),
-/* 56 */
+/* 55 */
 /***/ (function(module, exports) {
 
 	module.exports = integrate;
@@ -9154,7 +9074,7 @@
 
 
 /***/ }),
-/* 57 */
+/* 56 */
 /***/ (function(module, exports) {
 
 	/**
@@ -9208,14 +9128,14 @@
 
 
 /***/ }),
-/* 58 */
+/* 57 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 
 	function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-	var debounce = _interopDefault(__webpack_require__(59));
+	var debounce = _interopDefault(__webpack_require__(58));
 
 	function _classCallCheck(instance, Constructor) {
 	  if (!(instance instanceof Constructor)) {
@@ -9405,7 +9325,7 @@
 
 
 /***/ }),
-/* 59 */
+/* 58 */
 /***/ (function(module, exports) {
 
 	/**
@@ -9481,14 +9401,14 @@
 
 
 /***/ }),
-/* 60 */
+/* 59 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 
 	function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-	var indexBy = _interopDefault(__webpack_require__(61));
+	var indexBy = _interopDefault(__webpack_require__(60));
 
 	function _defineProperty(obj, key, value) {
 	  if (key in obj) {
@@ -9785,7 +9705,7 @@
 
 
 /***/ }),
-/* 61 */
+/* 60 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -9851,6 +9771,10 @@
 	}
 
 	function _iterableToArrayLimit(arr, i) {
+	  if (!(Symbol.iterator in Object(arr) || Object.prototype.toString.call(arr) === "[object Arguments]")) {
+	    return;
+	  }
+
 	  var _arr = [];
 	  var _n = true;
 	  var _d = false;
@@ -9903,10 +9827,12 @@
 	  return typeof key === "symbol" ? key : String(key);
 	}
 
-	var index = (function (list, keyAccessors) {
+	var index = (function () {
+	  var list = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+	  var keyAccessors = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : [];
 	  var multiItem = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
 	  var flattenKeys = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : false;
-	  var keys = (keyAccessors instanceof Array ? keyAccessors : [keyAccessors]).map(function (key) {
+	  var keys = (keyAccessors instanceof Array ? keyAccessors.length ? keyAccessors : [undefined] : [keyAccessors]).map(function (key) {
 	    return {
 	      keyAccessor: key,
 	      isProp: !(key instanceof Function)
@@ -9996,6 +9922,11 @@
 	      }
 	    })(indexedResult); //IIFE
 
+
+	    if (keyAccessors instanceof Array && keyAccessors.length === 0 && result.length === 1) {
+	      // clear keys if there's no key accessors (single result)
+	      result[0].keys = [];
+	    }
 	  }
 
 	  return result;
@@ -10005,12 +9936,12 @@
 
 
 /***/ }),
-/* 62 */
+/* 61 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-scale/ v3.1.0 Copyright 2019 Mike Bostock
+	// https://d3js.org/d3-scale/ v3.2.0 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(63), __webpack_require__(64), __webpack_require__(66), __webpack_require__(67), __webpack_require__(68)) :
+	 true ? factory(exports, __webpack_require__(62), __webpack_require__(63), __webpack_require__(65), __webpack_require__(66), __webpack_require__(67)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-array', 'd3-interpolate', 'd3-format', 'd3-time', 'd3-time-format'], factory) :
 	(global = global || self, factory(global.d3 = global.d3 || {}, global.d3, global.d3, global.d3, global.d3, global.d3));
 	}(this, function (exports, d3Array, d3Interpolate, d3Format, d3Time, d3TimeFormat) { 'use strict';
@@ -10027,8 +9958,17 @@
 	function initInterpolator(domain, interpolator) {
 	  switch (arguments.length) {
 	    case 0: break;
-	    case 1: this.interpolator(domain); break;
-	    default: this.interpolator(interpolator).domain(domain); break;
+	    case 1: {
+	      if (typeof domain === "function") this.interpolator(domain);
+	      else this.range(domain);
+	      break;
+	    }
+	    default: {
+	      this.domain(domain);
+	      if (typeof interpolator === "function") this.interpolator(interpolator);
+	      else this.range(interpolator);
+	      break;
+	    }
 	  }
 	  return this;
 	}
@@ -11032,9 +10972,16 @@
 	    return arguments.length ? (interpolator = _, scale) : interpolator;
 	  };
 
-	  scale.range = function() {
-	    return [interpolator(0), interpolator(1)];
-	  };
+	  function range(interpolate) {
+	    return function(_) {
+	      var r0, r1;
+	      return arguments.length ? ([r0, r1] = _, interpolator = interpolate(r0, r1), scale) : [interpolator(0), interpolator(1)];
+	    };
+	  }
+
+	  scale.range = range(d3Interpolate.interpolate);
+
+	  scale.rangeRound = range(d3Interpolate.interpolateRound);
 
 	  scale.unknown = function(_) {
 	    return arguments.length ? (unknown = _, scale) : unknown;
@@ -11122,6 +11069,10 @@
 	    return domain.map((d, i) => interpolator(i / (domain.length - 1)));
 	  };
 
+	  scale.quantiles = function(n) {
+	    return Array.from({length: n + 1}, (_, i) => d3Array.quantile(domain, i / n));
+	  };
+
 	  scale.copy = function() {
 	    return sequentialQuantile(interpolator).domain(domain);
 	  };
@@ -11160,9 +11111,16 @@
 	    return arguments.length ? (interpolator = _, scale) : interpolator;
 	  };
 
-	  scale.range = function() {
-	    return [interpolator(0), interpolator(0.5), interpolator(1)];
-	  };
+	  function range(interpolate) {
+	    return function(_) {
+	      var r0, r1, r2;
+	      return arguments.length ? ([r0, r1, r2] = _, interpolator = d3Interpolate.piecewise(interpolate, [r0, r1, r2]), scale) : [interpolator(0), interpolator(0.5), interpolator(1)];
+	    };
+	  }
+
+	  scale.range = range(d3Interpolate.interpolate);
+
+	  scale.rangeRound = range(d3Interpolate.interpolateRound);
 
 	  scale.unknown = function(_) {
 	    return arguments.length ? (unknown = _, scale) : unknown;
@@ -11253,15 +11211,15 @@
 
 
 /***/ }),
-/* 63 */
+/* 62 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-array/ v2.2.0 Copyright 2019 Mike Bostock
+	// https://d3js.org/d3-array/ v2.4.0 Copyright 2019 Mike Bostock
 	(function (global, factory) {
 	 true ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(factory((global.d3 = global.d3 || {})));
-	}(this, (function (exports) { 'use strict';
+	(global = global || self, factory(global.d3 = global.d3 || {}));
+	}(this, function (exports) { 'use strict';
 
 	function ascending(a, b) {
 	  return a < b ? -1 : a > b ? 1 : a >= b ? 0 : NaN;
@@ -11306,15 +11264,15 @@
 	function count(values, valueof) {
 	  let count = 0;
 	  if (valueof === undefined) {
-	    for (const value of values) {
-	      if (value != null && value >= value) {
+	    for (let value of values) {
+	      if (value != null && (value = +value) >= value) {
 	        ++count;
 	      }
 	    }
 	  } else {
 	    let index = -1;
 	    for (let value of values) {
-	      if ((value = valueof(value, ++index, values)) != null && value >= value) {
+	      if ((value = valueof(value, ++index, values)) != null && (value = +value) >= value) {
 	        ++count;
 	      }
 	    }
@@ -11354,6 +11312,13 @@
 	      index[i--] = 0;
 	    }
 	  }
+	}
+
+	function cumsum(values, valueof) {
+	  var sum = 0, index = 0;
+	  return Float64Array.from(values, valueof === undefined
+	    ? v => (sum += +v || 0)
+	    : v => (sum += +valueof(v, index++, values) || 0));
 	}
 
 	function descending(a, b) {
@@ -11463,7 +11428,6 @@
 	var array = Array.prototype;
 
 	var slice = array.slice;
-	var map = array.map;
 
 	function constant(x) {
 	  return function() {
@@ -11538,7 +11502,7 @@
 	}
 
 	function sturges(values) {
-	  return Math.ceil(Math.log(values.length) / Math.LN2) + 1;
+	  return Math.ceil(Math.log(count(values)) / Math.LN2) + 1;
 	}
 
 	function bin() {
@@ -11610,31 +11574,6 @@
 	  return histogram;
 	}
 
-	function number(x) {
-	  return x === null ? NaN : +x;
-	}
-
-	function quantile(values, p, valueof = number) {
-	  if (!(n = values.length)) return;
-	  if ((p = +p) <= 0 || n < 2) return +valueof(values[0], 0, values);
-	  if (p >= 1) return +valueof(values[n - 1], n - 1, values);
-	  var n,
-	      i = (n - 1) * p,
-	      i0 = Math.floor(i),
-	      value0 = +valueof(values[i0], i0, values),
-	      value1 = +valueof(values[i0 + 1], i0 + 1, values);
-	  return value0 + (value1 - value0) * (i - i0);
-	}
-
-	function freedmanDiaconis(values, min, max) {
-	  values = map.call(values, number).sort(ascending);
-	  return Math.ceil((max - min) / (2 * (quantile(values, 0.75) - quantile(values, 0.25)) * Math.pow(values.length, -1 / 3)));
-	}
-
-	function scott(values, min, max) {
-	  return Math.ceil((max - min) / (3.5 * deviation(values) * Math.pow(values.length, -1 / 3)));
-	}
-
 	function max(values, valueof) {
 	  let max;
 	  if (valueof === undefined) {
@@ -11656,47 +11595,25 @@
 	  return max;
 	}
 
-	function maxIndex(values, valueof) {
-	  let max;
-	  let maxIndex = -1;
-	  let index = -1;
+	function min(values, valueof) {
+	  let min;
 	  if (valueof === undefined) {
 	    for (const value of values) {
-	      ++index;
 	      if (value != null
-	          && (max < value || (max === undefined && value >= value))) {
-	        max = value, maxIndex = index;
-	      }
-	    }
-	  } else {
-	    for (let value of values) {
-	      if ((value = valueof(value, ++index, values)) != null
-	          && (max < value || (max === undefined && value >= value))) {
-	        max = value, maxIndex = index;
-	      }
-	    }
-	  }
-	  return maxIndex;
-	}
-
-	function mean(values, valueof) {
-	  let count = 0;
-	  let sum = 0;
-	  if (valueof === undefined) {
-	    for (let value of values) {
-	      if (value != null && (value = +value) >= value) {
-	        ++count, sum += value;
+	          && (min > value || (min === undefined && value >= value))) {
+	        min = value;
 	      }
 	    }
 	  } else {
 	    let index = -1;
 	    for (let value of values) {
-	      if ((value = valueof(value, ++index, values)) != null && (value = +value) >= value) {
-	        ++count, sum += value;
+	      if ((value = valueof(value, ++index, values)) != null
+	          && (min > value || (min === undefined && value >= value))) {
+	        min = value;
 	      }
 	    }
 	  }
-	  if (count) return sum / count;
+	  return min;
 	}
 
 	// Based on https://github.com/mourner/quickselect
@@ -11742,6 +11659,10 @@
 	  array[j] = t;
 	}
 
+	function number(x) {
+	  return x === null ? NaN : +x;
+	}
+
 	function* numbers(values, valueof) {
 	  if (valueof === undefined) {
 	    for (let value of values) {
@@ -11759,14 +11680,84 @@
 	  }
 	}
 
-	function median(values, valueof) {
+	function quantile(values, p, valueof) {
 	  values = Float64Array.from(numbers(values, valueof));
-	  if (!values.length) return;
-	  const n = values.length;
-	  const i = n >> 1;
-	  quickselect(values, i - 1, 0);
-	  if ((n & 1) === 0) quickselect(values, i, i);
-	  return quantile(values, 0.5);
+	  if (!(n = values.length)) return;
+	  if ((p = +p) <= 0 || n < 2) return min(values);
+	  if (p >= 1) return max(values);
+	  var n,
+	      i = (n - 1) * p,
+	      i0 = Math.floor(i),
+	      value0 = max(quickselect(values, i0).subarray(0, i0 + 1)),
+	      value1 = min(values.subarray(i0 + 1));
+	  return value0 + (value1 - value0) * (i - i0);
+	}
+
+	function quantileSorted(values, p, valueof = number) {
+	  if (!(n = values.length)) return;
+	  if ((p = +p) <= 0 || n < 2) return +valueof(values[0], 0, values);
+	  if (p >= 1) return +valueof(values[n - 1], n - 1, values);
+	  var n,
+	      i = (n - 1) * p,
+	      i0 = Math.floor(i),
+	      value0 = +valueof(values[i0], i0, values),
+	      value1 = +valueof(values[i0 + 1], i0 + 1, values);
+	  return value0 + (value1 - value0) * (i - i0);
+	}
+
+	function freedmanDiaconis(values, min, max) {
+	  return Math.ceil((max - min) / (2 * (quantile(values, 0.75) - quantile(values, 0.25)) * Math.pow(count(values), -1 / 3)));
+	}
+
+	function scott(values, min, max) {
+	  return Math.ceil((max - min) / (3.5 * deviation(values) * Math.pow(count(values), -1 / 3)));
+	}
+
+	function maxIndex(values, valueof) {
+	  let max;
+	  let maxIndex = -1;
+	  let index = -1;
+	  if (valueof === undefined) {
+	    for (const value of values) {
+	      ++index;
+	      if (value != null
+	          && (max < value || (max === undefined && value >= value))) {
+	        max = value, maxIndex = index;
+	      }
+	    }
+	  } else {
+	    for (let value of values) {
+	      if ((value = valueof(value, ++index, values)) != null
+	          && (max < value || (max === undefined && value >= value))) {
+	        max = value, maxIndex = index;
+	      }
+	    }
+	  }
+	  return maxIndex;
+	}
+
+	function mean(values, valueof) {
+	  let count = 0;
+	  let sum = 0;
+	  if (valueof === undefined) {
+	    for (let value of values) {
+	      if (value != null && (value = +value) >= value) {
+	        ++count, sum += value;
+	      }
+	    }
+	  } else {
+	    let index = -1;
+	    for (let value of values) {
+	      if ((value = valueof(value, ++index, values)) != null && (value = +value) >= value) {
+	        ++count, sum += value;
+	      }
+	    }
+	  }
+	  if (count) return sum / count;
+	}
+
+	function median(values, valueof) {
+	  return quantile(values, 0.5, valueof);
 	}
 
 	function* flatten(arrays) {
@@ -11777,27 +11768,6 @@
 
 	function merge(arrays) {
 	  return Array.from(flatten(arrays));
-	}
-
-	function min(values, valueof) {
-	  let min;
-	  if (valueof === undefined) {
-	    for (const value of values) {
-	      if (value != null
-	          && (min > value || (min === undefined && value >= value))) {
-	        min = value;
-	      }
-	    }
-	  } else {
-	    let index = -1;
-	    for (let value of values) {
-	      if ((value = valueof(value, ++index, values)) != null
-	          && (min > value || (min === undefined && value >= value))) {
-	        min = value;
-	      }
-	    }
-	  }
-	  return min;
 	}
 
 	function minIndex(values, valueof) {
@@ -11872,32 +11842,65 @@
 	}
 
 	function leastIndex(values, compare = ascending) {
-	  let min;
-	  let minIndex = -1;
+	  if (compare.length === 1) return minIndex(values, compare);
+	  let minValue;
+	  let min = -1;
 	  let index = -1;
+	  for (const value of values) {
+	    ++index;
+	    if (min < 0
+	        ? compare(value, value) === 0
+	        : compare(value, minValue) < 0) {
+	      minValue = value;
+	      min = index;
+	    }
+	  }
+	  return min;
+	}
+
+	function greatest(values, compare = ascending) {
+	  let max;
+	  let defined = false;
 	  if (compare.length === 1) {
+	    let maxValue;
 	    for (const element of values) {
-	      ++index;
 	      const value = compare(element);
-	      if (minIndex < 0
-	          ? ascending(value, value) === 0
-	          : ascending(value, min) < 0) {
-	        min = value;
-	        minIndex = index;
+	      if (defined
+	          ? ascending(value, maxValue) > 0
+	          : ascending(value, value) === 0) {
+	        max = element;
+	        maxValue = value;
+	        defined = true;
 	      }
 	    }
 	  } else {
 	    for (const value of values) {
-	      ++index;
-	      if (minIndex < 0
-	          ? compare(value, value) === 0
-	          : compare(value, min) < 0) {
-	        min = value;
-	        minIndex = index;
+	      if (defined
+	          ? compare(value, max) > 0
+	          : compare(value, value) === 0) {
+	        max = value;
+	        defined = true;
 	      }
 	    }
 	  }
-	  return minIndex;
+	  return max;
+	}
+
+	function greatestIndex(values, compare = ascending) {
+	  if (compare.length === 1) return maxIndex(values, compare);
+	  let maxValue;
+	  let max = -1;
+	  let index = -1;
+	  for (const value of values) {
+	    ++index;
+	    if (max < 0
+	        ? compare(value, value) === 0
+	        : compare(value, maxValue) > 0) {
+	      maxValue = value;
+	      max = index;
+	    }
+	  }
+	  return max;
 	}
 
 	function scan(values, compare) {
@@ -11957,25 +11960,25 @@
 	  return transpose(arguments);
 	}
 
-	exports.bisect = bisectRight;
-	exports.bisectRight = bisectRight;
-	exports.bisectLeft = bisectLeft;
 	exports.ascending = ascending;
+	exports.bin = bin;
+	exports.bisect = bisectRight;
+	exports.bisectLeft = bisectLeft;
+	exports.bisectRight = bisectRight;
 	exports.bisector = bisector;
 	exports.count = count;
 	exports.cross = cross;
+	exports.cumsum = cumsum;
 	exports.descending = descending;
 	exports.deviation = deviation;
 	exports.extent = extent;
+	exports.greatest = greatest;
+	exports.greatestIndex = greatestIndex;
 	exports.group = group;
 	exports.groups = groups;
-	exports.rollup = rollup;
-	exports.rollups = rollups;
-	exports.bin = bin;
 	exports.histogram = bin;
-	exports.thresholdFreedmanDiaconis = freedmanDiaconis;
-	exports.thresholdScott = scott;
-	exports.thresholdSturges = sturges;
+	exports.least = least;
+	exports.leastIndex = leastIndex;
 	exports.max = max;
 	exports.maxIndex = maxIndex;
 	exports.mean = mean;
@@ -11986,32 +11989,36 @@
 	exports.pairs = pairs;
 	exports.permute = permute;
 	exports.quantile = quantile;
+	exports.quantileSorted = quantileSorted;
 	exports.quickselect = quickselect;
 	exports.range = range;
-	exports.least = least;
-	exports.leastIndex = leastIndex;
+	exports.rollup = rollup;
+	exports.rollups = rollups;
 	exports.scan = scan;
 	exports.shuffle = shuffle;
 	exports.sum = sum;
-	exports.ticks = ticks;
+	exports.thresholdFreedmanDiaconis = freedmanDiaconis;
+	exports.thresholdScott = scott;
+	exports.thresholdSturges = sturges;
 	exports.tickIncrement = tickIncrement;
 	exports.tickStep = tickStep;
+	exports.ticks = ticks;
 	exports.transpose = transpose;
 	exports.variance = variance;
 	exports.zip = zip;
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	})));
+	}));
 
 
 /***/ }),
-/* 64 */
+/* 63 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-interpolate/ v1.3.2 Copyright 2018 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(65)) :
+	 true ? factory(exports, __webpack_require__(64)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-color'], factory) :
 	(factory((global.d3 = global.d3 || {}),global.d3));
 	}(this, (function (exports,d3Color) { 'use strict';
@@ -12584,15 +12591,15 @@
 
 
 /***/ }),
-/* 65 */
+/* 64 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-color/ v1.2.3 Copyright 2018 Mike Bostock
+	// https://d3js.org/d3-color/ v1.4.0 Copyright 2019 Mike Bostock
 	(function (global, factory) {
 	 true ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(factory((global.d3 = global.d3 || {})));
-	}(this, (function (exports) { 'use strict';
+	(global = global || self, factory(global.d3 = global.d3 || {}));
+	}(this, function (exports) { 'use strict';
 
 	function define(constructor, factory, prototype) {
 	  constructor.prototype = factory.prototype = prototype;
@@ -12613,8 +12620,7 @@
 	var reI = "\\s*([+-]?\\d+)\\s*",
 	    reN = "\\s*([+-]?\\d*\\.?\\d+(?:[eE][+-]?\\d+)?)\\s*",
 	    reP = "\\s*([+-]?\\d*\\.?\\d+(?:[eE][+-]?\\d+)?)%\\s*",
-	    reHex3 = /^#([0-9a-f]{3})$/,
-	    reHex6 = /^#([0-9a-f]{6})$/,
+	    reHex = /^#([0-9a-f]{3,8})$/,
 	    reRgbInteger = new RegExp("^rgb\\(" + [reI, reI, reI] + "\\)$"),
 	    reRgbPercent = new RegExp("^rgb\\(" + [reP, reP, reP] + "\\)$"),
 	    reRgbaInteger = new RegExp("^rgba\\(" + [reI, reI, reI, reN] + "\\)$"),
@@ -12774,29 +12780,46 @@
 	};
 
 	define(Color, color, {
+	  copy: function(channels) {
+	    return Object.assign(new this.constructor, this, channels);
+	  },
 	  displayable: function() {
 	    return this.rgb().displayable();
 	  },
-	  hex: function() {
-	    return this.rgb().hex();
-	  },
-	  toString: function() {
-	    return this.rgb() + "";
-	  }
+	  hex: color_formatHex, // Deprecated! Use color.formatHex.
+	  formatHex: color_formatHex,
+	  formatHsl: color_formatHsl,
+	  formatRgb: color_formatRgb,
+	  toString: color_formatRgb
 	});
 
+	function color_formatHex() {
+	  return this.rgb().formatHex();
+	}
+
+	function color_formatHsl() {
+	  return hslConvert(this).formatHsl();
+	}
+
+	function color_formatRgb() {
+	  return this.rgb().formatRgb();
+	}
+
 	function color(format) {
-	  var m;
+	  var m, l;
 	  format = (format + "").trim().toLowerCase();
-	  return (m = reHex3.exec(format)) ? (m = parseInt(m[1], 16), new Rgb((m >> 8 & 0xf) | (m >> 4 & 0x0f0), (m >> 4 & 0xf) | (m & 0xf0), ((m & 0xf) << 4) | (m & 0xf), 1)) // #f00
-	      : (m = reHex6.exec(format)) ? rgbn(parseInt(m[1], 16)) // #ff0000
+	  return (m = reHex.exec(format)) ? (l = m[1].length, m = parseInt(m[1], 16), l === 6 ? rgbn(m) // #ff0000
+	      : l === 3 ? new Rgb((m >> 8 & 0xf) | (m >> 4 & 0xf0), (m >> 4 & 0xf) | (m & 0xf0), ((m & 0xf) << 4) | (m & 0xf), 1) // #f00
+	      : l === 8 ? new Rgb(m >> 24 & 0xff, m >> 16 & 0xff, m >> 8 & 0xff, (m & 0xff) / 0xff) // #ff000000
+	      : l === 4 ? new Rgb((m >> 12 & 0xf) | (m >> 8 & 0xf0), (m >> 8 & 0xf) | (m >> 4 & 0xf0), (m >> 4 & 0xf) | (m & 0xf0), (((m & 0xf) << 4) | (m & 0xf)) / 0xff) // #f000
+	      : null) // invalid hex
 	      : (m = reRgbInteger.exec(format)) ? new Rgb(m[1], m[2], m[3], 1) // rgb(255, 0, 0)
 	      : (m = reRgbPercent.exec(format)) ? new Rgb(m[1] * 255 / 100, m[2] * 255 / 100, m[3] * 255 / 100, 1) // rgb(100%, 0%, 0%)
 	      : (m = reRgbaInteger.exec(format)) ? rgba(m[1], m[2], m[3], m[4]) // rgba(255, 0, 0, 1)
 	      : (m = reRgbaPercent.exec(format)) ? rgba(m[1] * 255 / 100, m[2] * 255 / 100, m[3] * 255 / 100, m[4]) // rgb(100%, 0%, 0%, 1)
 	      : (m = reHslPercent.exec(format)) ? hsla(m[1], m[2] / 100, m[3] / 100, 1) // hsl(120, 50%, 50%)
 	      : (m = reHslaPercent.exec(format)) ? hsla(m[1], m[2] / 100, m[3] / 100, m[4]) // hsla(120, 50%, 50%, 1)
-	      : named.hasOwnProperty(format) ? rgbn(named[format])
+	      : named.hasOwnProperty(format) ? rgbn(named[format]) // eslint-disable-line no-prototype-builtins
 	      : format === "transparent" ? new Rgb(NaN, NaN, NaN, 0)
 	      : null;
 	}
@@ -12841,23 +12864,29 @@
 	    return this;
 	  },
 	  displayable: function() {
-	    return (0 <= this.r && this.r <= 255)
-	        && (0 <= this.g && this.g <= 255)
-	        && (0 <= this.b && this.b <= 255)
+	    return (-0.5 <= this.r && this.r < 255.5)
+	        && (-0.5 <= this.g && this.g < 255.5)
+	        && (-0.5 <= this.b && this.b < 255.5)
 	        && (0 <= this.opacity && this.opacity <= 1);
 	  },
-	  hex: function() {
-	    return "#" + hex(this.r) + hex(this.g) + hex(this.b);
-	  },
-	  toString: function() {
-	    var a = this.opacity; a = isNaN(a) ? 1 : Math.max(0, Math.min(1, a));
-	    return (a === 1 ? "rgb(" : "rgba(")
-	        + Math.max(0, Math.min(255, Math.round(this.r) || 0)) + ", "
-	        + Math.max(0, Math.min(255, Math.round(this.g) || 0)) + ", "
-	        + Math.max(0, Math.min(255, Math.round(this.b) || 0))
-	        + (a === 1 ? ")" : ", " + a + ")");
-	  }
+	  hex: rgb_formatHex, // Deprecated! Use color.formatHex.
+	  formatHex: rgb_formatHex,
+	  formatRgb: rgb_formatRgb,
+	  toString: rgb_formatRgb
 	}));
+
+	function rgb_formatHex() {
+	  return "#" + hex(this.r) + hex(this.g) + hex(this.b);
+	}
+
+	function rgb_formatRgb() {
+	  var a = this.opacity; a = isNaN(a) ? 1 : Math.max(0, Math.min(1, a));
+	  return (a === 1 ? "rgb(" : "rgba(")
+	      + Math.max(0, Math.min(255, Math.round(this.r) || 0)) + ", "
+	      + Math.max(0, Math.min(255, Math.round(this.g) || 0)) + ", "
+	      + Math.max(0, Math.min(255, Math.round(this.b) || 0))
+	      + (a === 1 ? ")" : ", " + a + ")");
+	}
 
 	function hex(value) {
 	  value = Math.max(0, Math.min(255, Math.round(value) || 0));
@@ -12934,6 +12963,14 @@
 	    return (0 <= this.s && this.s <= 1 || isNaN(this.s))
 	        && (0 <= this.l && this.l <= 1)
 	        && (0 <= this.opacity && this.opacity <= 1);
+	  },
+	  formatHsl: function() {
+	    var a = this.opacity; a = isNaN(a) ? 1 : Math.max(0, Math.min(1, a));
+	    return (a === 1 ? "hsl(" : "hsla(")
+	        + (this.h || 0) + ", "
+	        + (this.s || 0) * 100 + "%, "
+	        + (this.l || 0) * 100 + "%"
+	        + (a === 1 ? ")" : ", " + a + ")");
 	  }
 	}));
 
@@ -12948,7 +12985,7 @@
 	var deg2rad = Math.PI / 180;
 	var rad2deg = 180 / Math.PI;
 
-	// https://beta.observablehq.com/@mbostock/lab-and-rgb
+	// https://observablehq.com/@mbostock/lab-and-rgb
 	var K = 18,
 	    Xn = 0.96422,
 	    Yn = 1,
@@ -12960,11 +12997,7 @@
 
 	function labConvert(o) {
 	  if (o instanceof Lab) return new Lab(o.l, o.a, o.b, o.opacity);
-	  if (o instanceof Hcl) {
-	    if (isNaN(o.h)) return new Lab(o.l, 0, 0, o.opacity);
-	    var h = o.h * deg2rad;
-	    return new Lab(o.l, Math.cos(h) * o.c, Math.sin(h) * o.c, o.opacity);
-	  }
+	  if (o instanceof Hcl) return hcl2lab(o);
 	  if (!(o instanceof Rgb)) o = rgbConvert(o);
 	  var r = rgb2lrgb(o.r),
 	      g = rgb2lrgb(o.g),
@@ -13034,7 +13067,7 @@
 	function hclConvert(o) {
 	  if (o instanceof Hcl) return new Hcl(o.h, o.c, o.l, o.opacity);
 	  if (!(o instanceof Lab)) o = labConvert(o);
-	  if (o.a === 0 && o.b === 0) return new Hcl(NaN, 0, o.l, o.opacity);
+	  if (o.a === 0 && o.b === 0) return new Hcl(NaN, 0 < o.l && o.l < 100 ? 0 : NaN, o.l, o.opacity);
 	  var h = Math.atan2(o.b, o.a) * rad2deg;
 	  return new Hcl(h < 0 ? h + 360 : h, Math.sqrt(o.a * o.a + o.b * o.b), o.l, o.opacity);
 	}
@@ -13054,6 +13087,12 @@
 	  this.opacity = +opacity;
 	}
 
+	function hcl2lab(o) {
+	  if (isNaN(o.h)) return new Lab(o.l, 0, 0, o.opacity);
+	  var h = o.h * deg2rad;
+	  return new Lab(o.l, Math.cos(h) * o.c, Math.sin(h) * o.c, o.opacity);
+	}
+
 	define(Hcl, hcl, extend(Color, {
 	  brighter: function(k) {
 	    return new Hcl(this.h, this.c, this.l + K * (k == null ? 1 : k), this.opacity);
@@ -13062,7 +13101,7 @@
 	    return new Hcl(this.h, this.c, this.l - K * (k == null ? 1 : k), this.opacity);
 	  },
 	  rgb: function() {
-	    return labConvert(this).rgb();
+	    return hcl2lab(this).rgb();
 	  }
 	}));
 
@@ -13125,29 +13164,29 @@
 	}));
 
 	exports.color = color;
-	exports.rgb = rgb;
+	exports.cubehelix = cubehelix;
+	exports.gray = gray;
+	exports.hcl = hcl;
 	exports.hsl = hsl;
 	exports.lab = lab;
-	exports.hcl = hcl;
 	exports.lch = lch;
-	exports.gray = gray;
-	exports.cubehelix = cubehelix;
+	exports.rgb = rgb;
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	})));
+	}));
 
 
 /***/ }),
-/* 66 */
+/* 65 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-format/ v1.3.2 Copyright 2018 Mike Bostock
+	// https://d3js.org/d3-format/ v1.4.1 Copyright 2019 Mike Bostock
 	(function (global, factory) {
 	 true ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(factory((global.d3 = global.d3 || {})));
-	}(this, (function (exports) { 'use strict';
+	(global = global || self, factory(global.d3 = global.d3 || {}));
+	}(this, function (exports) { 'use strict';
 
 	// Computes the decimal coefficient and exponent of the specified number x with
 	// significant digits p, where x is positive and p is in [1, 21] or undefined.
@@ -13199,24 +13238,35 @@
 	var re = /^(?:(.)?([<>=^]))?([+\-( ])?([$#])?(0)?(\d+)?(,)?(\.\d+)?(~)?([a-z%])?$/i;
 
 	function formatSpecifier(specifier) {
-	  return new FormatSpecifier(specifier);
+	  if (!(match = re.exec(specifier))) throw new Error("invalid format: " + specifier);
+	  var match;
+	  return new FormatSpecifier({
+	    fill: match[1],
+	    align: match[2],
+	    sign: match[3],
+	    symbol: match[4],
+	    zero: match[5],
+	    width: match[6],
+	    comma: match[7],
+	    precision: match[8] && match[8].slice(1),
+	    trim: match[9],
+	    type: match[10]
+	  });
 	}
 
 	formatSpecifier.prototype = FormatSpecifier.prototype; // instanceof
 
 	function FormatSpecifier(specifier) {
-	  if (!(match = re.exec(specifier))) throw new Error("invalid format: " + specifier);
-	  var match;
-	  this.fill = match[1] || " ";
-	  this.align = match[2] || ">";
-	  this.sign = match[3] || "-";
-	  this.symbol = match[4] || "";
-	  this.zero = !!match[5];
-	  this.width = match[6] && +match[6];
-	  this.comma = !!match[7];
-	  this.precision = match[8] && +match[8].slice(1);
-	  this.trim = !!match[9];
-	  this.type = match[10] || "";
+	  this.fill = specifier.fill === undefined ? " " : specifier.fill + "";
+	  this.align = specifier.align === undefined ? ">" : specifier.align + "";
+	  this.sign = specifier.sign === undefined ? "-" : specifier.sign + "";
+	  this.symbol = specifier.symbol === undefined ? "" : specifier.symbol + "";
+	  this.zero = !!specifier.zero;
+	  this.width = specifier.width === undefined ? undefined : +specifier.width;
+	  this.comma = !!specifier.comma;
+	  this.precision = specifier.precision === undefined ? undefined : +specifier.precision;
+	  this.trim = !!specifier.trim;
+	  this.type = specifier.type === undefined ? "" : specifier.type + "";
 	}
 
 	FormatSpecifier.prototype.toString = function() {
@@ -13225,9 +13275,9 @@
 	      + this.sign
 	      + this.symbol
 	      + (this.zero ? "0" : "")
-	      + (this.width == null ? "" : Math.max(1, this.width | 0))
+	      + (this.width === undefined ? "" : Math.max(1, this.width | 0))
 	      + (this.comma ? "," : "")
-	      + (this.precision == null ? "" : "." + Math.max(0, this.precision | 0))
+	      + (this.precision === undefined ? "" : "." + Math.max(0, this.precision | 0))
 	      + (this.trim ? "~" : "")
 	      + this.type;
 	};
@@ -13289,14 +13339,18 @@
 	  return x;
 	}
 
-	var prefixes = ["y","z","a","f","p","n","µ","m","","k","M","G","T","P","E","Z","Y"];
+	var map = Array.prototype.map,
+	    prefixes = ["y","z","a","f","p","n","µ","m","","k","M","G","T","P","E","Z","Y"];
 
 	function formatLocale(locale) {
-	  var group = locale.grouping && locale.thousands ? formatGroup(locale.grouping, locale.thousands) : identity,
-	      currency = locale.currency,
-	      decimal = locale.decimal,
-	      numerals = locale.numerals ? formatNumerals(locale.numerals) : identity,
-	      percent = locale.percent || "%";
+	  var group = locale.grouping === undefined || locale.thousands === undefined ? identity : formatGroup(map.call(locale.grouping, Number), locale.thousands + ""),
+	      currencyPrefix = locale.currency === undefined ? "" : locale.currency[0] + "",
+	      currencySuffix = locale.currency === undefined ? "" : locale.currency[1] + "",
+	      decimal = locale.decimal === undefined ? "." : locale.decimal + "",
+	      numerals = locale.numerals === undefined ? identity : formatNumerals(map.call(locale.numerals, String)),
+	      percent = locale.percent === undefined ? "%" : locale.percent + "",
+	      minus = locale.minus === undefined ? "-" : locale.minus + "",
+	      nan = locale.nan === undefined ? "NaN" : locale.nan + "";
 
 	  function newFormat(specifier) {
 	    specifier = formatSpecifier(specifier);
@@ -13316,15 +13370,15 @@
 	    if (type === "n") comma = true, type = "g";
 
 	    // The "" type, and any invalid type, is an alias for ".12~g".
-	    else if (!formatTypes[type]) precision == null && (precision = 12), trim = true, type = "g";
+	    else if (!formatTypes[type]) precision === undefined && (precision = 12), trim = true, type = "g";
 
 	    // If zero fill is specified, padding goes after sign and before digits.
 	    if (zero || (fill === "0" && align === "=")) zero = true, fill = "0", align = "=";
 
 	    // Compute the prefix and suffix.
 	    // For SI-prefix, the suffix is lazily computed.
-	    var prefix = symbol === "$" ? currency[0] : symbol === "#" && /[boxX]/.test(type) ? "0" + type.toLowerCase() : "",
-	        suffix = symbol === "$" ? currency[1] : /[%p]/.test(type) ? percent : "";
+	    var prefix = symbol === "$" ? currencyPrefix : symbol === "#" && /[boxX]/.test(type) ? "0" + type.toLowerCase() : "",
+	        suffix = symbol === "$" ? currencySuffix : /[%p]/.test(type) ? percent : "";
 
 	    // What format function should we use?
 	    // Is this an integer type?
@@ -13336,7 +13390,7 @@
 	    // or clamp the specified precision to the supported range.
 	    // For significant precision, it must be in [1, 21].
 	    // For fixed precision, it must be in [0, 20].
-	    precision = precision == null ? 6
+	    precision = precision === undefined ? 6
 	        : /[gprs]/.test(type) ? Math.max(1, Math.min(21, precision))
 	        : Math.max(0, Math.min(20, precision));
 
@@ -13353,7 +13407,7 @@
 
 	        // Perform the initial formatting.
 	        var valueNegative = value < 0;
-	        value = formatType(Math.abs(value), precision);
+	        value = isNaN(value) ? nan : formatType(Math.abs(value), precision);
 
 	        // Trim insignificant zeros.
 	        if (trim) value = formatTrim(value);
@@ -13362,7 +13416,8 @@
 	        if (valueNegative && +value === 0) valueNegative = false;
 
 	        // Compute the prefix and suffix.
-	        valuePrefix = (valueNegative ? (sign === "(" ? sign : "-") : sign === "-" || sign === "(" ? "" : sign) + valuePrefix;
+	        valuePrefix = (valueNegative ? (sign === "(" ? sign : minus) : sign === "-" || sign === "(" ? "" : sign) + valuePrefix;
+
 	        valueSuffix = (type === "s" ? prefixes[8 + prefixExponent / 3] : "") + valueSuffix + (valueNegative && sign === "(" ? ")" : "");
 
 	        // Break the formatted value into the integer “value” part that can be
@@ -13429,7 +13484,8 @@
 	  decimal: ".",
 	  thousands: ",",
 	  grouping: [3],
-	  currency: ["$", ""]
+	  currency: ["$", ""],
+	  minus: "-"
 	});
 
 	function defaultLocale(definition) {
@@ -13452,6 +13508,7 @@
 	  return Math.max(0, exponent(max) - exponent(step)) + 1;
 	}
 
+	exports.FormatSpecifier = FormatSpecifier;
 	exports.formatDefaultLocale = defaultLocale;
 	exports.formatLocale = formatLocale;
 	exports.formatSpecifier = formatSpecifier;
@@ -13461,19 +13518,19 @@
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	})));
+	}));
 
 
 /***/ }),
-/* 67 */
+/* 66 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-time/ v1.0.11 Copyright 2019 Mike Bostock
+	// https://d3js.org/d3-time/ v1.1.0 Copyright 2019 Mike Bostock
 	(function (global, factory) {
 	 true ? factory(exports) :
 	typeof define === 'function' && define.amd ? define(['exports'], factory) :
-	(factory((global.d3 = global.d3 || {})));
-	}(this, (function (exports) { 'use strict';
+	(global = global || self, factory(global.d3 = global.d3 || {}));
+	}(this, function (exports) { 'use strict';
 
 	var t0 = new Date,
 	    t1 = new Date;
@@ -13481,10 +13538,12 @@
 	function newInterval(floori, offseti, count, field) {
 
 	  function interval(date) {
-	    return floori(date = new Date(+date)), date;
+	    return floori(date = arguments.length === 0 ? new Date : new Date(+date)), date;
 	  }
 
-	  interval.floor = interval;
+	  interval.floor = function(date) {
+	    return floori(date = new Date(+date)), date;
+	  };
 
 	  interval.ceil = function(date) {
 	    return floori(date = new Date(date - 1)), offseti(date, 1), floori(date), date;
@@ -13774,83 +13833,83 @@
 	};
 	var utcYears = utcYear.range;
 
+	exports.timeDay = day;
+	exports.timeDays = days;
+	exports.timeFriday = friday;
+	exports.timeFridays = fridays;
+	exports.timeHour = hour;
+	exports.timeHours = hours;
 	exports.timeInterval = newInterval;
 	exports.timeMillisecond = millisecond;
 	exports.timeMilliseconds = milliseconds;
-	exports.utcMillisecond = millisecond;
-	exports.utcMilliseconds = milliseconds;
-	exports.timeSecond = second;
-	exports.timeSeconds = seconds;
-	exports.utcSecond = second;
-	exports.utcSeconds = seconds;
 	exports.timeMinute = minute;
 	exports.timeMinutes = minutes;
-	exports.timeHour = hour;
-	exports.timeHours = hours;
-	exports.timeDay = day;
-	exports.timeDays = days;
-	exports.timeWeek = sunday;
-	exports.timeWeeks = sundays;
-	exports.timeSunday = sunday;
-	exports.timeSundays = sundays;
 	exports.timeMonday = monday;
 	exports.timeMondays = mondays;
+	exports.timeMonth = month;
+	exports.timeMonths = months;
+	exports.timeSaturday = saturday;
+	exports.timeSaturdays = saturdays;
+	exports.timeSecond = second;
+	exports.timeSeconds = seconds;
+	exports.timeSunday = sunday;
+	exports.timeSundays = sundays;
+	exports.timeThursday = thursday;
+	exports.timeThursdays = thursdays;
 	exports.timeTuesday = tuesday;
 	exports.timeTuesdays = tuesdays;
 	exports.timeWednesday = wednesday;
 	exports.timeWednesdays = wednesdays;
-	exports.timeThursday = thursday;
-	exports.timeThursdays = thursdays;
-	exports.timeFriday = friday;
-	exports.timeFridays = fridays;
-	exports.timeSaturday = saturday;
-	exports.timeSaturdays = saturdays;
-	exports.timeMonth = month;
-	exports.timeMonths = months;
+	exports.timeWeek = sunday;
+	exports.timeWeeks = sundays;
 	exports.timeYear = year;
 	exports.timeYears = years;
-	exports.utcMinute = utcMinute;
-	exports.utcMinutes = utcMinutes;
-	exports.utcHour = utcHour;
-	exports.utcHours = utcHours;
 	exports.utcDay = utcDay;
 	exports.utcDays = utcDays;
-	exports.utcWeek = utcSunday;
-	exports.utcWeeks = utcSundays;
-	exports.utcSunday = utcSunday;
-	exports.utcSundays = utcSundays;
+	exports.utcFriday = utcFriday;
+	exports.utcFridays = utcFridays;
+	exports.utcHour = utcHour;
+	exports.utcHours = utcHours;
+	exports.utcMillisecond = millisecond;
+	exports.utcMilliseconds = milliseconds;
+	exports.utcMinute = utcMinute;
+	exports.utcMinutes = utcMinutes;
 	exports.utcMonday = utcMonday;
 	exports.utcMondays = utcMondays;
+	exports.utcMonth = utcMonth;
+	exports.utcMonths = utcMonths;
+	exports.utcSaturday = utcSaturday;
+	exports.utcSaturdays = utcSaturdays;
+	exports.utcSecond = second;
+	exports.utcSeconds = seconds;
+	exports.utcSunday = utcSunday;
+	exports.utcSundays = utcSundays;
+	exports.utcThursday = utcThursday;
+	exports.utcThursdays = utcThursdays;
 	exports.utcTuesday = utcTuesday;
 	exports.utcTuesdays = utcTuesdays;
 	exports.utcWednesday = utcWednesday;
 	exports.utcWednesdays = utcWednesdays;
-	exports.utcThursday = utcThursday;
-	exports.utcThursdays = utcThursdays;
-	exports.utcFriday = utcFriday;
-	exports.utcFridays = utcFridays;
-	exports.utcSaturday = utcSaturday;
-	exports.utcSaturdays = utcSaturdays;
-	exports.utcMonth = utcMonth;
-	exports.utcMonths = utcMonths;
+	exports.utcWeek = utcSunday;
+	exports.utcWeeks = utcSundays;
 	exports.utcYear = utcYear;
 	exports.utcYears = utcYears;
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	})));
+	}));
 
 
 /***/ }),
-/* 68 */
+/* 67 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-time-format/ v2.1.3 Copyright 2018 Mike Bostock
+	// https://d3js.org/d3-time-format/ v2.2.1 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(67)) :
+	 true ? factory(exports, __webpack_require__(66)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-time'], factory) :
-	(factory((global.d3 = global.d3 || {}),global.d3));
-	}(this, (function (exports,d3Time) { 'use strict';
+	(global = global || self, factory(global.d3 = global.d3 || {}, global.d3));
+	}(this, function (exports, d3Time) { 'use strict';
 
 	function localDate(d) {
 	  if (0 <= d.y && d.y < 100) {
@@ -13870,8 +13929,8 @@
 	  return new Date(Date.UTC(d.y, d.m, d.d, d.H, d.M, d.S, d.L));
 	}
 
-	function newYear(y) {
-	  return {y: y, m: 0, d: 1, H: 0, M: 0, S: 0, L: 0};
+	function newDate(y, m, d) {
+	  return {y: y, m: m, d: d, H: 0, M: 0, S: 0, L: 0};
 	}
 
 	function formatLocale(locale) {
@@ -13911,6 +13970,7 @@
 	    "m": formatMonthNumber,
 	    "M": formatMinutes,
 	    "p": formatPeriod,
+	    "q": formatQuarter,
 	    "Q": formatUnixTimestamp,
 	    "s": formatUnixTimestampSeconds,
 	    "S": formatSeconds,
@@ -13943,6 +14003,7 @@
 	    "m": formatUTCMonthNumber,
 	    "M": formatUTCMinutes,
 	    "p": formatUTCPeriod,
+	    "q": formatUTCQuarter,
 	    "Q": formatUnixTimestamp,
 	    "s": formatUnixTimestampSeconds,
 	    "S": formatUTCSeconds,
@@ -13975,6 +14036,7 @@
 	    "m": parseMonthNumber,
 	    "M": parseMinutes,
 	    "p": parsePeriod,
+	    "q": parseQuarter,
 	    "Q": parseUnixTimestamp,
 	    "s": parseUnixTimestampSeconds,
 	    "S": parseSeconds,
@@ -14027,32 +14089,39 @@
 	    };
 	  }
 
-	  function newParse(specifier, newDate) {
+	  function newParse(specifier, Z) {
 	    return function(string) {
-	      var d = newYear(1900),
+	      var d = newDate(1900, undefined, 1),
 	          i = parseSpecifier(d, specifier, string += "", 0),
 	          week, day;
 	      if (i != string.length) return null;
 
 	      // If a UNIX timestamp is specified, return it.
 	      if ("Q" in d) return new Date(d.Q);
+	      if ("s" in d) return new Date(d.s * 1000 + ("L" in d ? d.L : 0));
+
+	      // If this is utcParse, never use the local timezone.
+	      if (Z && !("Z" in d)) d.Z = 0;
 
 	      // The am-pm flag is 0 for AM, and 1 for PM.
 	      if ("p" in d) d.H = d.H % 12 + d.p * 12;
+
+	      // If the month was not specified, inherit from the quarter.
+	      if (d.m === undefined) d.m = "q" in d ? d.q : 0;
 
 	      // Convert day-of-week and week-of-year to day-of-year.
 	      if ("V" in d) {
 	        if (d.V < 1 || d.V > 53) return null;
 	        if (!("w" in d)) d.w = 1;
 	        if ("Z" in d) {
-	          week = utcDate(newYear(d.y)), day = week.getUTCDay();
+	          week = utcDate(newDate(d.y, 0, 1)), day = week.getUTCDay();
 	          week = day > 4 || day === 0 ? d3Time.utcMonday.ceil(week) : d3Time.utcMonday(week);
 	          week = d3Time.utcDay.offset(week, (d.V - 1) * 7);
 	          d.y = week.getUTCFullYear();
 	          d.m = week.getUTCMonth();
 	          d.d = week.getUTCDate() + (d.w + 6) % 7;
 	        } else {
-	          week = newDate(newYear(d.y)), day = week.getDay();
+	          week = localDate(newDate(d.y, 0, 1)), day = week.getDay();
 	          week = day > 4 || day === 0 ? d3Time.timeMonday.ceil(week) : d3Time.timeMonday(week);
 	          week = d3Time.timeDay.offset(week, (d.V - 1) * 7);
 	          d.y = week.getFullYear();
@@ -14061,7 +14130,7 @@
 	        }
 	      } else if ("W" in d || "U" in d) {
 	        if (!("w" in d)) d.w = "u" in d ? d.u % 7 : "W" in d ? 1 : 0;
-	        day = "Z" in d ? utcDate(newYear(d.y)).getUTCDay() : newDate(newYear(d.y)).getDay();
+	        day = "Z" in d ? utcDate(newDate(d.y, 0, 1)).getUTCDay() : localDate(newDate(d.y, 0, 1)).getDay();
 	        d.m = 0;
 	        d.d = "W" in d ? (d.w + 6) % 7 + d.W * 7 - (day + 5) % 7 : d.w + d.U * 7 - (day + 6) % 7;
 	      }
@@ -14075,7 +14144,7 @@
 	      }
 
 	      // Otherwise, all fields are in local time.
-	      return newDate(d);
+	      return localDate(d);
 	    };
 	  }
 
@@ -14158,6 +14227,10 @@
 	    return locale_periods[+(d.getHours() >= 12)];
 	  }
 
+	  function formatQuarter(d) {
+	    return 1 + ~~(d.getMonth() / 3);
+	  }
+
 	  function formatUTCShortWeekday(d) {
 	    return locale_shortWeekdays[d.getUTCDay()];
 	  }
@@ -14178,6 +14251,10 @@
 	    return locale_periods[+(d.getUTCHours() >= 12)];
 	  }
 
+	  function formatUTCQuarter(d) {
+	    return 1 + ~~(d.getUTCMonth() / 3);
+	  }
+
 	  return {
 	    format: function(specifier) {
 	      var f = newFormat(specifier += "", formats);
@@ -14185,7 +14262,7 @@
 	      return f;
 	    },
 	    parse: function(specifier) {
-	      var p = newParse(specifier += "", localDate);
+	      var p = newParse(specifier += "", false);
 	      p.toString = function() { return specifier; };
 	      return p;
 	    },
@@ -14195,7 +14272,7 @@
 	      return f;
 	    },
 	    utcParse: function(specifier) {
-	      var p = newParse(specifier, utcDate);
+	      var p = newParse(specifier += "", true);
 	      p.toString = function() { return specifier; };
 	      return p;
 	    }
@@ -14268,6 +14345,11 @@
 	  return n ? (d.Z = n[1] ? 0 : -(n[2] + (n[3] || "00")), i + n[0].length) : -1;
 	}
 
+	function parseQuarter(d, string, i) {
+	  var n = numberRe.exec(string.slice(i, i + 1));
+	  return n ? (d.q = n[0] * 3 - 3, i + n[0].length) : -1;
+	}
+
 	function parseMonthNumber(d, string, i) {
 	  var n = numberRe.exec(string.slice(i, i + 2));
 	  return n ? (d.m = n[0] - 1, i + n[0].length) : -1;
@@ -14320,7 +14402,7 @@
 
 	function parseUnixTimestampSeconds(d, string, i) {
 	  var n = numberRe.exec(string.slice(i));
-	  return n ? (d.Q = (+n[0]) * 1000, i + n[0].length) : -1;
+	  return n ? (d.s = +n[0], i + n[0].length) : -1;
 	}
 
 	function formatDayOfMonth(d, p) {
@@ -14365,7 +14447,7 @@
 	}
 
 	function formatWeekNumberSunday(d, p) {
-	  return pad(d3Time.timeSunday.count(d3Time.timeYear(d), d), p, 2);
+	  return pad(d3Time.timeSunday.count(d3Time.timeYear(d) - 1, d), p, 2);
 	}
 
 	function formatWeekNumberISO(d, p) {
@@ -14379,7 +14461,7 @@
 	}
 
 	function formatWeekNumberMonday(d, p) {
-	  return pad(d3Time.timeMonday.count(d3Time.timeYear(d), d), p, 2);
+	  return pad(d3Time.timeMonday.count(d3Time.timeYear(d) - 1, d), p, 2);
 	}
 
 	function formatYear(d, p) {
@@ -14439,7 +14521,7 @@
 	}
 
 	function formatUTCWeekNumberSunday(d, p) {
-	  return pad(d3Time.utcSunday.count(d3Time.utcYear(d), d), p, 2);
+	  return pad(d3Time.utcSunday.count(d3Time.utcYear(d) - 1, d), p, 2);
 	}
 
 	function formatUTCWeekNumberISO(d, p) {
@@ -14453,7 +14535,7 @@
 	}
 
 	function formatUTCWeekNumberMonday(d, p) {
-	  return pad(d3Time.utcMonday.count(d3Time.utcYear(d), d), p, 2);
+	  return pad(d3Time.utcMonday.count(d3Time.utcYear(d) - 1, d), p, 2);
 	}
 
 	function formatUTCYear(d, p) {
@@ -14521,23 +14603,23 @@
 	    ? parseIsoNative
 	    : exports.utcParse(isoSpecifier);
 
-	exports.timeFormatDefaultLocale = defaultLocale;
-	exports.timeFormatLocale = formatLocale;
 	exports.isoFormat = formatIso;
 	exports.isoParse = parseIso;
+	exports.timeFormatDefaultLocale = defaultLocale;
+	exports.timeFormatLocale = formatLocale;
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	})));
+	}));
 
 
 /***/ }),
-/* 69 */
+/* 68 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-scale-chromatic/ v1.5.0 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(64), __webpack_require__(65)) :
+	 true ? factory(exports, __webpack_require__(63), __webpack_require__(64)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-interpolate', 'd3-color'], factory) :
 	(global = global || self, factory(global.d3 = global.d3 || {}, global.d3, global.d3));
 	}(this, function (exports, d3Interpolate, d3Color) { 'use strict';
@@ -15059,7 +15141,7 @@
 
 
 /***/ }),
-/* 70 */
+/* 69 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_RESULT__;// TinyColor v1.4.1
