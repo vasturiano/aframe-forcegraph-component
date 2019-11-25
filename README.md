@@ -12,7 +12,7 @@ A 3D Force-Directed Graph component for [A-Frame](https://aframe.io).
 An A-Frame entity component to represent a graph data structure in a VR environment using a force-directed iterative layout.
 Uses [three-forcegraph](https://github.com/vasturiano/three-forcegraph) as the underlying ThreeJS component to manage the graph object.
 
-See also the [standalone VR component version](https://github.com/vasturiano/3d-force-graph-vr).
+See also the [VR](https://github.com/vasturiano/3d-force-graph-vr) and [AR](https://github.com/vasturiano/3d-force-graph-ar) standalone component versions.
 
 ### API
 
