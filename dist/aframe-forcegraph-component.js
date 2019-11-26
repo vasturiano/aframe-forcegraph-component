@@ -352,13 +352,13 @@
 	var d3Force3d = __webpack_require__(4);
 	var graph = _interopDefault(__webpack_require__(10));
 	var forcelayout = _interopDefault(__webpack_require__(12));
-	var forcelayout3d = _interopDefault(__webpack_require__(29));
-	var Kapsule = _interopDefault(__webpack_require__(57));
+	var forcelayout3d = _interopDefault(__webpack_require__(28));
+	var Kapsule = _interopDefault(__webpack_require__(39));
 	var accessorFn = _interopDefault(__webpack_require__(1));
-	var dataJoint = _interopDefault(__webpack_require__(59));
-	var d3Scale = __webpack_require__(61);
-	var d3ScaleChromatic = __webpack_require__(68);
-	var tinyColor = _interopDefault(__webpack_require__(69));
+	var dataJoint = _interopDefault(__webpack_require__(41));
+	var d3Scale = __webpack_require__(43);
+	var d3ScaleChromatic = __webpack_require__(50);
+	var tinyColor = _interopDefault(__webpack_require__(52));
 
 	function _typeof(obj) {
 	  if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
@@ -414,13 +414,13 @@
 	    var source = arguments[i] != null ? arguments[i] : {};
 
 	    if (i % 2) {
-	      ownKeys(source, true).forEach(function (key) {
+	      ownKeys(Object(source), true).forEach(function (key) {
 	        _defineProperty(target, key, source[key]);
 	      });
 	    } else if (Object.getOwnPropertyDescriptors) {
 	      Object.defineProperties(target, Object.getOwnPropertyDescriptors(source));
 	    } else {
-	      ownKeys(source).forEach(function (key) {
+	      ownKeys(Object(source)).forEach(function (key) {
 	        Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
 	      });
 	    }
@@ -722,7 +722,9 @@
 	  forcelayout3d: forcelayout3d
 	};
 
-	var DAG_LEVEL_NODE_RATIO = 2;
+	var DAG_LEVEL_NODE_RATIO = 2; // support both modes for backwards threejs compatibility
+
+	var setAttributeFn = new three.BufferGeometry().setAttribute ? 'setAttribute' : 'addAttribute';
 	var ForceGraph = Kapsule({
 	  props: {
 	    jsonUrl: {
@@ -1064,7 +1066,7 @@
 	              var linePos = line.geometry.getAttribute('position');
 
 	              if (!linePos || !linePos.array || linePos.array.length !== 6) {
-	                line.geometry.addAttribute('position', linePos = new three.BufferAttribute(new Float32Array(2 * 3), 3));
+	                line.geometry[setAttributeFn]('position', linePos = new three.BufferAttribute(new Float32Array(2 * 3), 3));
 	              }
 
 	              linePos.array[0] = start.x;
@@ -1472,7 +1474,7 @@
 	            } else {
 	              // Use plain line (constant width)
 	              var lineGeometry = new three.BufferGeometry();
-	              lineGeometry.addAttribute('position', new three.BufferAttribute(new Float32Array(2 * 3), 3));
+	              lineGeometry[setAttributeFn]('position', new three.BufferAttribute(new Float32Array(2 * 3), 3));
 	              defaultObj = new three.Line(lineGeometry);
 	            }
 	          }
@@ -4265,14 +4267,17 @@
 	  // we can save some memory and CPU (18% faster for non-multigraph);
 	  if (options.multigraph === undefined) options.multigraph = false;
 
-	  var nodes = typeof Object.create === 'function' ? Object.create(null) : {},
-	    links = [],
+	  if (typeof Map !== 'function') {
+	    // TODO: Should we polyfill it ourselves? We don't use much operations there..
+	    throw new Error('ngraph.graph requires `Map` to be defined. Please polyfill it before using ngraph');
+	  } 
+
+	  var nodes = new Map();
+	  var links = [],
 	    // Hash of multi-edges. Used to track ids of edges between same nodes
 	    multiEdges = {},
-	    nodesCount = 0,
 	    suspendEvents = 0,
 
-	    forEachNode = createNodeIterator(),
 	    createLink = options.multigraph ? createUniqueLink : createSingleLink,
 
 	    // Our graph API provides means to listen to graph changes. Users can subscribe
@@ -4353,7 +4358,7 @@
 	     * @return number of nodes in the graph.
 	     */
 	    getNodesCount: function () {
-	      return nodesCount;
+	      return nodes.size;
 	    },
 
 	    /**
@@ -4505,21 +4510,20 @@
 	    var node = getNode(nodeId);
 	    if (!node) {
 	      node = new Node(nodeId, data);
-	      nodesCount++;
 	      recordNodeChange(node, 'add');
 	    } else {
 	      node.data = data;
 	      recordNodeChange(node, 'update');
 	    }
 
-	    nodes[nodeId] = node;
+	    nodes.set(nodeId, node);
 
 	    exitModification();
 	    return node;
 	  }
 
 	  function getNode(nodeId) {
-	    return nodes[nodeId];
+	    return nodes.get(nodeId);
 	  }
 
 	  function removeNode(nodeId) {
@@ -4538,8 +4542,7 @@
 	      }
 	    }
 
-	    delete nodes[nodeId];
-	    nodesCount--;
+	    nodes.delete(nodeId)
 
 	    recordNodeChange(node, 'remove');
 
@@ -4688,7 +4691,7 @@
 	      var link = links[i];
 	      var linkedNodeId = link.fromId === nodeId ? link.toId : link.fromId;
 
-	      quitFast = callback(nodes[linkedNodeId], link);
+	      quitFast = callback(nodes.get(linkedNodeId), link);
 	      if (quitFast) {
 	        return true; // Client does not need more iterations. Break now.
 	      }
@@ -4700,7 +4703,7 @@
 	    for (var i = 0; i < links.length; ++i) {
 	      var link = links[i];
 	      if (link.fromId === nodeId) {
-	        quitFast = callback(nodes[link.toId], link);
+	        quitFast = callback(nodes.get(link.toId), link)
 	        if (quitFast) {
 	          return true; // Client does not need more iterations. Break now.
 	        }
@@ -4725,36 +4728,18 @@
 	    }
 	  }
 
-	  function createNodeIterator() {
-	    // Object.keys iterator is 1.3x faster than `for in` loop.
-	    // See `https://github.com/anvaka/ngraph.graph/tree/bench-for-in-vs-obj-keys`
-	    // branch for perf test
-	    return Object.keys ? objectKeysIterator : forInIterator;
-	  }
-
-	  function objectKeysIterator(callback) {
+	  function forEachNode(callback) {
 	    if (typeof callback !== 'function') {
-	      return;
+	      throw new Error('Function is expected to iterate over graph nodes. You passed ' + callback);
 	    }
 
-	    var keys = Object.keys(nodes);
-	    for (var i = 0; i < keys.length; ++i) {
-	      if (callback(nodes[keys[i]])) {
+	    var valuesIterator = nodes.values();
+	    var nextValue = valuesIterator.next();
+	    while (!nextValue.done) {
+	      if (callback(nextValue.value)) {
 	        return true; // client doesn't want to proceed. Return.
 	      }
-	    }
-	  }
-
-	  function forInIterator(callback) {
-	    if (typeof callback !== 'function') {
-	      return;
-	    }
-	    var node;
-
-	    for (node in nodes) {
-	      if (callback(nodes[node])) {
-	        return true; // client doesn't want to proceed. Return.
-	      }
+	      nextValue = valuesIterator.next();
 	    }
 	  }
 	}
@@ -4804,17 +4789,6 @@
 	  this.toId = toId;
 	  this.data = data;
 	  this.id = id;
-	}
-
-	function hashCode(str) {
-	  var hash = 0, i, chr, len;
-	  if (str.length == 0) return hash;
-	  for (i = 0, len = str.length; i < len; i++) {
-	    chr   = str.charCodeAt(i);
-	    hash  = ((hash << 5) - hash) + chr;
-	    hash |= 0; // Convert to 32bit integer
-	  }
-	  return hash;
 	}
 
 	function makeLinkId(fromId, toId) {
@@ -5352,10 +5326,10 @@
 	  // We allow clients to override basic factory methods:
 	  var createQuadTree = settings.createQuadTree || __webpack_require__(17);
 	  var createBounds = settings.createBounds || __webpack_require__(22);
-	  var createDragForce = settings.createDragForce || __webpack_require__(24);
-	  var createSpringForce = settings.createSpringForce || __webpack_require__(25);
-	  var integrate = settings.integrator || __webpack_require__(26);
-	  var createBody = settings.createBody || __webpack_require__(27);
+	  var createDragForce = settings.createDragForce || __webpack_require__(23);
+	  var createSpringForce = settings.createSpringForce || __webpack_require__(24);
+	  var integrate = settings.integrator || __webpack_require__(25);
+	  var createBody = settings.createBody || __webpack_require__(26);
 
 	  var bodies = [], // Bodies in this simulation.
 	      springs = [], // Springs in this simulation.
@@ -6241,7 +6215,7 @@
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = function (bodies, settings) {
-	  var random = __webpack_require__(23).random(42);
+	  var random = __webpack_require__(18).random(42);
 	  var boundingBox =  { x1: 0, y1: 0, x2: 0, y2: 0 };
 
 	  return {
@@ -6324,127 +6298,6 @@
 
 /***/ }),
 /* 23 */
-/***/ (function(module, exports) {
-
-	module.exports = random;
-
-	// TODO: Deprecate?
-	module.exports.random = random,
-	module.exports.randomIterator = randomIterator
-
-	/**
-	 * Creates seeded PRNG with two methods:
-	 *   next() and nextDouble()
-	 */
-	function random(inputSeed) {
-	  var seed = typeof inputSeed === 'number' ? inputSeed : (+new Date());
-	  return new Generator(seed)
-	}
-
-	function Generator(seed) {
-	  this.seed = seed;
-	}
-
-	/**
-	  * Generates random integer number in the range from 0 (inclusive) to maxValue (exclusive)
-	  *
-	  * @param maxValue Number REQUIRED. Omitting this number will result in NaN values from PRNG.
-	  */
-	Generator.prototype.next = next;
-
-	/**
-	  * Generates random double number in the range from 0 (inclusive) to 1 (exclusive)
-	  * This function is the same as Math.random() (except that it could be seeded)
-	  */
-	Generator.prototype.nextDouble = nextDouble;
-
-	/**
-	 * Returns a random real number uniformly in [0, 1)
-	 */
-	Generator.prototype.uniform = nextDouble;
-
-	Generator.prototype.gaussian = gaussian;
-
-	function gaussian() {
-	  // use the polar form of the Box-Muller transform
-	  // based on https://introcs.cs.princeton.edu/java/23recursion/StdRandom.java
-	  var r, x, y;
-	  do {
-	    x = this.nextDouble() * 2 - 1;
-	    y = this.nextDouble() * 2 - 1;
-	    r = x * x + y * y;
-	  } while (r >= 1 || r === 0);
-
-	  return x * Math.sqrt(-2 * Math.log(r)/r);
-	}
-
-	function nextDouble() {
-	  var seed = this.seed;
-	  // Robert Jenkins' 32 bit integer hash function.
-	  seed = ((seed + 0x7ed55d16) + (seed << 12)) & 0xffffffff;
-	  seed = ((seed ^ 0xc761c23c) ^ (seed >>> 19)) & 0xffffffff;
-	  seed = ((seed + 0x165667b1) + (seed << 5)) & 0xffffffff;
-	  seed = ((seed + 0xd3a2646c) ^ (seed << 9)) & 0xffffffff;
-	  seed = ((seed + 0xfd7046c5) + (seed << 3)) & 0xffffffff;
-	  seed = ((seed ^ 0xb55a4f09) ^ (seed >>> 16)) & 0xffffffff;
-	  this.seed = seed;
-	  return (seed & 0xfffffff) / 0x10000000;
-	}
-
-	function next(maxValue) {
-	  return Math.floor(this.nextDouble() * maxValue);
-	}
-
-	/*
-	 * Creates iterator over array, which returns items of array in random order
-	 * Time complexity is guaranteed to be O(n);
-	 */
-	function randomIterator(array, customRandom) {
-	  var localRandom = customRandom || random();
-	  if (typeof localRandom.next !== 'function') {
-	    throw new Error('customRandom does not match expected API: next() function is missing');
-	  }
-
-	  return {
-	    forEach: forEach,
-
-	    /**
-	     * Shuffles array randomly, in place.
-	     */
-	    shuffle: shuffle
-	  };
-
-	  function shuffle() {
-	    var i, j, t;
-	    for (i = array.length - 1; i > 0; --i) {
-	      j = localRandom.next(i + 1); // i inclusive
-	      t = array[j];
-	      array[j] = array[i];
-	      array[i] = t;
-	    }
-
-	    return array;
-	  }
-
-	  function forEach(callback) {
-	    var i, j, t;
-	    for (i = array.length - 1; i > 0; --i) {
-	      j = localRandom.next(i + 1); // i inclusive
-	      t = array[j];
-	      array[j] = array[i];
-	      array[i] = t;
-
-	      callback(t);
-	    }
-
-	    if (array.length) {
-	      callback(array[0]);
-	    }
-	  }
-	}
-
-/***/ }),
-/* 24 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -6477,7 +6330,7 @@
 
 
 /***/ }),
-/* 25 */
+/* 24 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -6490,7 +6343,7 @@
 	 */
 	module.exports = function (options) {
 	  var merge = __webpack_require__(16);
-	  var random = __webpack_require__(23).random(42);
+	  var random = __webpack_require__(18).random(42);
 	  var expose = __webpack_require__(15);
 
 	  options = merge(options, {
@@ -6533,7 +6386,7 @@
 
 
 /***/ }),
-/* 26 */
+/* 25 */
 /***/ (function(module, exports) {
 
 	/**
@@ -6586,10 +6439,10 @@
 
 
 /***/ }),
-/* 27 */
+/* 26 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var physics = __webpack_require__(28);
+	var physics = __webpack_require__(27);
 
 	module.exports = function(pos) {
 	  return new physics.Body(pos);
@@ -6597,7 +6450,7 @@
 
 
 /***/ }),
-/* 28 */
+/* 27 */
 /***/ (function(module, exports) {
 
 	module.exports = {
@@ -6668,7 +6521,7 @@
 
 
 /***/ }),
-/* 29 */
+/* 28 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -6678,17 +6531,17 @@
 	 * I was doing it wrong, will see if I can refactor/throw away this module.
 	 */
 	module.exports = createLayout;
-	createLayout.get2dLayout = __webpack_require__(30);
+	createLayout.get2dLayout = __webpack_require__(12);
 
 	function createLayout(graph, physicsSettings) {
-	  var merge = __webpack_require__(34);
+	  var merge = __webpack_require__(16);
 	  physicsSettings = merge(physicsSettings, {
-	        createQuadTree: __webpack_require__(47),
-	        createBounds: __webpack_require__(51),
-	        createDragForce: __webpack_require__(52),
-	        createSpringForce: __webpack_require__(53),
+	        createQuadTree: __webpack_require__(29),
+	        createBounds: __webpack_require__(33),
+	        createDragForce: __webpack_require__(34),
+	        createSpringForce: __webpack_require__(35),
 	        integrator: getIntegrator(physicsSettings),
-	        createBody: __webpack_require__(54)
+	        createBody: __webpack_require__(36)
 	      });
 
 	  return createLayout.get2dLayout(graph, physicsSettings);
@@ -6696,1642 +6549,15 @@
 
 	function getIntegrator(physicsSettings) {
 	  if (physicsSettings && physicsSettings.integrator === 'verlet') {
-	    return __webpack_require__(55);
+	    return __webpack_require__(37);
 	  }
 
-	  return __webpack_require__(56)
+	  return __webpack_require__(38)
 	}
 
 
 /***/ }),
-/* 30 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	module.exports = createLayout;
-	module.exports.simulator = __webpack_require__(31);
-
-	var eventify = __webpack_require__(35);
-
-	/**
-	 * Creates force based layout for a given graph.
-	 * @param {ngraph.graph} graph which needs to be laid out
-	 * @param {object} physicsSettings if you need custom settings
-	 * for physics simulator you can pass your own settings here. If it's not passed
-	 * a default one will be created.
-	 */
-	function createLayout(graph, physicsSettings) {
-	  if (!graph) {
-	    throw new Error('Graph structure cannot be undefined');
-	  }
-
-	  var createSimulator = __webpack_require__(31);
-	  var physicsSimulator = createSimulator(physicsSettings);
-
-	  var nodeBodies = typeof Object.create === 'function' ? Object.create(null) : {};
-	  var springs = {};
-
-	  var springTransform = physicsSimulator.settings.springTransform || noop;
-
-	  // Initialize physical objects according to what we have in the graph:
-	  initPhysics();
-	  listenToEvents();
-
-	  var api = {
-	    /**
-	     * Performs one step of iterative layout algorithm
-	     */
-	    step: function() {
-	      return physicsSimulator.step();
-	    },
-
-	    /**
-	     * For a given `nodeId` returns position
-	     */
-	    getNodePosition: function (nodeId) {
-	      return getInitializedBody(nodeId).pos;
-	    },
-
-	    /**
-	     * Sets position of a node to a given coordinates
-	     * @param {string} nodeId node identifier
-	     * @param {number} x position of a node
-	     * @param {number} y position of a node
-	     * @param {number=} z position of node (only if applicable to body)
-	     */
-	    setNodePosition: function (nodeId) {
-	      var body = getInitializedBody(nodeId);
-	      body.setPosition.apply(body, Array.prototype.slice.call(arguments, 1));
-	    },
-
-	    /**
-	     * @returns {Object} Link position by link id
-	     * @returns {Object.from} {x, y} coordinates of link start
-	     * @returns {Object.to} {x, y} coordinates of link end
-	     */
-	    getLinkPosition: function (linkId) {
-	      var spring = springs[linkId];
-	      if (spring) {
-	        return {
-	          from: spring.from.pos,
-	          to: spring.to.pos
-	        };
-	      }
-	    },
-
-	    /**
-	     * @returns {Object} area required to fit in the graph. Object contains
-	     * `x1`, `y1` - top left coordinates
-	     * `x2`, `y2` - bottom right coordinates
-	     */
-	    getGraphRect: function () {
-	      return physicsSimulator.getBBox();
-	    },
-
-	    /*
-	     * Requests layout algorithm to pin/unpin node to its current position
-	     * Pinned nodes should not be affected by layout algorithm and always
-	     * remain at their position
-	     */
-	    pinNode: function (node, isPinned) {
-	      var body = getInitializedBody(node.id);
-	       body.isPinned = !!isPinned;
-	    },
-
-	    /**
-	     * Checks whether given graph's node is currently pinned
-	     */
-	    isNodePinned: function (node) {
-	      return getInitializedBody(node.id).isPinned;
-	    },
-
-	    /**
-	     * Request to release all resources
-	     */
-	    dispose: function() {
-	      graph.off('changed', onGraphChanged);
-	      physicsSimulator.off('stable', onStableChanged);
-	    },
-
-	    /**
-	     * Gets physical body for a given node id. If node is not found undefined
-	     * value is returned.
-	     */
-	    getBody: getBody,
-
-	    /**
-	     * Gets spring for a given edge.
-	     *
-	     * @param {string} linkId link identifer. If two arguments are passed then
-	     * this argument is treated as formNodeId
-	     * @param {string=} toId when defined this parameter denotes head of the link
-	     * and first argument is trated as tail of the link (fromId)
-	     */
-	    getSpring: getSpring,
-
-	    /**
-	     * [Read only] Gets current physics simulator
-	     */
-	    simulator: physicsSimulator
-	  };
-
-	  eventify(api);
-	  return api;
-
-	  function getSpring(fromId, toId) {
-	    var linkId;
-	    if (toId === undefined) {
-	      if (typeof fromId !== 'object') {
-	        // assume fromId as a linkId:
-	        linkId = fromId;
-	      } else {
-	        // assume fromId to be a link object:
-	        linkId = fromId.id;
-	      }
-	    } else {
-	      // toId is defined, should grab link:
-	      var link = graph.hasLink(fromId, toId);
-	      if (!link) return;
-	      linkId = link.id;
-	    }
-
-	    return springs[linkId];
-	  }
-
-	  function getBody(nodeId) {
-	    return nodeBodies[nodeId];
-	  }
-
-	  function listenToEvents() {
-	    graph.on('changed', onGraphChanged);
-	    physicsSimulator.on('stable', onStableChanged);
-	  }
-
-	  function onStableChanged(isStable) {
-	    api.fire('stable', isStable);
-	  }
-
-	  function onGraphChanged(changes) {
-	    for (var i = 0; i < changes.length; ++i) {
-	      var change = changes[i];
-	      if (change.changeType === 'add') {
-	        if (change.node) {
-	          initBody(change.node.id);
-	        }
-	        if (change.link) {
-	          initLink(change.link);
-	        }
-	      } else if (change.changeType === 'remove') {
-	        if (change.node) {
-	          releaseNode(change.node);
-	        }
-	        if (change.link) {
-	          releaseLink(change.link);
-	        }
-	      }
-	    }
-	  }
-
-	  function initPhysics() {
-	    graph.forEachNode(function (node) {
-	      initBody(node.id);
-	    });
-	    graph.forEachLink(initLink);
-	  }
-
-	  function initBody(nodeId) {
-	    var body = nodeBodies[nodeId];
-	    if (!body) {
-	      var node = graph.getNode(nodeId);
-	      if (!node) {
-	        throw new Error('initBody() was called with unknown node id');
-	      }
-
-	      var pos = node.position;
-	      if (!pos) {
-	        var neighbors = getNeighborBodies(node);
-	        pos = physicsSimulator.getBestNewBodyPosition(neighbors);
-	      }
-
-	      body = physicsSimulator.addBodyAt(pos);
-
-	      nodeBodies[nodeId] = body;
-	      updateBodyMass(nodeId);
-
-	      if (isNodeOriginallyPinned(node)) {
-	        body.isPinned = true;
-	      }
-	    }
-	  }
-
-	  function releaseNode(node) {
-	    var nodeId = node.id;
-	    var body = nodeBodies[nodeId];
-	    if (body) {
-	      nodeBodies[nodeId] = null;
-	      delete nodeBodies[nodeId];
-
-	      physicsSimulator.removeBody(body);
-	    }
-	  }
-
-	  function initLink(link) {
-	    updateBodyMass(link.fromId);
-	    updateBodyMass(link.toId);
-
-	    var fromBody = nodeBodies[link.fromId],
-	        toBody  = nodeBodies[link.toId],
-	        spring = physicsSimulator.addSpring(fromBody, toBody, link.length);
-
-	    springTransform(link, spring);
-
-	    springs[link.id] = spring;
-	  }
-
-	  function releaseLink(link) {
-	    var spring = springs[link.id];
-	    if (spring) {
-	      var from = graph.getNode(link.fromId),
-	          to = graph.getNode(link.toId);
-
-	      if (from) updateBodyMass(from.id);
-	      if (to) updateBodyMass(to.id);
-
-	      delete springs[link.id];
-
-	      physicsSimulator.removeSpring(spring);
-	    }
-	  }
-
-	  function getNeighborBodies(node) {
-	    // TODO: Could probably be done better on memory
-	    var neighbors = [];
-	    if (!node.links) {
-	      return neighbors;
-	    }
-	    var maxNeighbors = Math.min(node.links.length, 2);
-	    for (var i = 0; i < maxNeighbors; ++i) {
-	      var link = node.links[i];
-	      var otherBody = link.fromId !== node.id ? nodeBodies[link.fromId] : nodeBodies[link.toId];
-	      if (otherBody && otherBody.pos) {
-	        neighbors.push(otherBody);
-	      }
-	    }
-
-	    return neighbors;
-	  }
-
-	  function updateBodyMass(nodeId) {
-	    var body = nodeBodies[nodeId];
-	    body.mass = nodeMass(nodeId);
-	  }
-
-	  /**
-	   * Checks whether graph node has in its settings pinned attribute,
-	   * which means layout algorithm cannot move it. Node can be preconfigured
-	   * as pinned, if it has "isPinned" attribute, or when node.data has it.
-	   *
-	   * @param {Object} node a graph node to check
-	   * @return {Boolean} true if node should be treated as pinned; false otherwise.
-	   */
-	  function isNodeOriginallyPinned(node) {
-	    return (node && (node.isPinned || (node.data && node.data.isPinned)));
-	  }
-
-	  function getInitializedBody(nodeId) {
-	    var body = nodeBodies[nodeId];
-	    if (!body) {
-	      initBody(nodeId);
-	      body = nodeBodies[nodeId];
-	    }
-	    return body;
-	  }
-
-	  /**
-	   * Calculates mass of a body, which corresponds to node with given id.
-	   *
-	   * @param {String|Number} nodeId identifier of a node, for which body mass needs to be calculated
-	   * @returns {Number} recommended mass of the body;
-	   */
-	  function nodeMass(nodeId) {
-	    var links = graph.getLinks(nodeId);
-	    if (!links) return 1;
-	    return 1 + links.length / 3.0;
-	  }
-	}
-
-	function noop() { }
-
-
-/***/ }),
-/* 31 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	/**
-	 * Manages a simulation of physical forces acting on bodies and springs.
-	 */
-	module.exports = physicsSimulator;
-
-	function physicsSimulator(settings) {
-	  var Spring = __webpack_require__(32);
-	  var expose = __webpack_require__(33);
-	  var merge = __webpack_require__(34);
-	  var eventify = __webpack_require__(35);
-
-	  settings = merge(settings, {
-	      /**
-	       * Ideal length for links (springs in physical model).
-	       */
-	      springLength: 30,
-
-	      /**
-	       * Hook's law coefficient. 1 - solid spring.
-	       */
-	      springCoeff: 0.0008,
-
-	      /**
-	       * Coulomb's law coefficient. It's used to repel nodes thus should be negative
-	       * if you make it positive nodes start attract each other :).
-	       */
-	      gravity: -1.2,
-
-	      /**
-	       * Theta coefficient from Barnes Hut simulation. Ranged between (0, 1).
-	       * The closer it's to 1 the more nodes algorithm will have to go through.
-	       * Setting it to one makes Barnes Hut simulation no different from
-	       * brute-force forces calculation (each node is considered).
-	       */
-	      theta: 0.8,
-
-	      /**
-	       * Drag force coefficient. Used to slow down system, thus should be less than 1.
-	       * The closer it is to 0 the less tight system will be.
-	       */
-	      dragCoeff: 0.02,
-
-	      /**
-	       * Default time step (dt) for forces integration
-	       */
-	      timeStep : 20,
-
-	      /**
-	        * Maximum movement of the system which can be considered as stabilized
-	        */
-	      stableThreshold: 0.009
-	  });
-
-	  // We allow clients to override basic factory methods:
-	  var createQuadTree = settings.createQuadTree || __webpack_require__(36);
-	  var createBounds = settings.createBounds || __webpack_require__(41);
-	  var createDragForce = settings.createDragForce || __webpack_require__(42);
-	  var createSpringForce = settings.createSpringForce || __webpack_require__(43);
-	  var integrate = settings.integrator || __webpack_require__(44);
-	  var createBody = settings.createBody || __webpack_require__(45);
-
-	  var bodies = [], // Bodies in this simulation.
-	      springs = [], // Springs in this simulation.
-	      quadTree =  createQuadTree(settings),
-	      bounds = createBounds(bodies, settings),
-	      springForce = createSpringForce(settings),
-	      dragForce = createDragForce(settings);
-
-	  var totalMovement = 0; // how much movement we made on last step
-	  var lastStable = false; // indicates whether system was stable on last step() call
-
-	  var publicApi = {
-	    /**
-	     * Array of bodies, registered with current simulator
-	     *
-	     * Note: To add new body, use addBody() method. This property is only
-	     * exposed for testing/performance purposes.
-	     */
-	    bodies: bodies,
-
-	    /**
-	     * Array of springs, registered with current simulator
-	     *
-	     * Note: To add new spring, use addSpring() method. This property is only
-	     * exposed for testing/performance purposes.
-	     */
-	    springs: springs,
-
-	    /**
-	     * Returns settings with which current simulator was initialized
-	     */
-	    settings: settings,
-
-	    /**
-	     * Performs one step of force simulation.
-	     *
-	     * @returns {boolean} true if system is considered stable; False otherwise.
-	     */
-	    step: function () {
-	      accumulateForces();
-	      totalMovement = integrate(bodies, settings.timeStep);
-
-	      bounds.update();
-	      var stableNow = totalMovement < settings.stableThreshold;
-	      if (lastStable !== stableNow) {
-	        publicApi.fire('stable', stableNow);
-	      }
-
-	      lastStable = stableNow;
-
-	      return stableNow;
-	    },
-
-	    /**
-	     * Adds body to the system
-	     *
-	     * @param {ngraph.physics.primitives.Body} body physical body
-	     *
-	     * @returns {ngraph.physics.primitives.Body} added body
-	     */
-	    addBody: function (body) {
-	      if (!body) {
-	        throw new Error('Body is required');
-	      }
-	      bodies.push(body);
-
-	      return body;
-	    },
-
-	    /**
-	     * Adds body to the system at given position
-	     *
-	     * @param {Object} pos position of a body
-	     *
-	     * @returns {ngraph.physics.primitives.Body} added body
-	     */
-	    addBodyAt: function (pos) {
-	      if (!pos) {
-	        throw new Error('Body position is required');
-	      }
-	      var body = createBody(pos);
-	      bodies.push(body);
-
-	      return body;
-	    },
-
-	    /**
-	     * Removes body from the system
-	     *
-	     * @param {ngraph.physics.primitives.Body} body to remove
-	     *
-	     * @returns {Boolean} true if body found and removed. falsy otherwise;
-	     */
-	    removeBody: function (body) {
-	      if (!body) { return; }
-
-	      var idx = bodies.indexOf(body);
-	      if (idx < 0) { return; }
-
-	      bodies.splice(idx, 1);
-	      if (bodies.length === 0) {
-	        bounds.reset();
-	      }
-	      return true;
-	    },
-
-	    /**
-	     * Adds a spring to this simulation.
-	     *
-	     * @returns {Object} - a handle for a spring. If you want to later remove
-	     * spring pass it to removeSpring() method.
-	     */
-	    addSpring: function (body1, body2, springLength, springWeight, springCoefficient) {
-	      if (!body1 || !body2) {
-	        throw new Error('Cannot add null spring to force simulator');
-	      }
-
-	      if (typeof springLength !== 'number') {
-	        springLength = -1; // assume global configuration
-	      }
-
-	      var spring = new Spring(body1, body2, springLength, springCoefficient >= 0 ? springCoefficient : -1, springWeight);
-	      springs.push(spring);
-
-	      // TODO: could mark simulator as dirty.
-	      return spring;
-	    },
-
-	    /**
-	     * Returns amount of movement performed on last step() call
-	     */
-	    getTotalMovement: function () {
-	      return totalMovement;
-	    },
-
-	    /**
-	     * Removes spring from the system
-	     *
-	     * @param {Object} spring to remove. Spring is an object returned by addSpring
-	     *
-	     * @returns {Boolean} true if spring found and removed. falsy otherwise;
-	     */
-	    removeSpring: function (spring) {
-	      if (!spring) { return; }
-	      var idx = springs.indexOf(spring);
-	      if (idx > -1) {
-	        springs.splice(idx, 1);
-	        return true;
-	      }
-	    },
-
-	    getBestNewBodyPosition: function (neighbors) {
-	      return bounds.getBestNewPosition(neighbors);
-	    },
-
-	    /**
-	     * Returns bounding box which covers all bodies
-	     */
-	    getBBox: function () {
-	      return bounds.box;
-	    },
-
-	    gravity: function (value) {
-	      if (value !== undefined) {
-	        settings.gravity = value;
-	        quadTree.options({gravity: value});
-	        return this;
-	      } else {
-	        return settings.gravity;
-	      }
-	    },
-
-	    theta: function (value) {
-	      if (value !== undefined) {
-	        settings.theta = value;
-	        quadTree.options({theta: value});
-	        return this;
-	      } else {
-	        return settings.theta;
-	      }
-	    }
-	  };
-
-	  // allow settings modification via public API:
-	  expose(settings, publicApi);
-	  eventify(publicApi);
-
-	  return publicApi;
-
-	  function accumulateForces() {
-	    // Accumulate forces acting on bodies.
-	    var body,
-	        i = bodies.length;
-
-	    if (i) {
-	      // only add bodies if there the array is not empty:
-	      quadTree.insertBodies(bodies); // performance: O(n * log n)
-	      while (i--) {
-	        body = bodies[i];
-	        // If body is pinned there is no point updating its forces - it should
-	        // never move:
-	        if (!body.isPinned) {
-	          body.force.reset();
-
-	          quadTree.updateBodyForce(body);
-	          dragForce.update(body);
-	        }
-	      }
-	    }
-
-	    i = springs.length;
-	    while(i--) {
-	      springForce.update(springs[i]);
-	    }
-	  }
-	};
-
-
-/***/ }),
-/* 32 */
-/***/ (function(module, exports) {
-
-	module.exports = Spring;
-
-	/**
-	 * Represents a physical spring. Spring connects two bodies, has rest length
-	 * stiffness coefficient and optional weight
-	 */
-	function Spring(fromBody, toBody, length, coeff, weight) {
-	    this.from = fromBody;
-	    this.to = toBody;
-	    this.length = length;
-	    this.coeff = coeff;
-
-	    this.weight = typeof weight === 'number' ? weight : 1;
-	};
-
-
-/***/ }),
-/* 33 */
-/***/ (function(module, exports) {
-
-	module.exports = exposeProperties;
-
-	/**
-	 * Augments `target` object with getter/setter functions, which modify settings
-	 *
-	 * @example
-	 *  var target = {};
-	 *  exposeProperties({ age: 42}, target);
-	 *  target.age(); // returns 42
-	 *  target.age(24); // make age 24;
-	 *
-	 *  var filteredTarget = {};
-	 *  exposeProperties({ age: 42, name: 'John'}, filteredTarget, ['name']);
-	 *  filteredTarget.name(); // returns 'John'
-	 *  filteredTarget.age === undefined; // true
-	 */
-	function exposeProperties(settings, target, filter) {
-	  var needsFilter = Object.prototype.toString.call(filter) === '[object Array]';
-	  if (needsFilter) {
-	    for (var i = 0; i < filter.length; ++i) {
-	      augment(settings, target, filter[i]);
-	    }
-	  } else {
-	    for (var key in settings) {
-	      augment(settings, target, key);
-	    }
-	  }
-	}
-
-	function augment(source, target, key) {
-	  if (source.hasOwnProperty(key)) {
-	    if (typeof target[key] === 'function') {
-	      // this accessor is already defined. Ignore it
-	      return;
-	    }
-	    target[key] = function (value) {
-	      if (value !== undefined) {
-	        source[key] = value;
-	        return target;
-	      }
-	      return source[key];
-	    }
-	  }
-	}
-
-
-/***/ }),
-/* 34 */
-/***/ (function(module, exports) {
-
-	module.exports = merge;
-
-	/**
-	 * Augments `target` with properties in `options`. Does not override
-	 * target's properties if they are defined and matches expected type in 
-	 * options
-	 *
-	 * @returns {Object} merged object
-	 */
-	function merge(target, options) {
-	  var key;
-	  if (!target) { target = {}; }
-	  if (options) {
-	    for (key in options) {
-	      if (options.hasOwnProperty(key)) {
-	        var targetHasIt = target.hasOwnProperty(key),
-	            optionsValueType = typeof options[key],
-	            shouldReplace = !targetHasIt || (typeof target[key] !== optionsValueType);
-
-	        if (shouldReplace) {
-	          target[key] = options[key];
-	        } else if (optionsValueType === 'object') {
-	          // go deep, don't care about loops here, we are simple API!:
-	          target[key] = merge(target[key], options[key]);
-	        }
-	      }
-	    }
-	  }
-
-	  return target;
-	}
-
-
-/***/ }),
-/* 35 */
-/***/ (function(module, exports) {
-
-	module.exports = function(subject) {
-	  validateSubject(subject);
-
-	  var eventsStorage = createEventsStorage(subject);
-	  subject.on = eventsStorage.on;
-	  subject.off = eventsStorage.off;
-	  subject.fire = eventsStorage.fire;
-	  return subject;
-	};
-
-	function createEventsStorage(subject) {
-	  // Store all event listeners to this hash. Key is event name, value is array
-	  // of callback records.
-	  //
-	  // A callback record consists of callback function and its optional context:
-	  // { 'eventName' => [{callback: function, ctx: object}] }
-	  var registeredEvents = Object.create(null);
-
-	  return {
-	    on: function (eventName, callback, ctx) {
-	      if (typeof callback !== 'function') {
-	        throw new Error('callback is expected to be a function');
-	      }
-	      var handlers = registeredEvents[eventName];
-	      if (!handlers) {
-	        handlers = registeredEvents[eventName] = [];
-	      }
-	      handlers.push({callback: callback, ctx: ctx});
-
-	      return subject;
-	    },
-
-	    off: function (eventName, callback) {
-	      var wantToRemoveAll = (typeof eventName === 'undefined');
-	      if (wantToRemoveAll) {
-	        // Killing old events storage should be enough in this case:
-	        registeredEvents = Object.create(null);
-	        return subject;
-	      }
-
-	      if (registeredEvents[eventName]) {
-	        var deleteAllCallbacksForEvent = (typeof callback !== 'function');
-	        if (deleteAllCallbacksForEvent) {
-	          delete registeredEvents[eventName];
-	        } else {
-	          var callbacks = registeredEvents[eventName];
-	          for (var i = 0; i < callbacks.length; ++i) {
-	            if (callbacks[i].callback === callback) {
-	              callbacks.splice(i, 1);
-	            }
-	          }
-	        }
-	      }
-
-	      return subject;
-	    },
-
-	    fire: function (eventName) {
-	      var callbacks = registeredEvents[eventName];
-	      if (!callbacks) {
-	        return subject;
-	      }
-
-	      var fireArguments;
-	      if (arguments.length > 1) {
-	        fireArguments = Array.prototype.splice.call(arguments, 1);
-	      }
-	      for(var i = 0; i < callbacks.length; ++i) {
-	        var callbackInfo = callbacks[i];
-	        callbackInfo.callback.apply(callbackInfo.ctx, fireArguments);
-	      }
-
-	      return subject;
-	    }
-	  };
-	}
-
-	function validateSubject(subject) {
-	  if (!subject) {
-	    throw new Error('Eventify cannot use falsy object as events subject');
-	  }
-	  var reservedWords = ['on', 'fire', 'off'];
-	  for (var i = 0; i < reservedWords.length; ++i) {
-	    if (subject.hasOwnProperty(reservedWords[i])) {
-	      throw new Error("Subject cannot be eventified, since it already has property '" + reservedWords[i] + "'");
-	    }
-	  }
-	}
-
-
-/***/ }),
-/* 36 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	/**
-	 * This is Barnes Hut simulation algorithm for 2d case. Implementation
-	 * is highly optimized (avoids recusion and gc pressure)
-	 *
-	 * http://www.cs.princeton.edu/courses/archive/fall03/cs126/assignments/barnes-hut.html
-	 */
-
-	module.exports = function(options) {
-	  options = options || {};
-	  options.gravity = typeof options.gravity === 'number' ? options.gravity : -1;
-	  options.theta = typeof options.theta === 'number' ? options.theta : 0.8;
-
-	  // we require deterministic randomness here
-	  var random = __webpack_require__(37).random(1984),
-	    Node = __webpack_require__(38),
-	    InsertStack = __webpack_require__(39),
-	    isSamePosition = __webpack_require__(40);
-
-	  var gravity = options.gravity,
-	    updateQueue = [],
-	    insertStack = new InsertStack(),
-	    theta = options.theta,
-
-	    nodesCache = [],
-	    currentInCache = 0,
-	    newNode = function() {
-	      // To avoid pressure on GC we reuse nodes.
-	      var node = nodesCache[currentInCache];
-	      if (node) {
-	        node.quad0 = null;
-	        node.quad1 = null;
-	        node.quad2 = null;
-	        node.quad3 = null;
-	        node.body = null;
-	        node.mass = node.massX = node.massY = 0;
-	        node.left = node.right = node.top = node.bottom = 0;
-	      } else {
-	        node = new Node();
-	        nodesCache[currentInCache] = node;
-	      }
-
-	      ++currentInCache;
-	      return node;
-	    },
-
-	    root = newNode(),
-
-	    // Inserts body to the tree
-	    insert = function(newBody) {
-	      insertStack.reset();
-	      insertStack.push(root, newBody);
-
-	      while (!insertStack.isEmpty()) {
-	        var stackItem = insertStack.pop(),
-	          node = stackItem.node,
-	          body = stackItem.body;
-
-	        if (!node.body) {
-	          // This is internal node. Update the total mass of the node and center-of-mass.
-	          var x = body.pos.x;
-	          var y = body.pos.y;
-	          node.mass = node.mass + body.mass;
-	          node.massX = node.massX + body.mass * x;
-	          node.massY = node.massY + body.mass * y;
-
-	          // Recursively insert the body in the appropriate quadrant.
-	          // But first find the appropriate quadrant.
-	          var quadIdx = 0, // Assume we are in the 0's quad.
-	            left = node.left,
-	            right = (node.right + left) / 2,
-	            top = node.top,
-	            bottom = (node.bottom + top) / 2;
-
-	          if (x > right) { // somewhere in the eastern part.
-	            quadIdx = quadIdx + 1;
-	            var oldLeft = left;
-	            left = right;
-	            right = right + (right - oldLeft);
-	          }
-	          if (y > bottom) { // and in south.
-	            quadIdx = quadIdx + 2;
-	            var oldTop = top;
-	            top = bottom;
-	            bottom = bottom + (bottom - oldTop);
-	          }
-
-	          var child = getChild(node, quadIdx);
-	          if (!child) {
-	            // The node is internal but this quadrant is not taken. Add
-	            // subnode to it.
-	            child = newNode();
-	            child.left = left;
-	            child.top = top;
-	            child.right = right;
-	            child.bottom = bottom;
-	            child.body = body;
-
-	            setChild(node, quadIdx, child);
-	          } else {
-	            // continue searching in this quadrant.
-	            insertStack.push(child, body);
-	          }
-	        } else {
-	          // We are trying to add to the leaf node.
-	          // We have to convert current leaf into internal node
-	          // and continue adding two nodes.
-	          var oldBody = node.body;
-	          node.body = null; // internal nodes do not cary bodies
-
-	          if (isSamePosition(oldBody.pos, body.pos)) {
-	            // Prevent infinite subdivision by bumping one node
-	            // anywhere in this quadrant
-	            var retriesCount = 3;
-	            do {
-	              var offset = random.nextDouble();
-	              var dx = (node.right - node.left) * offset;
-	              var dy = (node.bottom - node.top) * offset;
-
-	              oldBody.pos.x = node.left + dx;
-	              oldBody.pos.y = node.top + dy;
-	              retriesCount -= 1;
-	              // Make sure we don't bump it out of the box. If we do, next iteration should fix it
-	            } while (retriesCount > 0 && isSamePosition(oldBody.pos, body.pos));
-
-	            if (retriesCount === 0 && isSamePosition(oldBody.pos, body.pos)) {
-	              // This is very bad, we ran out of precision.
-	              // if we do not return from the method we'll get into
-	              // infinite loop here. So we sacrifice correctness of layout, and keep the app running
-	              // Next layout iteration should get larger bounding box in the first step and fix this
-	              return;
-	            }
-	          }
-	          // Next iteration should subdivide node further.
-	          insertStack.push(node, oldBody);
-	          insertStack.push(node, body);
-	        }
-	      }
-	    },
-
-	    update = function(sourceBody) {
-	      var queue = updateQueue,
-	        v,
-	        dx,
-	        dy,
-	        r, fx = 0,
-	        fy = 0,
-	        queueLength = 1,
-	        shiftIdx = 0,
-	        pushIdx = 1;
-
-	      queue[0] = root;
-
-	      while (queueLength) {
-	        var node = queue[shiftIdx],
-	          body = node.body;
-
-	        queueLength -= 1;
-	        shiftIdx += 1;
-	        var differentBody = (body !== sourceBody);
-	        if (body && differentBody) {
-	          // If the current node is a leaf node (and it is not source body),
-	          // calculate the force exerted by the current node on body, and add this
-	          // amount to body's net force.
-	          dx = body.pos.x - sourceBody.pos.x;
-	          dy = body.pos.y - sourceBody.pos.y;
-	          r = Math.sqrt(dx * dx + dy * dy);
-
-	          if (r === 0) {
-	            // Poor man's protection against zero distance.
-	            dx = (random.nextDouble() - 0.5) / 50;
-	            dy = (random.nextDouble() - 0.5) / 50;
-	            r = Math.sqrt(dx * dx + dy * dy);
-	          }
-
-	          // This is standard gravition force calculation but we divide
-	          // by r^3 to save two operations when normalizing force vector.
-	          v = gravity * body.mass * sourceBody.mass / (r * r * r);
-	          fx += v * dx;
-	          fy += v * dy;
-	        } else if (differentBody) {
-	          // Otherwise, calculate the ratio s / r,  where s is the width of the region
-	          // represented by the internal node, and r is the distance between the body
-	          // and the node's center-of-mass
-	          dx = node.massX / node.mass - sourceBody.pos.x;
-	          dy = node.massY / node.mass - sourceBody.pos.y;
-	          r = Math.sqrt(dx * dx + dy * dy);
-
-	          if (r === 0) {
-	            // Sorry about code duplucation. I don't want to create many functions
-	            // right away. Just want to see performance first.
-	            dx = (random.nextDouble() - 0.5) / 50;
-	            dy = (random.nextDouble() - 0.5) / 50;
-	            r = Math.sqrt(dx * dx + dy * dy);
-	          }
-	          // If s / r < θ, treat this internal node as a single body, and calculate the
-	          // force it exerts on sourceBody, and add this amount to sourceBody's net force.
-	          if ((node.right - node.left) / r < theta) {
-	            // in the if statement above we consider node's width only
-	            // because the region was squarified during tree creation.
-	            // Thus there is no difference between using width or height.
-	            v = gravity * node.mass * sourceBody.mass / (r * r * r);
-	            fx += v * dx;
-	            fy += v * dy;
-	          } else {
-	            // Otherwise, run the procedure recursively on each of the current node's children.
-
-	            // I intentionally unfolded this loop, to save several CPU cycles.
-	            if (node.quad0) {
-	              queue[pushIdx] = node.quad0;
-	              queueLength += 1;
-	              pushIdx += 1;
-	            }
-	            if (node.quad1) {
-	              queue[pushIdx] = node.quad1;
-	              queueLength += 1;
-	              pushIdx += 1;
-	            }
-	            if (node.quad2) {
-	              queue[pushIdx] = node.quad2;
-	              queueLength += 1;
-	              pushIdx += 1;
-	            }
-	            if (node.quad3) {
-	              queue[pushIdx] = node.quad3;
-	              queueLength += 1;
-	              pushIdx += 1;
-	            }
-	          }
-	        }
-	      }
-
-	      sourceBody.force.x += fx;
-	      sourceBody.force.y += fy;
-	    },
-
-	    insertBodies = function(bodies) {
-	      var x1 = Number.MAX_VALUE,
-	        y1 = Number.MAX_VALUE,
-	        x2 = Number.MIN_VALUE,
-	        y2 = Number.MIN_VALUE,
-	        i,
-	        max = bodies.length;
-
-	      // To reduce quad tree depth we are looking for exact bounding box of all particles.
-	      i = max;
-	      while (i--) {
-	        var x = bodies[i].pos.x;
-	        var y = bodies[i].pos.y;
-	        if (x < x1) {
-	          x1 = x;
-	        }
-	        if (x > x2) {
-	          x2 = x;
-	        }
-	        if (y < y1) {
-	          y1 = y;
-	        }
-	        if (y > y2) {
-	          y2 = y;
-	        }
-	      }
-
-	      // Squarify the bounds.
-	      var dx = x2 - x1,
-	        dy = y2 - y1;
-	      if (dx > dy) {
-	        y2 = y1 + dx;
-	      } else {
-	        x2 = x1 + dy;
-	      }
-
-	      currentInCache = 0;
-	      root = newNode();
-	      root.left = x1;
-	      root.right = x2;
-	      root.top = y1;
-	      root.bottom = y2;
-
-	      i = max - 1;
-	      if (i > 0) {
-	        root.body = bodies[i];
-	      }
-	      while (i--) {
-	        insert(bodies[i], root);
-	      }
-	    };
-
-	  return {
-	    insertBodies: insertBodies,
-	    updateBodyForce: update,
-	    options: function(newOptions) {
-	      if (newOptions) {
-	        if (typeof newOptions.gravity === 'number') {
-	          gravity = newOptions.gravity;
-	        }
-	        if (typeof newOptions.theta === 'number') {
-	          theta = newOptions.theta;
-	        }
-
-	        return this;
-	      }
-
-	      return {
-	        gravity: gravity,
-	        theta: theta
-	      };
-	    }
-	  };
-	};
-
-	function getChild(node, idx) {
-	  if (idx === 0) return node.quad0;
-	  if (idx === 1) return node.quad1;
-	  if (idx === 2) return node.quad2;
-	  if (idx === 3) return node.quad3;
-	  return null;
-	}
-
-	function setChild(node, idx, child) {
-	  if (idx === 0) node.quad0 = child;
-	  else if (idx === 1) node.quad1 = child;
-	  else if (idx === 2) node.quad2 = child;
-	  else if (idx === 3) node.quad3 = child;
-	}
-
-
-/***/ }),
-/* 37 */
-/***/ (function(module, exports) {
-
-	module.exports = {
-	  random: random,
-	  randomIterator: randomIterator
-	};
-
-	/**
-	 * Creates seeded PRNG with two methods:
-	 *   next() and nextDouble()
-	 */
-	function random(inputSeed) {
-	  var seed = typeof inputSeed === 'number' ? inputSeed : (+ new Date());
-	  var randomFunc = function() {
-	      // Robert Jenkins' 32 bit integer hash function.
-	      seed = ((seed + 0x7ed55d16) + (seed << 12))  & 0xffffffff;
-	      seed = ((seed ^ 0xc761c23c) ^ (seed >>> 19)) & 0xffffffff;
-	      seed = ((seed + 0x165667b1) + (seed << 5))   & 0xffffffff;
-	      seed = ((seed + 0xd3a2646c) ^ (seed << 9))   & 0xffffffff;
-	      seed = ((seed + 0xfd7046c5) + (seed << 3))   & 0xffffffff;
-	      seed = ((seed ^ 0xb55a4f09) ^ (seed >>> 16)) & 0xffffffff;
-	      return (seed & 0xfffffff) / 0x10000000;
-	  };
-
-	  return {
-	      /**
-	       * Generates random integer number in the range from 0 (inclusive) to maxValue (exclusive)
-	       *
-	       * @param maxValue Number REQUIRED. Ommitting this number will result in NaN values from PRNG.
-	       */
-	      next : function (maxValue) {
-	          return Math.floor(randomFunc() * maxValue);
-	      },
-
-	      /**
-	       * Generates random double number in the range from 0 (inclusive) to 1 (exclusive)
-	       * This function is the same as Math.random() (except that it could be seeded)
-	       */
-	      nextDouble : function () {
-	          return randomFunc();
-	      }
-	  };
-	}
-
-	/*
-	 * Creates iterator over array, which returns items of array in random order
-	 * Time complexity is guaranteed to be O(n);
-	 */
-	function randomIterator(array, customRandom) {
-	    var localRandom = customRandom || random();
-	    if (typeof localRandom.next !== 'function') {
-	      throw new Error('customRandom does not match expected API: next() function is missing');
-	    }
-
-	    return {
-	        forEach : function (callback) {
-	            var i, j, t;
-	            for (i = array.length - 1; i > 0; --i) {
-	                j = localRandom.next(i + 1); // i inclusive
-	                t = array[j];
-	                array[j] = array[i];
-	                array[i] = t;
-
-	                callback(t);
-	            }
-
-	            if (array.length) {
-	                callback(array[0]);
-	            }
-	        },
-
-	        /**
-	         * Shuffles array randomly, in place.
-	         */
-	        shuffle : function () {
-	            var i, j, t;
-	            for (i = array.length - 1; i > 0; --i) {
-	                j = localRandom.next(i + 1); // i inclusive
-	                t = array[j];
-	                array[j] = array[i];
-	                array[i] = t;
-	            }
-
-	            return array;
-	        }
-	    };
-	}
-
-
-/***/ }),
-/* 38 */
-/***/ (function(module, exports) {
-
-	/**
-	 * Internal data structure to represent 2D QuadTree node
-	 */
-	module.exports = function Node() {
-	  // body stored inside this node. In quad tree only leaf nodes (by construction)
-	  // contain boides:
-	  this.body = null;
-
-	  // Child nodes are stored in quads. Each quad is presented by number:
-	  // 0 | 1
-	  // -----
-	  // 2 | 3
-	  this.quad0 = null;
-	  this.quad1 = null;
-	  this.quad2 = null;
-	  this.quad3 = null;
-
-	  // Total mass of current node
-	  this.mass = 0;
-
-	  // Center of mass coordinates
-	  this.massX = 0;
-	  this.massY = 0;
-
-	  // bounding box coordinates
-	  this.left = 0;
-	  this.top = 0;
-	  this.bottom = 0;
-	  this.right = 0;
-	};
-
-
-/***/ }),
-/* 39 */
-/***/ (function(module, exports) {
-
-	module.exports = InsertStack;
-
-	/**
-	 * Our implmentation of QuadTree is non-recursive to avoid GC hit
-	 * This data structure represent stack of elements
-	 * which we are trying to insert into quad tree.
-	 */
-	function InsertStack () {
-	    this.stack = [];
-	    this.popIdx = 0;
-	}
-
-	InsertStack.prototype = {
-	    isEmpty: function() {
-	        return this.popIdx === 0;
-	    },
-	    push: function (node, body) {
-	        var item = this.stack[this.popIdx];
-	        if (!item) {
-	            // we are trying to avoid memory pressue: create new element
-	            // only when absolutely necessary
-	            this.stack[this.popIdx] = new InsertStackElement(node, body);
-	        } else {
-	            item.node = node;
-	            item.body = body;
-	        }
-	        ++this.popIdx;
-	    },
-	    pop: function () {
-	        if (this.popIdx > 0) {
-	            return this.stack[--this.popIdx];
-	        }
-	    },
-	    reset: function () {
-	        this.popIdx = 0;
-	    }
-	};
-
-	function InsertStackElement(node, body) {
-	    this.node = node; // QuadTree node
-	    this.body = body; // physical body which needs to be inserted to node
-	}
-
-
-/***/ }),
-/* 40 */
-/***/ (function(module, exports) {
-
-	module.exports = function isSamePosition(point1, point2) {
-	    var dx = Math.abs(point1.x - point2.x);
-	    var dy = Math.abs(point1.y - point2.y);
-
-	    return (dx < 1e-8 && dy < 1e-8);
-	};
-
-
-/***/ }),
-/* 41 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	module.exports = function (bodies, settings) {
-	  var random = __webpack_require__(37).random(42);
-	  var boundingBox =  { x1: 0, y1: 0, x2: 0, y2: 0 };
-
-	  return {
-	    box: boundingBox,
-
-	    update: updateBoundingBox,
-
-	    reset : function () {
-	      boundingBox.x1 = boundingBox.y1 = 0;
-	      boundingBox.x2 = boundingBox.y2 = 0;
-	    },
-
-	    getBestNewPosition: function (neighbors) {
-	      var graphRect = boundingBox;
-
-	      var baseX = 0, baseY = 0;
-
-	      if (neighbors.length) {
-	        for (var i = 0; i < neighbors.length; ++i) {
-	          baseX += neighbors[i].pos.x;
-	          baseY += neighbors[i].pos.y;
-	        }
-
-	        baseX /= neighbors.length;
-	        baseY /= neighbors.length;
-	      } else {
-	        baseX = (graphRect.x1 + graphRect.x2) / 2;
-	        baseY = (graphRect.y1 + graphRect.y2) / 2;
-	      }
-
-	      var springLength = settings.springLength;
-	      return {
-	        x: baseX + random.next(springLength) - springLength / 2,
-	        y: baseY + random.next(springLength) - springLength / 2
-	      };
-	    }
-	  };
-
-	  function updateBoundingBox() {
-	    var i = bodies.length;
-	    if (i === 0) { return; } // don't have to wory here.
-
-	    var x1 = Number.MAX_VALUE,
-	        y1 = Number.MAX_VALUE,
-	        x2 = Number.MIN_VALUE,
-	        y2 = Number.MIN_VALUE;
-
-	    while(i--) {
-	      // this is O(n), could it be done faster with quadtree?
-	      // how about pinned nodes?
-	      var body = bodies[i];
-	      if (body.isPinned) {
-	        body.pos.x = body.prevPos.x;
-	        body.pos.y = body.prevPos.y;
-	      } else {
-	        body.prevPos.x = body.pos.x;
-	        body.prevPos.y = body.pos.y;
-	      }
-	      if (body.pos.x < x1) {
-	        x1 = body.pos.x;
-	      }
-	      if (body.pos.x > x2) {
-	        x2 = body.pos.x;
-	      }
-	      if (body.pos.y < y1) {
-	        y1 = body.pos.y;
-	      }
-	      if (body.pos.y > y2) {
-	        y2 = body.pos.y;
-	      }
-	    }
-
-	    boundingBox.x1 = x1;
-	    boundingBox.x2 = x2;
-	    boundingBox.y1 = y1;
-	    boundingBox.y2 = y2;
-	  }
-	}
-
-
-/***/ }),
-/* 42 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	/**
-	 * Represents drag force, which reduces force value on each step by given
-	 * coefficient.
-	 *
-	 * @param {Object} options for the drag force
-	 * @param {Number=} options.dragCoeff drag force coefficient. 0.1 by default
-	 */
-	module.exports = function (options) {
-	  var merge = __webpack_require__(34),
-	      expose = __webpack_require__(33);
-
-	  options = merge(options, {
-	    dragCoeff: 0.02
-	  });
-
-	  var api = {
-	    update : function (body) {
-	      body.force.x -= options.dragCoeff * body.velocity.x;
-	      body.force.y -= options.dragCoeff * body.velocity.y;
-	    }
-	  };
-
-	  // let easy access to dragCoeff:
-	  expose(options, api, ['dragCoeff']);
-
-	  return api;
-	};
-
-
-/***/ }),
-/* 43 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	/**
-	 * Represents spring force, which updates forces acting on two bodies, conntected
-	 * by a spring.
-	 *
-	 * @param {Object} options for the spring force
-	 * @param {Number=} options.springCoeff spring force coefficient.
-	 * @param {Number=} options.springLength desired length of a spring at rest.
-	 */
-	module.exports = function (options) {
-	  var merge = __webpack_require__(34);
-	  var random = __webpack_require__(37).random(42);
-	  var expose = __webpack_require__(33);
-
-	  options = merge(options, {
-	    springCoeff: 0.0002,
-	    springLength: 80
-	  });
-
-	  var api = {
-	    /**
-	     * Upsates forces acting on a spring
-	     */
-	    update : function (spring) {
-	      var body1 = spring.from,
-	          body2 = spring.to,
-	          length = spring.length < 0 ? options.springLength : spring.length,
-	          dx = body2.pos.x - body1.pos.x,
-	          dy = body2.pos.y - body1.pos.y,
-	          r = Math.sqrt(dx * dx + dy * dy);
-
-	      if (r === 0) {
-	          dx = (random.nextDouble() - 0.5) / 50;
-	          dy = (random.nextDouble() - 0.5) / 50;
-	          r = Math.sqrt(dx * dx + dy * dy);
-	      }
-
-	      var d = r - length;
-	      var coeff = ((!spring.coeff || spring.coeff < 0) ? options.springCoeff : spring.coeff) * d / r * spring.weight;
-
-	      body1.force.x += coeff * dx;
-	      body1.force.y += coeff * dy;
-
-	      body2.force.x -= coeff * dx;
-	      body2.force.y -= coeff * dy;
-	    }
-	  };
-
-	  expose(options, api, ['springCoeff', 'springLength']);
-	  return api;
-	}
-
-
-/***/ }),
-/* 44 */
-/***/ (function(module, exports) {
-
-	/**
-	 * Performs forces integration, using given timestep. Uses Euler method to solve
-	 * differential equation (http://en.wikipedia.org/wiki/Euler_method ).
-	 *
-	 * @returns {Number} squared distance of total position updates.
-	 */
-
-	module.exports = integrate;
-
-	function integrate(bodies, timeStep) {
-	  var dx = 0, tx = 0,
-	      dy = 0, ty = 0,
-	      i,
-	      max = bodies.length;
-
-	  if (max === 0) {
-	    return 0;
-	  }
-
-	  for (i = 0; i < max; ++i) {
-	    var body = bodies[i],
-	        coeff = timeStep / body.mass;
-
-	    body.velocity.x += coeff * body.force.x;
-	    body.velocity.y += coeff * body.force.y;
-	    var vx = body.velocity.x,
-	        vy = body.velocity.y,
-	        v = Math.sqrt(vx * vx + vy * vy);
-
-	    if (v > 1) {
-	      body.velocity.x = vx / v;
-	      body.velocity.y = vy / v;
-	    }
-
-	    dx = timeStep * body.velocity.x;
-	    dy = timeStep * body.velocity.y;
-
-	    body.pos.x += dx;
-	    body.pos.y += dy;
-
-	    tx += Math.abs(dx); ty += Math.abs(dy);
-	  }
-
-	  return (tx * tx + ty * ty)/max;
-	}
-
-
-/***/ }),
-/* 45 */
-/***/ (function(module, exports, __webpack_require__) {
-
-	var physics = __webpack_require__(46);
-
-	module.exports = function(pos) {
-	  return new physics.Body(pos);
-	}
-
-
-/***/ }),
-/* 46 */
-/***/ (function(module, exports) {
-
-	module.exports = {
-	  Body: Body,
-	  Vector2d: Vector2d,
-	  Body3d: Body3d,
-	  Vector3d: Vector3d
-	};
-
-	function Body(x, y) {
-	  this.pos = new Vector2d(x, y);
-	  this.prevPos = new Vector2d(x, y);
-	  this.force = new Vector2d();
-	  this.velocity = new Vector2d();
-	  this.mass = 1;
-	}
-
-	Body.prototype.setPosition = function (x, y) {
-	  this.prevPos.x = this.pos.x = x;
-	  this.prevPos.y = this.pos.y = y;
-	};
-
-	function Vector2d(x, y) {
-	  if (x && typeof x !== 'number') {
-	    // could be another vector
-	    this.x = typeof x.x === 'number' ? x.x : 0;
-	    this.y = typeof x.y === 'number' ? x.y : 0;
-	  } else {
-	    this.x = typeof x === 'number' ? x : 0;
-	    this.y = typeof y === 'number' ? y : 0;
-	  }
-	}
-
-	Vector2d.prototype.reset = function () {
-	  this.x = this.y = 0;
-	};
-
-	function Body3d(x, y, z) {
-	  this.pos = new Vector3d(x, y, z);
-	  this.prevPos = new Vector3d(x, y, z);
-	  this.force = new Vector3d();
-	  this.velocity = new Vector3d();
-	  this.mass = 1;
-	}
-
-	Body3d.prototype.setPosition = function (x, y, z) {
-	  this.prevPos.x = this.pos.x = x;
-	  this.prevPos.y = this.pos.y = y;
-	  this.prevPos.z = this.pos.z = z;
-	};
-
-	function Vector3d(x, y, z) {
-	  if (x && typeof x !== 'number') {
-	    // could be another vector
-	    this.x = typeof x.x === 'number' ? x.x : 0;
-	    this.y = typeof x.y === 'number' ? x.y : 0;
-	    this.z = typeof x.z === 'number' ? x.z : 0;
-	  } else {
-	    this.x = typeof x === 'number' ? x : 0;
-	    this.y = typeof y === 'number' ? y : 0;
-	    this.z = typeof z === 'number' ? z : 0;
-	  }
-	};
-
-	Vector3d.prototype.reset = function () {
-	  this.x = this.y = this.z = 0;
-	};
-
-
-/***/ }),
-/* 47 */
+/* 29 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -8352,10 +6578,10 @@
 	  options.theta = typeof options.theta === 'number' ? options.theta : 0.8;
 
 	  // we require deterministic randomness here
-	  var random = __webpack_require__(37).random(1984),
-	    Node = __webpack_require__(48),
-	    InsertStack = __webpack_require__(49),
-	    isSamePosition = __webpack_require__(50);
+	  var random = __webpack_require__(18).random(1984),
+	    Node = __webpack_require__(30),
+	    InsertStack = __webpack_require__(31),
+	    isSamePosition = __webpack_require__(32);
 
 	  var gravity = options.gravity,
 	    updateQueue = [],
@@ -8730,7 +6956,7 @@
 
 
 /***/ }),
-/* 48 */
+/* 30 */
 /***/ (function(module, exports) {
 
 	/**
@@ -8778,7 +7004,7 @@
 
 
 /***/ }),
-/* 49 */
+/* 31 */
 /***/ (function(module, exports) {
 
 	module.exports = InsertStack;
@@ -8826,7 +7052,7 @@
 
 
 /***/ }),
-/* 50 */
+/* 32 */
 /***/ (function(module, exports) {
 
 	module.exports = function isSamePosition(point1, point2) {
@@ -8839,11 +7065,11 @@
 
 
 /***/ }),
-/* 51 */
+/* 33 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	module.exports = function (bodies, settings) {
-	  var random = __webpack_require__(37).random(42);
+	  var random = __webpack_require__(18).random(42);
 	  var boundingBox =  { x1: 0, y1: 0, z1: 0, x2: 0, y2: 0, z2: 0 };
 
 	  return {
@@ -8942,7 +7168,7 @@
 
 
 /***/ }),
-/* 52 */
+/* 34 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -8953,8 +7179,8 @@
 	 * @param {Number=} options.dragCoeff drag force coefficient. 0.1 by default
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(34),
-	      expose = __webpack_require__(33);
+	  var merge = __webpack_require__(16),
+	      expose = __webpack_require__(15);
 
 	  options = merge(options, {
 	    dragCoeff: 0.02
@@ -8976,7 +7202,7 @@
 
 
 /***/ }),
-/* 53 */
+/* 35 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	/**
@@ -8988,9 +7214,9 @@
 	 * @param {Number=} options.springLength desired length of a spring at rest.
 	 */
 	module.exports = function (options) {
-	  var merge = __webpack_require__(34);
-	  var random = __webpack_require__(37).random(42);
-	  var expose = __webpack_require__(33);
+	  var merge = __webpack_require__(16);
+	  var random = __webpack_require__(18).random(42);
+	  var expose = __webpack_require__(15);
 
 	  options = merge(options, {
 	    springCoeff: 0.0002,
@@ -9036,10 +7262,10 @@
 
 
 /***/ }),
-/* 54 */
+/* 36 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	var physics = __webpack_require__(46);
+	var physics = __webpack_require__(27);
 
 	module.exports = function(pos) {
 	  return new physics.Body3d(pos);
@@ -9047,7 +7273,7 @@
 
 
 /***/ }),
-/* 55 */
+/* 37 */
 /***/ (function(module, exports) {
 
 	module.exports = integrate;
@@ -9074,7 +7300,7 @@
 
 
 /***/ }),
-/* 56 */
+/* 38 */
 /***/ (function(module, exports) {
 
 	/**
@@ -9128,14 +7354,14 @@
 
 
 /***/ }),
-/* 57 */
+/* 39 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 
 	function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-	var debounce = _interopDefault(__webpack_require__(58));
+	var debounce = _interopDefault(__webpack_require__(40));
 
 	function _classCallCheck(instance, Constructor) {
 	  if (!(instance instanceof Constructor)) {
@@ -9325,7 +7551,7 @@
 
 
 /***/ }),
-/* 58 */
+/* 40 */
 /***/ (function(module, exports) {
 
 	/**
@@ -9401,14 +7627,14 @@
 
 
 /***/ }),
-/* 59 */
+/* 41 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	'use strict';
 
 	function _interopDefault (ex) { return (ex && (typeof ex === 'object') && 'default' in ex) ? ex['default'] : ex; }
 
-	var indexBy = _interopDefault(__webpack_require__(60));
+	var indexBy = _interopDefault(__webpack_require__(42));
 
 	function _defineProperty(obj, key, value) {
 	  if (key in obj) {
@@ -9705,7 +7931,7 @@
 
 
 /***/ }),
-/* 60 */
+/* 42 */
 /***/ (function(module, exports) {
 
 	'use strict';
@@ -9936,12 +8162,12 @@
 
 
 /***/ }),
-/* 61 */
+/* 43 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-scale/ v3.2.0 Copyright 2019 Mike Bostock
+	// https://d3js.org/d3-scale/ v3.2.1 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(62), __webpack_require__(63), __webpack_require__(65), __webpack_require__(66), __webpack_require__(67)) :
+	 true ? factory(exports, __webpack_require__(44), __webpack_require__(45), __webpack_require__(47), __webpack_require__(48), __webpack_require__(49)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-array', 'd3-interpolate', 'd3-format', 'd3-time', 'd3-time-format'], factory) :
 	(global = global || self, factory(global.d3 = global.d3 || {}, global.d3, global.d3, global.d3, global.d3, global.d3));
 	}(this, function (exports, d3Array, d3Interpolate, d3Format, d3Time, d3TimeFormat) { 'use strict';
@@ -10485,7 +8711,7 @@
 	          z.push(t);
 	        }
 	      }
-	      if (!z.length) z = d3Array.ticks(u, v, n);
+	      if (z.length * 2 < n) z = d3Array.ticks(u, v, n);
 	    } else {
 	      z = d3Array.ticks(i, j, Math.min(j - i, n)).map(pows);
 	    }
@@ -11211,7 +9437,7 @@
 
 
 /***/ }),
-/* 62 */
+/* 44 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-array/ v2.4.0 Copyright 2019 Mike Bostock
@@ -12013,15 +10239,15 @@
 
 
 /***/ }),
-/* 63 */
+/* 45 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	// https://d3js.org/d3-interpolate/ v1.3.2 Copyright 2018 Mike Bostock
+	// https://d3js.org/d3-interpolate/ v1.4.0 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(64)) :
+	 true ? factory(exports, __webpack_require__(46)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-color'], factory) :
-	(factory((global.d3 = global.d3 || {}),global.d3));
-	}(this, (function (exports,d3Color) { 'use strict';
+	(global = global || self, factory(global.d3 = global.d3 || {}, global.d3));
+	}(this, function (exports, d3Color) { 'use strict';
 
 	function basis(t1, v0, v1, v2, v3) {
 	  var t2 = t1 * t1, t3 = t2 * t1;
@@ -12140,7 +10366,26 @@
 	var rgbBasis = rgbSpline(basis$1);
 	var rgbBasisClosed = rgbSpline(basisClosed);
 
+	function numberArray(a, b) {
+	  if (!b) b = [];
+	  var n = a ? Math.min(b.length, a.length) : 0,
+	      c = b.slice(),
+	      i;
+	  return function(t) {
+	    for (i = 0; i < n; ++i) c[i] = a[i] * (1 - t) + b[i] * t;
+	    return c;
+	  };
+	}
+
+	function isNumberArray(x) {
+	  return ArrayBuffer.isView(x) && !(x instanceof DataView);
+	}
+
 	function array(a, b) {
+	  return (isNumberArray(b) ? numberArray : genericArray)(a, b);
+	}
+
+	function genericArray(a, b) {
 	  var nb = b ? b.length : 0,
 	      na = a ? Math.min(nb, a.length) : 0,
 	      x = new Array(na),
@@ -12158,14 +10403,14 @@
 
 	function date(a, b) {
 	  var d = new Date;
-	  return a = +a, b -= a, function(t) {
-	    return d.setTime(a + b * t), d;
+	  return a = +a, b = +b, function(t) {
+	    return d.setTime(a * (1 - t) + b * t), d;
 	  };
 	}
 
 	function number(a, b) {
-	  return a = +a, b -= a, function(t) {
-	    return a + b * t;
+	  return a = +a, b = +b, function(t) {
+	    return a * (1 - t) + b * t;
 	  };
 	}
 
@@ -12261,7 +10506,8 @@
 	      : t === "string" ? ((c = d3Color.color(b)) ? (b = c, rgb) : string)
 	      : b instanceof d3Color.color ? rgb
 	      : b instanceof Date ? date
-	      : Array.isArray(b) ? array
+	      : isNumberArray(b) ? numberArray
+	      : Array.isArray(b) ? genericArray
 	      : typeof b.valueOf !== "function" && typeof b.toString !== "function" || isNaN(b) ? object
 	      : number)(a, b);
 	}
@@ -12282,8 +10528,8 @@
 	}
 
 	function round(a, b) {
-	  return a = +a, b -= a, function(t) {
-	    return Math.round(a + b * t);
+	  return a = +a, b = +b, function(t) {
+	    return Math.round(a * (1 - t) + b * t);
 	  };
 	}
 
@@ -12464,9 +10710,9 @@
 	  return i;
 	}
 
-	function hsl(hue$$1) {
+	function hsl(hue) {
 	  return function(start, end) {
-	    var h = hue$$1((start = d3Color.hsl(start)).h, (end = d3Color.hsl(end)).h),
+	    var h = hue((start = d3Color.hsl(start)).h, (end = d3Color.hsl(end)).h),
 	        s = nogamma(start.s, end.s),
 	        l = nogamma(start.l, end.l),
 	        opacity = nogamma(start.opacity, end.opacity);
@@ -12497,9 +10743,9 @@
 	  };
 	}
 
-	function hcl(hue$$1) {
+	function hcl(hue) {
 	  return function(start, end) {
-	    var h = hue$$1((start = d3Color.hcl(start)).h, (end = d3Color.hcl(end)).h),
+	    var h = hue((start = d3Color.hcl(start)).h, (end = d3Color.hcl(end)).h),
 	        c = nogamma(start.c, end.c),
 	        l = nogamma(start.l, end.l),
 	        opacity = nogamma(start.opacity, end.opacity);
@@ -12516,12 +10762,12 @@
 	var hcl$1 = hcl(hue);
 	var hclLong = hcl(nogamma);
 
-	function cubehelix(hue$$1) {
+	function cubehelix(hue) {
 	  return (function cubehelixGamma(y) {
 	    y = +y;
 
 	    function cubehelix(start, end) {
-	      var h = hue$$1((start = d3Color.cubehelix(start)).h, (end = d3Color.cubehelix(end)).h),
+	      var h = hue((start = d3Color.cubehelix(start)).h, (end = d3Color.cubehelix(end)).h),
 	          s = nogamma(start.s, end.s),
 	          l = nogamma(start.l, end.l),
 	          opacity = nogamma(start.opacity, end.opacity);
@@ -12562,36 +10808,37 @@
 	exports.interpolateArray = array;
 	exports.interpolateBasis = basis$1;
 	exports.interpolateBasisClosed = basisClosed;
+	exports.interpolateCubehelix = cubehelix$1;
+	exports.interpolateCubehelixLong = cubehelixLong;
 	exports.interpolateDate = date;
 	exports.interpolateDiscrete = discrete;
+	exports.interpolateHcl = hcl$1;
+	exports.interpolateHclLong = hclLong;
+	exports.interpolateHsl = hsl$1;
+	exports.interpolateHslLong = hslLong;
 	exports.interpolateHue = hue$1;
+	exports.interpolateLab = lab;
 	exports.interpolateNumber = number;
+	exports.interpolateNumberArray = numberArray;
 	exports.interpolateObject = object;
+	exports.interpolateRgb = rgb;
+	exports.interpolateRgbBasis = rgbBasis;
+	exports.interpolateRgbBasisClosed = rgbBasisClosed;
 	exports.interpolateRound = round;
 	exports.interpolateString = string;
 	exports.interpolateTransformCss = interpolateTransformCss;
 	exports.interpolateTransformSvg = interpolateTransformSvg;
 	exports.interpolateZoom = zoom;
-	exports.interpolateRgb = rgb;
-	exports.interpolateRgbBasis = rgbBasis;
-	exports.interpolateRgbBasisClosed = rgbBasisClosed;
-	exports.interpolateHsl = hsl$1;
-	exports.interpolateHslLong = hslLong;
-	exports.interpolateLab = lab;
-	exports.interpolateHcl = hcl$1;
-	exports.interpolateHclLong = hclLong;
-	exports.interpolateCubehelix = cubehelix$1;
-	exports.interpolateCubehelixLong = cubehelixLong;
 	exports.piecewise = piecewise;
 	exports.quantize = quantize;
 
 	Object.defineProperty(exports, '__esModule', { value: true });
 
-	})));
+	}));
 
 
 /***/ }),
-/* 64 */
+/* 46 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-color/ v1.4.0 Copyright 2019 Mike Bostock
@@ -13178,7 +11425,7 @@
 
 
 /***/ }),
-/* 65 */
+/* 47 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-format/ v1.4.1 Copyright 2019 Mike Bostock
@@ -13522,7 +11769,7 @@
 
 
 /***/ }),
-/* 66 */
+/* 48 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-time/ v1.1.0 Copyright 2019 Mike Bostock
@@ -13901,12 +12148,12 @@
 
 
 /***/ }),
-/* 67 */
+/* 49 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-time-format/ v2.2.1 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(66)) :
+	 true ? factory(exports, __webpack_require__(48)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-time'], factory) :
 	(global = global || self, factory(global.d3 = global.d3 || {}, global.d3));
 	}(this, function (exports, d3Time) { 'use strict';
@@ -14614,12 +12861,12 @@
 
 
 /***/ }),
-/* 68 */
+/* 50 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	// https://d3js.org/d3-scale-chromatic/ v1.5.0 Copyright 2019 Mike Bostock
 	(function (global, factory) {
-	 true ? factory(exports, __webpack_require__(63), __webpack_require__(64)) :
+	 true ? factory(exports, __webpack_require__(51), __webpack_require__(46)) :
 	typeof define === 'function' && define.amd ? define(['exports', 'd3-interpolate', 'd3-color'], factory) :
 	(global = global || self, factory(global.d3 = global.d3 || {}, global.d3, global.d3));
 	}(this, function (exports, d3Interpolate, d3Color) { 'use strict';
@@ -15141,7 +13388,585 @@
 
 
 /***/ }),
-/* 69 */
+/* 51 */
+/***/ (function(module, exports, __webpack_require__) {
+
+	// https://d3js.org/d3-interpolate/ v1.3.2 Copyright 2018 Mike Bostock
+	(function (global, factory) {
+	 true ? factory(exports, __webpack_require__(46)) :
+	typeof define === 'function' && define.amd ? define(['exports', 'd3-color'], factory) :
+	(factory((global.d3 = global.d3 || {}),global.d3));
+	}(this, (function (exports,d3Color) { 'use strict';
+
+	function basis(t1, v0, v1, v2, v3) {
+	  var t2 = t1 * t1, t3 = t2 * t1;
+	  return ((1 - 3 * t1 + 3 * t2 - t3) * v0
+	      + (4 - 6 * t2 + 3 * t3) * v1
+	      + (1 + 3 * t1 + 3 * t2 - 3 * t3) * v2
+	      + t3 * v3) / 6;
+	}
+
+	function basis$1(values) {
+	  var n = values.length - 1;
+	  return function(t) {
+	    var i = t <= 0 ? (t = 0) : t >= 1 ? (t = 1, n - 1) : Math.floor(t * n),
+	        v1 = values[i],
+	        v2 = values[i + 1],
+	        v0 = i > 0 ? values[i - 1] : 2 * v1 - v2,
+	        v3 = i < n - 1 ? values[i + 2] : 2 * v2 - v1;
+	    return basis((t - i / n) * n, v0, v1, v2, v3);
+	  };
+	}
+
+	function basisClosed(values) {
+	  var n = values.length;
+	  return function(t) {
+	    var i = Math.floor(((t %= 1) < 0 ? ++t : t) * n),
+	        v0 = values[(i + n - 1) % n],
+	        v1 = values[i % n],
+	        v2 = values[(i + 1) % n],
+	        v3 = values[(i + 2) % n];
+	    return basis((t - i / n) * n, v0, v1, v2, v3);
+	  };
+	}
+
+	function constant(x) {
+	  return function() {
+	    return x;
+	  };
+	}
+
+	function linear(a, d) {
+	  return function(t) {
+	    return a + t * d;
+	  };
+	}
+
+	function exponential(a, b, y) {
+	  return a = Math.pow(a, y), b = Math.pow(b, y) - a, y = 1 / y, function(t) {
+	    return Math.pow(a + t * b, y);
+	  };
+	}
+
+	function hue(a, b) {
+	  var d = b - a;
+	  return d ? linear(a, d > 180 || d < -180 ? d - 360 * Math.round(d / 360) : d) : constant(isNaN(a) ? b : a);
+	}
+
+	function gamma(y) {
+	  return (y = +y) === 1 ? nogamma : function(a, b) {
+	    return b - a ? exponential(a, b, y) : constant(isNaN(a) ? b : a);
+	  };
+	}
+
+	function nogamma(a, b) {
+	  var d = b - a;
+	  return d ? linear(a, d) : constant(isNaN(a) ? b : a);
+	}
+
+	var rgb = (function rgbGamma(y) {
+	  var color = gamma(y);
+
+	  function rgb(start, end) {
+	    var r = color((start = d3Color.rgb(start)).r, (end = d3Color.rgb(end)).r),
+	        g = color(start.g, end.g),
+	        b = color(start.b, end.b),
+	        opacity = nogamma(start.opacity, end.opacity);
+	    return function(t) {
+	      start.r = r(t);
+	      start.g = g(t);
+	      start.b = b(t);
+	      start.opacity = opacity(t);
+	      return start + "";
+	    };
+	  }
+
+	  rgb.gamma = rgbGamma;
+
+	  return rgb;
+	})(1);
+
+	function rgbSpline(spline) {
+	  return function(colors) {
+	    var n = colors.length,
+	        r = new Array(n),
+	        g = new Array(n),
+	        b = new Array(n),
+	        i, color;
+	    for (i = 0; i < n; ++i) {
+	      color = d3Color.rgb(colors[i]);
+	      r[i] = color.r || 0;
+	      g[i] = color.g || 0;
+	      b[i] = color.b || 0;
+	    }
+	    r = spline(r);
+	    g = spline(g);
+	    b = spline(b);
+	    color.opacity = 1;
+	    return function(t) {
+	      color.r = r(t);
+	      color.g = g(t);
+	      color.b = b(t);
+	      return color + "";
+	    };
+	  };
+	}
+
+	var rgbBasis = rgbSpline(basis$1);
+	var rgbBasisClosed = rgbSpline(basisClosed);
+
+	function array(a, b) {
+	  var nb = b ? b.length : 0,
+	      na = a ? Math.min(nb, a.length) : 0,
+	      x = new Array(na),
+	      c = new Array(nb),
+	      i;
+
+	  for (i = 0; i < na; ++i) x[i] = value(a[i], b[i]);
+	  for (; i < nb; ++i) c[i] = b[i];
+
+	  return function(t) {
+	    for (i = 0; i < na; ++i) c[i] = x[i](t);
+	    return c;
+	  };
+	}
+
+	function date(a, b) {
+	  var d = new Date;
+	  return a = +a, b -= a, function(t) {
+	    return d.setTime(a + b * t), d;
+	  };
+	}
+
+	function number(a, b) {
+	  return a = +a, b -= a, function(t) {
+	    return a + b * t;
+	  };
+	}
+
+	function object(a, b) {
+	  var i = {},
+	      c = {},
+	      k;
+
+	  if (a === null || typeof a !== "object") a = {};
+	  if (b === null || typeof b !== "object") b = {};
+
+	  for (k in b) {
+	    if (k in a) {
+	      i[k] = value(a[k], b[k]);
+	    } else {
+	      c[k] = b[k];
+	    }
+	  }
+
+	  return function(t) {
+	    for (k in i) c[k] = i[k](t);
+	    return c;
+	  };
+	}
+
+	var reA = /[-+]?(?:\d+\.?\d*|\.?\d+)(?:[eE][-+]?\d+)?/g,
+	    reB = new RegExp(reA.source, "g");
+
+	function zero(b) {
+	  return function() {
+	    return b;
+	  };
+	}
+
+	function one(b) {
+	  return function(t) {
+	    return b(t) + "";
+	  };
+	}
+
+	function string(a, b) {
+	  var bi = reA.lastIndex = reB.lastIndex = 0, // scan index for next number in b
+	      am, // current match in a
+	      bm, // current match in b
+	      bs, // string preceding current number in b, if any
+	      i = -1, // index in s
+	      s = [], // string constants and placeholders
+	      q = []; // number interpolators
+
+	  // Coerce inputs to strings.
+	  a = a + "", b = b + "";
+
+	  // Interpolate pairs of numbers in a & b.
+	  while ((am = reA.exec(a))
+	      && (bm = reB.exec(b))) {
+	    if ((bs = bm.index) > bi) { // a string precedes the next number in b
+	      bs = b.slice(bi, bs);
+	      if (s[i]) s[i] += bs; // coalesce with previous string
+	      else s[++i] = bs;
+	    }
+	    if ((am = am[0]) === (bm = bm[0])) { // numbers in a & b match
+	      if (s[i]) s[i] += bm; // coalesce with previous string
+	      else s[++i] = bm;
+	    } else { // interpolate non-matching numbers
+	      s[++i] = null;
+	      q.push({i: i, x: number(am, bm)});
+	    }
+	    bi = reB.lastIndex;
+	  }
+
+	  // Add remains of b.
+	  if (bi < b.length) {
+	    bs = b.slice(bi);
+	    if (s[i]) s[i] += bs; // coalesce with previous string
+	    else s[++i] = bs;
+	  }
+
+	  // Special optimization for only a single match.
+	  // Otherwise, interpolate each of the numbers and rejoin the string.
+	  return s.length < 2 ? (q[0]
+	      ? one(q[0].x)
+	      : zero(b))
+	      : (b = q.length, function(t) {
+	          for (var i = 0, o; i < b; ++i) s[(o = q[i]).i] = o.x(t);
+	          return s.join("");
+	        });
+	}
+
+	function value(a, b) {
+	  var t = typeof b, c;
+	  return b == null || t === "boolean" ? constant(b)
+	      : (t === "number" ? number
+	      : t === "string" ? ((c = d3Color.color(b)) ? (b = c, rgb) : string)
+	      : b instanceof d3Color.color ? rgb
+	      : b instanceof Date ? date
+	      : Array.isArray(b) ? array
+	      : typeof b.valueOf !== "function" && typeof b.toString !== "function" || isNaN(b) ? object
+	      : number)(a, b);
+	}
+
+	function discrete(range) {
+	  var n = range.length;
+	  return function(t) {
+	    return range[Math.max(0, Math.min(n - 1, Math.floor(t * n)))];
+	  };
+	}
+
+	function hue$1(a, b) {
+	  var i = hue(+a, +b);
+	  return function(t) {
+	    var x = i(t);
+	    return x - 360 * Math.floor(x / 360);
+	  };
+	}
+
+	function round(a, b) {
+	  return a = +a, b -= a, function(t) {
+	    return Math.round(a + b * t);
+	  };
+	}
+
+	var degrees = 180 / Math.PI;
+
+	var identity = {
+	  translateX: 0,
+	  translateY: 0,
+	  rotate: 0,
+	  skewX: 0,
+	  scaleX: 1,
+	  scaleY: 1
+	};
+
+	function decompose(a, b, c, d, e, f) {
+	  var scaleX, scaleY, skewX;
+	  if (scaleX = Math.sqrt(a * a + b * b)) a /= scaleX, b /= scaleX;
+	  if (skewX = a * c + b * d) c -= a * skewX, d -= b * skewX;
+	  if (scaleY = Math.sqrt(c * c + d * d)) c /= scaleY, d /= scaleY, skewX /= scaleY;
+	  if (a * d < b * c) a = -a, b = -b, skewX = -skewX, scaleX = -scaleX;
+	  return {
+	    translateX: e,
+	    translateY: f,
+	    rotate: Math.atan2(b, a) * degrees,
+	    skewX: Math.atan(skewX) * degrees,
+	    scaleX: scaleX,
+	    scaleY: scaleY
+	  };
+	}
+
+	var cssNode,
+	    cssRoot,
+	    cssView,
+	    svgNode;
+
+	function parseCss(value) {
+	  if (value === "none") return identity;
+	  if (!cssNode) cssNode = document.createElement("DIV"), cssRoot = document.documentElement, cssView = document.defaultView;
+	  cssNode.style.transform = value;
+	  value = cssView.getComputedStyle(cssRoot.appendChild(cssNode), null).getPropertyValue("transform");
+	  cssRoot.removeChild(cssNode);
+	  value = value.slice(7, -1).split(",");
+	  return decompose(+value[0], +value[1], +value[2], +value[3], +value[4], +value[5]);
+	}
+
+	function parseSvg(value) {
+	  if (value == null) return identity;
+	  if (!svgNode) svgNode = document.createElementNS("http://www.w3.org/2000/svg", "g");
+	  svgNode.setAttribute("transform", value);
+	  if (!(value = svgNode.transform.baseVal.consolidate())) return identity;
+	  value = value.matrix;
+	  return decompose(value.a, value.b, value.c, value.d, value.e, value.f);
+	}
+
+	function interpolateTransform(parse, pxComma, pxParen, degParen) {
+
+	  function pop(s) {
+	    return s.length ? s.pop() + " " : "";
+	  }
+
+	  function translate(xa, ya, xb, yb, s, q) {
+	    if (xa !== xb || ya !== yb) {
+	      var i = s.push("translate(", null, pxComma, null, pxParen);
+	      q.push({i: i - 4, x: number(xa, xb)}, {i: i - 2, x: number(ya, yb)});
+	    } else if (xb || yb) {
+	      s.push("translate(" + xb + pxComma + yb + pxParen);
+	    }
+	  }
+
+	  function rotate(a, b, s, q) {
+	    if (a !== b) {
+	      if (a - b > 180) b += 360; else if (b - a > 180) a += 360; // shortest path
+	      q.push({i: s.push(pop(s) + "rotate(", null, degParen) - 2, x: number(a, b)});
+	    } else if (b) {
+	      s.push(pop(s) + "rotate(" + b + degParen);
+	    }
+	  }
+
+	  function skewX(a, b, s, q) {
+	    if (a !== b) {
+	      q.push({i: s.push(pop(s) + "skewX(", null, degParen) - 2, x: number(a, b)});
+	    } else if (b) {
+	      s.push(pop(s) + "skewX(" + b + degParen);
+	    }
+	  }
+
+	  function scale(xa, ya, xb, yb, s, q) {
+	    if (xa !== xb || ya !== yb) {
+	      var i = s.push(pop(s) + "scale(", null, ",", null, ")");
+	      q.push({i: i - 4, x: number(xa, xb)}, {i: i - 2, x: number(ya, yb)});
+	    } else if (xb !== 1 || yb !== 1) {
+	      s.push(pop(s) + "scale(" + xb + "," + yb + ")");
+	    }
+	  }
+
+	  return function(a, b) {
+	    var s = [], // string constants and placeholders
+	        q = []; // number interpolators
+	    a = parse(a), b = parse(b);
+	    translate(a.translateX, a.translateY, b.translateX, b.translateY, s, q);
+	    rotate(a.rotate, b.rotate, s, q);
+	    skewX(a.skewX, b.skewX, s, q);
+	    scale(a.scaleX, a.scaleY, b.scaleX, b.scaleY, s, q);
+	    a = b = null; // gc
+	    return function(t) {
+	      var i = -1, n = q.length, o;
+	      while (++i < n) s[(o = q[i]).i] = o.x(t);
+	      return s.join("");
+	    };
+	  };
+	}
+
+	var interpolateTransformCss = interpolateTransform(parseCss, "px, ", "px)", "deg)");
+	var interpolateTransformSvg = interpolateTransform(parseSvg, ", ", ")", ")");
+
+	var rho = Math.SQRT2,
+	    rho2 = 2,
+	    rho4 = 4,
+	    epsilon2 = 1e-12;
+
+	function cosh(x) {
+	  return ((x = Math.exp(x)) + 1 / x) / 2;
+	}
+
+	function sinh(x) {
+	  return ((x = Math.exp(x)) - 1 / x) / 2;
+	}
+
+	function tanh(x) {
+	  return ((x = Math.exp(2 * x)) - 1) / (x + 1);
+	}
+
+	// p0 = [ux0, uy0, w0]
+	// p1 = [ux1, uy1, w1]
+	function zoom(p0, p1) {
+	  var ux0 = p0[0], uy0 = p0[1], w0 = p0[2],
+	      ux1 = p1[0], uy1 = p1[1], w1 = p1[2],
+	      dx = ux1 - ux0,
+	      dy = uy1 - uy0,
+	      d2 = dx * dx + dy * dy,
+	      i,
+	      S;
+
+	  // Special case for u0 ≅ u1.
+	  if (d2 < epsilon2) {
+	    S = Math.log(w1 / w0) / rho;
+	    i = function(t) {
+	      return [
+	        ux0 + t * dx,
+	        uy0 + t * dy,
+	        w0 * Math.exp(rho * t * S)
+	      ];
+	    };
+	  }
+
+	  // General case.
+	  else {
+	    var d1 = Math.sqrt(d2),
+	        b0 = (w1 * w1 - w0 * w0 + rho4 * d2) / (2 * w0 * rho2 * d1),
+	        b1 = (w1 * w1 - w0 * w0 - rho4 * d2) / (2 * w1 * rho2 * d1),
+	        r0 = Math.log(Math.sqrt(b0 * b0 + 1) - b0),
+	        r1 = Math.log(Math.sqrt(b1 * b1 + 1) - b1);
+	    S = (r1 - r0) / rho;
+	    i = function(t) {
+	      var s = t * S,
+	          coshr0 = cosh(r0),
+	          u = w0 / (rho2 * d1) * (coshr0 * tanh(rho * s + r0) - sinh(r0));
+	      return [
+	        ux0 + u * dx,
+	        uy0 + u * dy,
+	        w0 * coshr0 / cosh(rho * s + r0)
+	      ];
+	    };
+	  }
+
+	  i.duration = S * 1000;
+
+	  return i;
+	}
+
+	function hsl(hue$$1) {
+	  return function(start, end) {
+	    var h = hue$$1((start = d3Color.hsl(start)).h, (end = d3Color.hsl(end)).h),
+	        s = nogamma(start.s, end.s),
+	        l = nogamma(start.l, end.l),
+	        opacity = nogamma(start.opacity, end.opacity);
+	    return function(t) {
+	      start.h = h(t);
+	      start.s = s(t);
+	      start.l = l(t);
+	      start.opacity = opacity(t);
+	      return start + "";
+	    };
+	  }
+	}
+
+	var hsl$1 = hsl(hue);
+	var hslLong = hsl(nogamma);
+
+	function lab(start, end) {
+	  var l = nogamma((start = d3Color.lab(start)).l, (end = d3Color.lab(end)).l),
+	      a = nogamma(start.a, end.a),
+	      b = nogamma(start.b, end.b),
+	      opacity = nogamma(start.opacity, end.opacity);
+	  return function(t) {
+	    start.l = l(t);
+	    start.a = a(t);
+	    start.b = b(t);
+	    start.opacity = opacity(t);
+	    return start + "";
+	  };
+	}
+
+	function hcl(hue$$1) {
+	  return function(start, end) {
+	    var h = hue$$1((start = d3Color.hcl(start)).h, (end = d3Color.hcl(end)).h),
+	        c = nogamma(start.c, end.c),
+	        l = nogamma(start.l, end.l),
+	        opacity = nogamma(start.opacity, end.opacity);
+	    return function(t) {
+	      start.h = h(t);
+	      start.c = c(t);
+	      start.l = l(t);
+	      start.opacity = opacity(t);
+	      return start + "";
+	    };
+	  }
+	}
+
+	var hcl$1 = hcl(hue);
+	var hclLong = hcl(nogamma);
+
+	function cubehelix(hue$$1) {
+	  return (function cubehelixGamma(y) {
+	    y = +y;
+
+	    function cubehelix(start, end) {
+	      var h = hue$$1((start = d3Color.cubehelix(start)).h, (end = d3Color.cubehelix(end)).h),
+	          s = nogamma(start.s, end.s),
+	          l = nogamma(start.l, end.l),
+	          opacity = nogamma(start.opacity, end.opacity);
+	      return function(t) {
+	        start.h = h(t);
+	        start.s = s(t);
+	        start.l = l(Math.pow(t, y));
+	        start.opacity = opacity(t);
+	        return start + "";
+	      };
+	    }
+
+	    cubehelix.gamma = cubehelixGamma;
+
+	    return cubehelix;
+	  })(1);
+	}
+
+	var cubehelix$1 = cubehelix(hue);
+	var cubehelixLong = cubehelix(nogamma);
+
+	function piecewise(interpolate, values) {
+	  var i = 0, n = values.length - 1, v = values[0], I = new Array(n < 0 ? 0 : n);
+	  while (i < n) I[i] = interpolate(v, v = values[++i]);
+	  return function(t) {
+	    var i = Math.max(0, Math.min(n - 1, Math.floor(t *= n)));
+	    return I[i](t - i);
+	  };
+	}
+
+	function quantize(interpolator, n) {
+	  var samples = new Array(n);
+	  for (var i = 0; i < n; ++i) samples[i] = interpolator(i / (n - 1));
+	  return samples;
+	}
+
+	exports.interpolate = value;
+	exports.interpolateArray = array;
+	exports.interpolateBasis = basis$1;
+	exports.interpolateBasisClosed = basisClosed;
+	exports.interpolateDate = date;
+	exports.interpolateDiscrete = discrete;
+	exports.interpolateHue = hue$1;
+	exports.interpolateNumber = number;
+	exports.interpolateObject = object;
+	exports.interpolateRound = round;
+	exports.interpolateString = string;
+	exports.interpolateTransformCss = interpolateTransformCss;
+	exports.interpolateTransformSvg = interpolateTransformSvg;
+	exports.interpolateZoom = zoom;
+	exports.interpolateRgb = rgb;
+	exports.interpolateRgbBasis = rgbBasis;
+	exports.interpolateRgbBasisClosed = rgbBasisClosed;
+	exports.interpolateHsl = hsl$1;
+	exports.interpolateHslLong = hslLong;
+	exports.interpolateLab = lab;
+	exports.interpolateHcl = hcl$1;
+	exports.interpolateHclLong = hclLong;
+	exports.interpolateCubehelix = cubehelix$1;
+	exports.interpolateCubehelixLong = cubehelixLong;
+	exports.piecewise = piecewise;
+	exports.quantize = quantize;
+
+	Object.defineProperty(exports, '__esModule', { value: true });
+
+	})));
+
+
+/***/ }),
+/* 52 */
 /***/ (function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_RESULT__;// TinyColor v1.4.1
