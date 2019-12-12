@@ -12,20 +12,19 @@ if (ThreeForceGraph.hasOwnProperty('default')) {
   ThreeForceGraph = ThreeForceGraph.default;
 }
 
-var parseFn = function(prop) {
+var parseFn = function (prop) {
   var geval = eval; // Avoid using eval directly https://github.com/rollup/rollup/wiki/Troubleshooting#avoiding-eval
   try {
     var evalled = geval('(' + prop + ')');
     return evalled;
-  }
-  catch (e) {} // Can't eval, not a function
+  } catch (e) {} // Can't eval, not a function
   return null;
 };
 
-var parseAccessor = function(prop) {
+var parseAccessor = function (prop) {
   if (!isNaN(parseFloat(prop))) { return parseFloat(prop); } // parse numbers
   if (parseFn(prop)) { return parseFn(prop); } // parse functions
-  return prop; //strings
+  return prop; // strings
 };
 
 /**
@@ -33,64 +32,64 @@ var parseAccessor = function(prop) {
  */
 AFRAME.registerComponent('forcegraph', {
   schema: {
-    jsonUrl: {type: 'string', default: ''},
-    nodes: {parse: JSON.parse, default: '[]'},
-    links: {parse: JSON.parse, default: '[]'},
-    numDimensions: {type: 'number', default: 3},
-    dagMode: {type: 'string', default: ''},
-    dagLevelDistance: {type: 'number', default: 0},
-    nodeRelSize: {type: 'number', default: 4}, // volume per val unit
-    nodeId: {type: 'string', default: 'id'},
-    nodeLabel: {parse: parseAccessor, default: 'name'},
-    nodeDesc: {parse: parseAccessor, default: 'desc'},
-    nodeVal: {parse: parseAccessor, default: 'val'},
-    nodeResolution: {type: 'number', default: 8}, // how many slice segments in the sphere's circumference
-    nodeVisibility: {parse: parseAccessor, default: true},
-    nodeColor: {parse: parseAccessor, default: 'color'},
-    nodeAutoColorBy: {parse: parseAccessor, default: ''}, // color nodes with the same field equally
-    nodeOpacity: {type: 'number', default: 0.75},
-    nodeThreeObject: {parse: parseAccessor, default: null},
-    nodeThreeObjectExtend: {parse: parseAccessor, default: false},
-    linkSource: {type: 'string', default: 'source'},
-    linkTarget: {type: 'string', default: 'target'},
-    linkLabel: {parse: parseAccessor, default: 'name'},
-    linkDesc: {parse: parseAccessor, default: 'desc'},
-    linkHoverPrecision: {type: 'number', default: 2},
-    linkVisibility: {parse: parseAccessor, default: true},
-    linkColor: {parse: parseAccessor, default: 'color'},
-    linkAutoColorBy: {parse: parseAccessor, default: ''}, // color links with the same field equally
-    linkOpacity: {type: 'number', default: 0.2},
-    linkWidth: {parse: parseAccessor, default: 0},
-    linkResolution: {type: 'number', default: 6}, // how many radial segments in each line cylinder's geometry
-    linkCurvature: {parse: parseAccessor, default: 0},
-    linkCurveRotation: {parse: parseAccessor, default: 0},
-    linkMaterial: {parse: parseAccessor, default: null},
-    linkThreeObject: {parse: parseAccessor, default: null},
-    linkThreeObjectExtend: {parse: parseAccessor, default: false},
-    linkPositionUpdate: {parse: parseFn, default: null},
-    linkDirectionalArrowLength: {parse: parseAccessor, default: 0},
-    linkDirectionalArrowColor: {parse: parseAccessor, default: null},
-    linkDirectionalArrowRelPos: {parse: parseAccessor,  default: 0.5}, // value between 0<>1 indicating the relative pos along the (exposed) line
-    linkDirectionalArrowResolution: {type: 'number', default: 8}, // how many slice segments in the arrow's conic circumference
-    linkDirectionalParticles: {parse: parseAccessor, default: 0}, // animate photons travelling in the link direction
-    linkDirectionalParticleSpeed: {parse: parseAccessor, default: 0.01}, // in link length ratio per frame
-    linkDirectionalParticleWidth: {parse: parseAccessor, default: 0.5},
-    linkDirectionalParticleColor: {parse: parseAccessor, default: null},
-    linkDirectionalParticleResolution: {type: 'number', default: 4}, // how many slice segments in the particle sphere's circumference
-    onNodeCenterHover: {parse: parseFn, default: function() {}},
-    onLinkCenterHover: {parse: parseFn, default: function() {}},
-    forceEngine: {type: 'string', default: 'd3'}, // 'd3' or 'ngraph'
-    d3AlphaDecay: {type: 'number', default: 0.0228},
-    d3VelocityDecay: {type: 'number', default: 0.4},
-    warmupTicks: {type: 'int', default: 0}, // how many times to tick the force engine at init before starting to render
-    cooldownTicks: {type: 'int', default: 1e18}, // Simulate infinity (int parser doesn't accept Infinity object)
-    cooldownTime: {type: 'int', default: 15000}, // ms
-    onEngineTick: {parse: parseFn, default: function() {}},
-    onEngineStop: {parse: parseFn, default: function() {}}
+    jsonUrl: { type: 'string', default: '' },
+    nodes: { parse: JSON.parse, default: '[]' },
+    links: { parse: JSON.parse, default: '[]' },
+    numDimensions: { type: 'number', default: 3 },
+    dagMode: { type: 'string', default: '' },
+    dagLevelDistance: { type: 'number', default: 0 },
+    nodeRelSize: { type: 'number', default: 4 }, // volume per val unit
+    nodeId: { type: 'string', default: 'id' },
+    nodeLabel: { parse: parseAccessor, default: 'name' },
+    nodeDesc: { parse: parseAccessor, default: 'desc' },
+    nodeVal: { parse: parseAccessor, default: 'val' },
+    nodeResolution: { type: 'number', default: 8 }, // how many slice segments in the sphere's circumference
+    nodeVisibility: { parse: parseAccessor, default: true },
+    nodeColor: { parse: parseAccessor, default: 'color' },
+    nodeAutoColorBy: { parse: parseAccessor, default: '' }, // color nodes with the same field equally
+    nodeOpacity: { type: 'number', default: 0.75 },
+    nodeThreeObject: { parse: parseAccessor, default: null },
+    nodeThreeObjectExtend: { parse: parseAccessor, default: false },
+    linkSource: { type: 'string', default: 'source' },
+    linkTarget: { type: 'string', default: 'target' },
+    linkLabel: { parse: parseAccessor, default: 'name' },
+    linkDesc: { parse: parseAccessor, default: 'desc' },
+    linkHoverPrecision: { type: 'number', default: 2 },
+    linkVisibility: { parse: parseAccessor, default: true },
+    linkColor: { parse: parseAccessor, default: 'color' },
+    linkAutoColorBy: { parse: parseAccessor, default: '' }, // color links with the same field equally
+    linkOpacity: { type: 'number', default: 0.2 },
+    linkWidth: { parse: parseAccessor, default: 0 },
+    linkResolution: { type: 'number', default: 6 }, // how many radial segments in each line cylinder's geometry
+    linkCurvature: { parse: parseAccessor, default: 0 },
+    linkCurveRotation: { parse: parseAccessor, default: 0 },
+    linkMaterial: { parse: parseAccessor, default: null },
+    linkThreeObject: { parse: parseAccessor, default: null },
+    linkThreeObjectExtend: { parse: parseAccessor, default: false },
+    linkPositionUpdate: { parse: parseFn, default: null },
+    linkDirectionalArrowLength: { parse: parseAccessor, default: 0 },
+    linkDirectionalArrowColor: { parse: parseAccessor, default: null },
+    linkDirectionalArrowRelPos: { parse: parseAccessor, default: 0.5 }, // value between 0<>1 indicating the relative pos along the (exposed) line
+    linkDirectionalArrowResolution: { type: 'number', default: 8 }, // how many slice segments in the arrow's conic circumference
+    linkDirectionalParticles: { parse: parseAccessor, default: 0 }, // animate photons travelling in the link direction
+    linkDirectionalParticleSpeed: { parse: parseAccessor, default: 0.01 }, // in link length ratio per frame
+    linkDirectionalParticleWidth: { parse: parseAccessor, default: 0.5 },
+    linkDirectionalParticleColor: { parse: parseAccessor, default: null },
+    linkDirectionalParticleResolution: { type: 'number', default: 4 }, // how many slice segments in the particle sphere's circumference
+    onNodeCenterHover: { parse: parseFn, default: function () {} },
+    onLinkCenterHover: { parse: parseFn, default: function () {} },
+    forceEngine: { type: 'string', default: 'd3' }, // 'd3' or 'ngraph'
+    d3AlphaDecay: { type: 'number', default: 0.0228 },
+    d3VelocityDecay: { type: 'number', default: 0.4 },
+    warmupTicks: { type: 'int', default: 0 }, // how many times to tick the force engine at init before starting to render
+    cooldownTicks: { type: 'int', default: 1e18 }, // Simulate infinity (int parser doesn't accept Infinity object)
+    cooldownTime: { type: 'int', default: 15000 }, // ms
+    onEngineTick: { parse: parseFn, default: function () {} },
+    onEngineStop: { parse: parseFn, default: function () {} }
   },
 
   // Bind component methods
-  d3Force: function() {
+  d3Force: function () {
     if (!this.forceGraph) {
       // Got here before component init -> initialize forceGraph
       this.forceGraph = new ThreeForceGraph();
@@ -104,12 +103,12 @@ AFRAME.registerComponent('forcegraph', {
       : returnVal;
   },
 
-  d3ReheatSimulation: function() {
+  d3ReheatSimulation: function () {
     this.forceGraph && this.forceGraph.d3ReheatSimulation();
     return this;
   },
 
-  refresh: function() {
+  refresh: function () {
     this.forceGraph && this.forceGraph.refresh();
     return this;
   },
@@ -148,10 +147,10 @@ AFRAME.registerComponent('forcegraph', {
 
     // Keep reference to Three camera object
     state.cameraObj = cameraEl.object3D.children
-      .filter(function(child) { return child.type === 'PerspectiveCamera' })[0];
+      .filter(function (child) { return child.type === 'PerspectiveCamera'; })[0];
 
     // On camera switch
-    this.el.sceneEl.addEventListener('camera-set-active', function(evt) {
+    this.el.sceneEl.addEventListener('camera-set-active', function (evt) {
       // Switch camera reference
       state.cameraObj = evt.detail.cameraEl.components.camera.camera;
     });
@@ -161,13 +160,12 @@ AFRAME.registerComponent('forcegraph', {
     this.el.object3D.add(this.forceGraph);
 
     this.forceGraph
-      .onLoading(function() {
+      .onLoading(function () {
         state.infoEl.setAttribute('value', 'Loading...'); // Add loading msg
       })
-      .onFinishLoading(function() {
+      .onFinishLoading(function () {
         state.infoEl.setAttribute('value', '');
       });
-
   },
 
   remove: function () {
@@ -178,9 +176,9 @@ AFRAME.registerComponent('forcegraph', {
   },
 
   update: function (oldData) {
-    var comp = this,
-      elData = this.data,
-      diff = AFRAME.utils.diff(elData, oldData);
+    var comp = this;
+    var elData = this.data;
+    var diff = AFRAME.utils.diff(elData, oldData);
 
     var fgProps = [
       'jsonUrl',
@@ -231,8 +229,8 @@ AFRAME.registerComponent('forcegraph', {
     ];
 
     fgProps
-      .filter(function(p) { return p in diff; })
-      .forEach(function(p) { comp.forceGraph[p](elData[p] !== '' ? elData[p] : null); }); // Convert blank values into nulls
+      .filter(function (p) { return p in diff; })
+      .forEach(function (p) { comp.forceGraph[p](elData[p] !== '' ? elData[p] : null); }); // Convert blank values into nulls
 
     if ('nodes' in diff || 'links' in diff) {
       comp.forceGraph.graphData({
@@ -242,7 +240,7 @@ AFRAME.registerComponent('forcegraph', {
     }
   },
 
-  tick: function(t, td) {
+  tick: function (t, td) {
     // Update tooltip
     var centerRaycaster = new THREE.Raycaster();
     centerRaycaster.linePrecision = this.data.linkHoverPrecision;
@@ -252,12 +250,12 @@ AFRAME.registerComponent('forcegraph', {
     );
 
     var intersects = centerRaycaster.intersectObjects(this.forceGraph.children)
-      .filter(function(o) { // Check only node/link objects
+      .filter(function (o) { // Check only node/link objects
         return ['node', 'link'].indexOf(o.object.__graphObjType) !== -1;
       })
-      .sort(function(a, b) { // Prioritize nodes over links
+      .sort(function (a, b) { // Prioritize nodes over links
         return isNode(b) - isNode(a);
-        function isNode(o) { return o.object.__graphObjType === 'node'; }
+        function isNode (o) { return o.object.__graphObjType === 'node'; }
       });
 
     var topObject = intersects.length ? intersects[0].object : null;
@@ -278,8 +276,8 @@ AFRAME.registerComponent('forcegraph', {
       }
 
       this.state.hoverObj = topObject;
-      this.state.tooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Label'])(topObject.__data) || '' : '' );
-      this.state.subTooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Desc'])(topObject.__data) || '' : '' );
+      this.state.tooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Label'])(topObject.__data) || '' : '');
+      this.state.subTooltipEl.setAttribute('value', topObject ? accessorFn(this.data[topObject.__graphObjType + 'Desc'])(topObject.__data) || '' : '');
     }
 
     // Run force-graph ticker

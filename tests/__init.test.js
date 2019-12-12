@@ -29,7 +29,7 @@ setup(function () {
   // Mock renderer.
   AScene.prototype.renderer = {
     vr: {
-      getDevice: function () { return {requestPresent: function () {}}; },
+      getDevice: function () { return { requestPresent: function () {} }; },
       setDevice: function () {},
       setPoseTarget: function () {},
       enabled: false

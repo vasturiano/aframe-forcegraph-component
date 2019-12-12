@@ -9,17 +9,17 @@ module.exports = function (config) {
     browsers: ['Firefox', 'Chrome'],
     client: {
       captureConsole: true,
-      mocha: {ui: 'tdd'}
+      mocha: { ui: 'tdd' }
     },
     envPreprocessor: ['TEST_ENV'],
     files: [
       // Define test files.
-      {pattern: 'tests/**/*.test.js'},
+      { pattern: 'tests/**/*.test.js' },
       // Serve test assets.
-      {pattern: 'tests/assets/**/*', included: false, served: true}
+      { pattern: 'tests/assets/**/*', included: false, served: true }
     ],
     frameworks: ['mocha', 'sinon-chai', 'chai-shallow-deep-equal', 'browserify'],
-    preprocessors: {'tests/**/*.js': ['browserify', 'env']},
+    preprocessors: { 'tests/**/*.js': ['browserify', 'env'] },
     reporters: ['mocha']
   });
 };

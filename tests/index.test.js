@@ -11,7 +11,7 @@ suite('forcegraph component', function () {
     el = entityFactory();
     el.addEventListener('componentinitialized', function (evt) {
       if (evt.detail.name !== 'forcegraph') { return; }
-      component = el.components['forcegraph'];
+      component = el.components.forcegraph;
       done();
     });
     el.setAttribute('forcegraph', {});
