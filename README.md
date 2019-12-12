@@ -90,24 +90,15 @@ Install and use by directly including the [browser files](dist):
 ```html
 <head>
   <title>My A-Frame Scene</title>
-  <script src="https://aframe.io/releases/0.8.2/aframe.min.js"></script>
+  <script src="https://aframe.io/releases/0.9.2/aframe.min.js"></script>
   <script src="https://unpkg.com/aframe-forcegraph-component/dist/aframe-forcegraph-component.min.js"></script>
 </head>
 
 <body>
   <a-scene>
-    <a-camera></a-camera>
     <a-entity forcegraph="json-url: myGraphData.json"></a-entity>
   </a-scene>
 </body>
-```
-
-Or with [angle](https://npmjs.com/package/angle/), you can install the proper
-version of the component straight into your HTML file, respective to your
-version of A-Frame:
-
-```sh
-angle install aframe-forcegraph-component
 ```
 
 #### npm
