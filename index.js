@@ -12,7 +12,14 @@ if (ThreeForceGraph.hasOwnProperty('default')) {
   ThreeForceGraph = ThreeForceGraph.default;
 }
 
+var parseJson = function (prop) {
+  return (typeof prop === 'string')
+    ? JSON.parse(prop)
+    : prop; // already parsed
+};
+
 var parseFn = function (prop) {
+  if (typeof prop === 'function') return prop; // already a function
   var geval = eval; // Avoid using eval directly https://github.com/rollup/rollup/wiki/Troubleshooting#avoiding-eval
   try {
     var evalled = geval('(' + prop + ')');
@@ -33,8 +40,8 @@ var parseAccessor = function (prop) {
 AFRAME.registerComponent('forcegraph', {
   schema: {
     jsonUrl: { type: 'string', default: '' },
-    nodes: { parse: JSON.parse, default: '[]' },
-    links: { parse: JSON.parse, default: '[]' },
+    nodes: { parse: parseJson, default: '[]' },
+    links: { parse: parseJson, default: '[]' },
     numDimensions: { type: 'number', default: 3 },
     dagMode: { type: 'string', default: '' },
     dagLevelDistance: { type: 'number', default: 0 },
