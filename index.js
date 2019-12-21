@@ -96,6 +96,20 @@ AFRAME.registerComponent('forcegraph', {
   },
 
   // Bind component methods
+  emitParticle: function () {
+    if (!this.forceGraph) {
+      // Got here before component init -> initialize forceGraph
+      this.forceGraph = new ThreeForceGraph();
+    }
+
+    const forceGraph = this.forceGraph;
+    const returnVal = forceGraph.emitParticle.apply(forceGraph, arguments);
+
+    return returnVal === forceGraph
+      ? this // return self, not the inner forcegraph component
+      : returnVal;
+  },
+
   d3Force: function () {
     if (!this.forceGraph) {
       // Got here before component init -> initialize forceGraph
