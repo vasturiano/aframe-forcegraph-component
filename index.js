@@ -40,8 +40,8 @@ var parseAccessor = function (prop) {
 AFRAME.registerComponent('forcegraph', {
   schema: {
     jsonUrl: { type: 'string', default: '' },
-    nodes: { parse: parseJson, default: '[]' },
-    links: { parse: parseJson, default: '[]' },
+    nodes: { parse: parseJson, default: [] },
+    links: { parse: parseJson, default: [] },
     numDimensions: { type: 'number', default: 3 },
     dagMode: { type: 'string', default: '' },
     dagLevelDistance: { type: 'number', default: 0 },
