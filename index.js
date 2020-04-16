@@ -5,8 +5,12 @@ if (typeof AFRAME === 'undefined') {
 }
 
 var accessorFn = require('accessor-fn');
-var ThreeForceGraph = require('three-forcegraph');
+if (accessorFn.hasOwnProperty('default')) {
+  // unwrap default export
+  accessorFn = accessorFn.default;
+}
 
+var ThreeForceGraph = require('three-forcegraph');
 if (ThreeForceGraph.hasOwnProperty('default')) {
   // unwrap default export
   ThreeForceGraph = ThreeForceGraph.default;
@@ -86,6 +90,7 @@ AFRAME.registerComponent('forcegraph', {
     onNodeCenterHover: { parse: parseFn, default: function () {} },
     onLinkCenterHover: { parse: parseFn, default: function () {} },
     forceEngine: { type: 'string', default: 'd3' }, // 'd3' or 'ngraph'
+    d3AlphaMin: { type: 'number', default: 0 },
     d3AlphaDecay: { type: 'number', default: 0.0228 },
     d3VelocityDecay: { type: 'number', default: 0.4 },
     warmupTicks: { type: 'int', default: 0 }, // how many times to tick the force engine at init before starting to render
@@ -240,7 +245,8 @@ AFRAME.registerComponent('forcegraph', {
       'linkDirectionalParticleColor',
       'linkDirectionalParticleResolution',
       'forceEngine',
-      'd3AlphaDecay',
+      'd3AlphaMin',
+      'd3AphaDecay',
       'd3VelocityDecay',
       'warmupTicks',
       'cooldownTicks',

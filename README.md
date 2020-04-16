@@ -65,6 +65,7 @@ See also the [VR](https://github.com/vasturiano/3d-force-graph-vr) and [AR](http
 | on-node-center-hover | Callback function for node hover events at the center of the viewport. The node object (or `null` if there's no node under the central line of sight) is included as the first argument, and the previous node object (or null) as second argument. ||
 | on-link-center-hover | Callback function for link hover events at the center of the viewport. The link object (or `null` if there's no link under the central line of sight) is included as the first argument, and the previous link object (or null) as second argument. ||
 | force-engine         | Which force-simulation engine to use ([*d3*](https://github.com/vasturiano/d3-force-3d) or [*ngraph*](https://github.com/anvaka/ngraph.forcelayout)).  | d3             |
+| d3-alpha-min         | [Simulation alpha min](https://github.com/vasturiano/d3-force-3d#simulation_alphaMin) parameter, only applicable if using the d3 simulation engine. | 0 |
 | d3-alpha-decay       | [Simulation intensity decay](https://github.com/vasturiano/d3-force-3d#simulation_alphaDecay) parameter, only applicable if using the d3 simulation engine. | 0.0228 |
 | d3-velocity-decay    | Nodes' [velocity decay](https://github.com/vasturiano/d3-force-3d#simulation_velocityDecay) that simulates the medium resistance, only applicable if using the d3 simulation engine. | 0.4 |
 | warmup-ticks         | How many times to tick the force simulation engine at ignition before starting to render.                                  | 0             |
