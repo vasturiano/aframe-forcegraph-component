@@ -68,6 +68,7 @@ See also the [VR](https://github.com/vasturiano/3d-force-graph-vr) and [AR](http
 | d3-alpha-min         | [Simulation alpha min](https://github.com/vasturiano/d3-force-3d#simulation_alphaMin) parameter, only applicable if using the d3 simulation engine. | 0 |
 | d3-alpha-decay       | [Simulation intensity decay](https://github.com/vasturiano/d3-force-3d#simulation_alphaDecay) parameter, only applicable if using the d3 simulation engine. | 0.0228 |
 | d3-velocity-decay    | Nodes' [velocity decay](https://github.com/vasturiano/d3-force-3d#simulation_velocityDecay) that simulates the medium resistance, only applicable if using the d3 simulation engine. | 0.4 |
+| ngraph-physics       | Specify custom physics configuration for ngraph, according to its [configuration object](https://github.com/anvaka/ngraph.forcelayout#configuring-physics) syntax. Only applicable if using the ngraph simulation engine. | *ngraph default* |
 | warmup-ticks         | How many times to tick the force simulation engine at ignition before starting to render.                                  | 0             |
 | cooldown-ticks       | How many times to tick the force simulation engine after rendering begins before stopping and freezing the engine.         | Infinity      |
 | cooldown-time        | How long (ms) to tick the force simulation engine for after rendering begins before stopping and freezing the engine.      | 15000         |
