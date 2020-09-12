@@ -5,13 +5,13 @@ if (typeof AFRAME === 'undefined') {
 }
 
 var accessorFn = require('accessor-fn');
-if (accessorFn.hasOwnProperty('default')) {
+if ('default' in accessorFn) {
   // unwrap default export
   accessorFn = accessorFn.default;
 }
 
 var ThreeForceGraph = require('three-forcegraph');
-if (ThreeForceGraph.hasOwnProperty('default')) {
+if ('default' in ThreeForceGraph) {
   // unwrap default export
   ThreeForceGraph = ThreeForceGraph.default;
 }
