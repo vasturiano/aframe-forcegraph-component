@@ -10,7 +10,7 @@
     "dist:min": "cross-env NODE_ENV=production webpack",
     "lint": "semistandard -v | snazzy",
     "lint:fix": "semistandard --fix",
-    "prepublish": "npm run dist",
+    "prepare": "npm run dist",
     "ghpages": "ghpages",
     "start": "webpack-dev-server --host 0.0.0.0 --progress --colors --hot-only --inline --port 5000",
     "test": "karma start ./tests/karma.conf.js",
