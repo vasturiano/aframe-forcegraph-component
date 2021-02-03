@@ -284,7 +284,7 @@ AFRAME.registerComponent('forcegraph', {
   tick: function (t, td) {
     // Update tooltip
     var centerRaycaster = new THREE.Raycaster();
-    centerRaycaster.linePrecision = this.data.linkHoverPrecision;
+    centerRaycaster.params.Line.threshold = this.data.linkHoverPrecision;
     centerRaycaster.setFromCamera(
       new THREE.Vector2(0, 0), // Canvas center
       this.state.cameraObj
