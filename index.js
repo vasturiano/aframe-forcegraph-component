@@ -269,16 +269,6 @@ AFRAME.registerComponent('forcegraph', {
     const state = this.state;
     const props = this.data;
 
-    // things to do:
-    //x check if getIntersection(el) exists and gives quicker results
-    //x store hoverEvent and see if can run raycaster to its coordinates (to fix timing and node prioritization)
-    //x check raycaster config to see if can fix timing and node prioritization
-    //x check click event details
-    //x check other event types: touch...
-    //x move nodeLabel tooltip to outer example
-    // bump major version for deprecating nodeLabel, nodeCenterHover, etc
-    // check for new version of aframe component
-
     // Update hover (intersected) object
     const intersection = state.hoverDetail
       ? state.hoverDetail.getIntersection
