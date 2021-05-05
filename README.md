@@ -30,8 +30,6 @@ See also the [VR](https://github.com/vasturiano/3d-force-graph-vr) and [AR](http
 | on-dag-error         | Callback to invoke if a cycle is encountered while processing the data structure for a DAG layout. The loop segment of the graph is included for information, as an array of node ids. By default an exception will be thrown whenever a loop is encountered. | *throws exception* |
 | node-rel-size        | Node sphere volume per value unit.                                                                                         | 4             |
 | node-id              | Node object accessor attribute for unique node id (used in link objects source/target).                                    | id            |
-| node-label           | Node object accessor function or attribute for name (shown in label).                                                      | name          |
-| node-desc            | Node object accessor function or attribute for description (shown under label).                                            | desc          |
 | node-val             | Node object accessor function, attribute or a numeric constant for the node numeric value (affects sphere volume).         | val           |
 | node-resolution      | Geometric resolution of each node, expressed in how many slice segments to divide the circumference. Higher values yield smoother spheres. | 8 |
 | node-visibility      | Node object accessor function, attribute or a boolean constant for whether to display the node. | true          |
@@ -66,8 +64,10 @@ See also the [VR](https://github.com/vasturiano/3d-force-graph-vr) and [AR](http
 | link-directional-particle-width      | Link object accessor function, attribute or a numeric constant for the directional particles width. Values are rounded to the nearest decimal for indexing purposes. | 0.5 |
 | link-directional-particle-color      | Link object accessor function or attribute for the directional particles color.                            | color |
 | link-directional-particle-resolution | Geometric resolution of each directional particle, expressed in how many slice segments to divide the circumference. Higher values yield smoother particles. | 4 |
-| on-node-center-hover | Callback function for node hover events at the center of the viewport. The node object (or `null` if there's no node under the central line of sight) is included as the first argument, and the previous node object (or null) as second argument. ||
-| on-link-center-hover | Callback function for link hover events at the center of the viewport. The link object (or `null` if there's no link under the central line of sight) is included as the first argument, and the previous link object (or null) as second argument. ||
+| on-node-hover | Callback function for node hover events, using any [raycaster based](https://aframe.io/docs/1.2.0/components/raycaster.html) controller. The node object (or `null` if there's no node directly on the ray) is included as the first argument, and the previous node object (or `null`) as second argument. ||
+| on-link-hover | Callback function for link hover events, using any [raycaster based](https://aframe.io/docs/1.2.0/components/raycaster.html) controller. The link object (or `null` if there's no link directly on the ray) is included as the first argument, and the previous link object (or `null`) as second argument. ||
+| on-node-click | Callback function for node click events. The node object is included as sole argument. ||
+| on-link-click | Callback function for link click events. The link object is included as sole argument. ||
 | force-engine         | Which force-simulation engine to use ([*d3*](https://github.com/vasturiano/d3-force-3d) or [*ngraph*](https://github.com/anvaka/ngraph.forcelayout)).  | d3             |
 | d3-alpha-min         | [Simulation alpha min](https://github.com/vasturiano/d3-force-3d#simulation_alphaMin) parameter, only applicable if using the d3 simulation engine. | 0 |
 | d3-alpha-decay       | [Simulation intensity decay](https://github.com/vasturiano/d3-force-3d#simulation_alphaDecay) parameter, only applicable if using the d3 simulation engine. | 0.0228 |

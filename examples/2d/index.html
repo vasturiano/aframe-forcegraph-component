@@ -10,11 +10,23 @@
   <body>
     <a-scene stats>
       <a-camera wasd-controls="fly: true; acceleration: 1000">
-        <a-cursor color="lavender" opacity="0.5" raycaster="enabled: false"></a-cursor>
+        <a-cursor color="lavender" opacity="0.5" raycaster="objects: [forcegraph]"></a-cursor>
+        <a-text
+          id="forcegraph-tooltip"
+          position="0 -0.5 -1"
+          width="2"
+          align="center"
+          color="lavender"
+        ></a-text>
       </a-camera>
       <a-sky color="#002"></a-sky>
 
-      <a-entity forcegraph="json-url: miserables.json; num-dimensions: 2; node-label: id; node-auto-color-by: group"></a-entity>
+      <a-entity forcegraph="
+        json-url: miserables.json;
+        num-dimensions: 2;
+        node-auto-color-by: group;
+        on-node-hover: node => document.querySelector('#forcegraph-tooltip').setAttribute('value', node ? node.id : '');
+      "></a-entity>
     </a-scene>
 
     <!-- GitHub Corner. -->
