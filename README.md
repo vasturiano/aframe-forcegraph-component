@@ -40,10 +40,7 @@ See also the [VR](https://github.com/vasturiano/3d-force-graph-vr) and [AR](http
 | node-three-object-extend  | Node object accessor function, attribute or a boolean value for whether to replace the default node when using a custom `nodeThreeObject` (`false`) or to extend it (`true`). | false |
 | link-source          | Link object accessor attribute referring to id of source node.                                                             | source        |
 | link-target          | Link object accessor attribute referring to id of target node.                                                             | target        |
-| link-visibility      | Link object accessor function, attribute or a boolean constant for whether to display the link line. A value of `false` maintains the link force without rendering it. | true          |
-| link-label           | Link object accessor function or attribute for name (shown in label).                                                      | name          |
-| link-desc            | Link object accessor function or attribute for description (shown under label).                                            | desc          |
-| link-hover-precision | Whether to display the link label when gazing the link closely (low value) or from far away (high value).                  | 2             |
+| link-visibility      | Link object accessor function, attribute or a boolean constant for whether to display the link line. A value of `false` maintains the link force without rendering it. | true          |                                           | desc          |
 | link-color           | Link object accessor function or attribute for line color.                                                                 | color         |
 | link-auto-color-by   | Link object accessor function (`fn(link)`) or attribute (e.g. `'type'`) to automatically group colors by. Only affects links without a color attribute. |               |
 | link-opacity         | Line opacity of links, between [0,1].                                                                                      | 0.2           |
