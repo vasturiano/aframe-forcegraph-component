@@ -4,16 +4,24 @@
     <meta charset="utf-8">
     <title>A-Frame 3D Force-Directed Graph Component - Large graph</title>
     <meta name="description" content="Large graph example for 3D Force-Directed Graph component."></meta>
+
     <script src="https://unpkg.com/aframe"></script>
     <script src="../../dist/aframe-forcegraph-component.min.js"></script>
   </head>
   <body>
     <a-scene stats>
-      <a-camera wasd-controls="fly: true; acceleration: 3000">
-        <a-cursor color="lavender" opacity="0.5" raycaster="objects: [forcegraph]"></a-cursor>
+      <a-entity cursor="rayOrigin: mouse; mouseCursorStylesEnabled: true;" raycaster="objects: [forcegraph];"></a-entity>
+      <a-entity laser-controls="hand: left" raycaster="objects: [forcegraph]; lineColor: steelblue; lineOpacity: 0.85;"></a-entity>
+      <a-entity laser-controls="hand: right" raycaster="objects: [forcegraph]; lineColor: steelblue; lineOpacity: 0.85;"></a-entity>
+
+      <a-camera
+        look-controls="pointerLockEnabled: false"
+        wasd-controls="fly: true; acceleration: 600;"
+      >
+        <!-- <a-cursor color="lavender" opacity="0.5" raycaster="objects: [forcegraph]"></a-cursor> -->
         <a-text
           id="forcegraph-tooltip"
-          position="0 -0.5 -1"
+          position="0 -0.25 -1"
           width="2"
           align="center"
           color="lavender"
