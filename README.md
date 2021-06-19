@@ -96,7 +96,7 @@ Install and use by directly including the [browser files](dist):
 <head>
   <title>My A-Frame Scene</title>
   <script src="https://unpkg.com/aframe"></script>
-  <script src="https://unpkg.com/aframe-forcegraph-component/dist/aframe-forcegraph-component.min.js"></script>
+  <script src="https://unpkg.com/aframe-forcegraph-component"></script>
 </head>
 
 <body>
