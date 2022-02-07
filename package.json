@@ -1,6 +1,6 @@
 {
   "name": "aframe-forcegraph-component",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "A 3D Force-Directed Graph component for A-Frame.",
   "main": "index.js",
   "unpkg": "dist/aframe-forcegraph-component.min.js",
