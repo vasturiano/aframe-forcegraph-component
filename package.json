@@ -79,7 +79,7 @@
     "chai-shallow-deep-equal": "^1.4.6",
     "cross-env": "7.0.3",
     "ghpages": "^0.0.10",
-    "karma": "^4.4.1",
+    "karma": "^6.3.14",
     "karma-browserify": "^4.4.2",
     "karma-chai-shallow-deep-equal": "0.0.4",
     "karma-chrome-launcher": "2.0.0",
