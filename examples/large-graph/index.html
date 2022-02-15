@@ -31,8 +31,6 @@
 
       <a-entity forcegraph="
         json-url: blocks.json;
-        node-label: description;
-        node-desc: user;
         node-auto-color-by: user;
         on-node-hover: node => document.querySelector('#forcegraph-tooltip').setAttribute('value', node ? `${node.description} (${node.user})` : '');
       "></a-entity>
