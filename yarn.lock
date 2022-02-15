@@ -3006,8 +3006,9 @@ debug@^4.0.1, debug@^4.1.0, debug@^4.1.1:
   dependencies:
     ms "2.1.2"
 
-"debug@github:ngokevin/debug#noTimestamp":
+debug@ngokevin/debug#noTimestamp:
   version "2.2.0"
+  uid ef5f8e66d49ce8bc64c6f282c15f8b7164409e3a
   resolved "https://codeload.github.com/ngokevin/debug/tar.gz/ef5f8e66d49ce8bc64c6f282c15f8b7164409e3a"
 
 debug@~3.1.0:
@@ -3244,8 +3245,9 @@ doctrine@^3.0.0:
   dependencies:
     esutils "^2.0.2"
 
-"document-register-element@github:dmarcos/document-register-element#8ccc532b7f3744be954574caf3072a5fd260ca90":
+document-register-element@dmarcos/document-register-element#8ccc532b7f3744be954574caf3072a5fd260ca90:
   version "0.5.4"
+  uid "8ccc532b7f3744be954574caf3072a5fd260ca90"
   resolved "https://codeload.github.com/dmarcos/document-register-element/tar.gz/8ccc532b7f3744be954574caf3072a5fd260ca90"
 
 dom-serialize@^2.2.0:
@@ -4003,9 +4005,9 @@ flatten-vertex-data@^1.0.0:
     dtype "^2.0.0"
 
 follow-redirects@^1.0.0:
-  version "1.14.7"
-  resolved "https://registry.yarnpkg.com/follow-redirects/-/follow-redirects-1.14.7.tgz#2004c02eb9436eee9a21446a6477debf17e81685"
-  integrity sha512-+hbxoLbFMbRKDwohX8GkTataGqO6Jb7jGwpAlwgy2bIz25XtRm7KEzJM76R1WiNT5SwZkX4Y75SwBolkpmE7iQ==
+  version "1.14.8"
+  resolved "https://registry.yarnpkg.com/follow-redirects/-/follow-redirects-1.14.8.tgz#016996fb9a11a100566398b1c6839337d7bfa8fc"
+  integrity sha512-1x0S9UVJHsQprFcEC/qnNzBLcIxsjAV905f/UkQxbclCsoTWlacCNOpQa/anodLl2uaEKFhfWOvM2Qg77+15zA==
 
 for-in@^1.0.1, for-in@^1.0.2:
   version "1.0.2"
@@ -8092,8 +8094,9 @@ text-table@^0.2.0:
   resolved "https://registry.yarnpkg.com/text-table/-/text-table-0.2.0.tgz#7f5ee823ae805207c00af2df4a84ec3fcfa570b4"
   integrity sha1-f17oI66AUgfACvLfSoTsP8+lcLQ=
 
-"three-bmfont-text@github:dmarcos/three-bmfont-text#21d017046216e318362c48abd1a48bddfb6e0733":
+three-bmfont-text@dmarcos/three-bmfont-text#21d017046216e318362c48abd1a48bddfb6e0733:
   version "2.4.0"
+  uid "21d017046216e318362c48abd1a48bddfb6e0733"
   resolved "https://codeload.github.com/dmarcos/three-bmfont-text/tar.gz/21d017046216e318362c48abd1a48bddfb6e0733"
   dependencies:
     array-shuffle "^1.0.1"
