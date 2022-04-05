@@ -49,7 +49,7 @@ AFRAME.registerComponent('forcegraph', {
     numDimensions: { type: 'number', default: 3 },
     dagMode: { type: 'string', default: '' },
     dagLevelDistance: { type: 'number', default: 0 },
-    dagNodeFilter: { parse: parseFn, function() { return true; }},
+    dagNodeFilter: { parse: parseFn, default: function() { return true; }},
     onDagError: { parse: parseFn, default: undefined },
     nodeRelSize: { type: 'number', default: 4 }, // volume per val unit
     nodeId: { type: 'string', default: 'id' },
