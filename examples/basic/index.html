@@ -9,7 +9,7 @@
     <script src="../../dist/aframe-forcegraph-component.min.js"></script>
   </head>
   <body>
-    <a-scene stats>
+    <a-scene background="color: #002" stats>
       <a-entity cursor="rayOrigin: mouse; mouseCursorStylesEnabled: true;" raycaster="objects: [forcegraph];"></a-entity>
       <a-entity laser-controls="hand: left" raycaster="objects: [forcegraph]; lineColor: steelblue; lineOpacity: 0.85;"></a-entity>
       <a-entity laser-controls="hand: right" raycaster="objects: [forcegraph]; lineColor: steelblue; lineOpacity: 0.85;"></a-entity>
@@ -27,7 +27,6 @@
           color="lavender"
         ></a-text>
       </a-camera>
-      <a-sky color="#002"></a-sky>
 
       <a-entity forcegraph="
         json-url: miserables.json;
