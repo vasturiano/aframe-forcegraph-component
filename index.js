@@ -101,13 +101,13 @@ AFRAME.registerComponent('forcegraph', {
   },
 
   // Bind component methods
-  getGraphBbox: function() {
+  getGraphBbox: function(nodeFilterFn) {
     if (!this.forceGraph) {
       // Got here before component init -> initialize forceGraph
       this.forceGraph = new ThreeForceGraph();
     }
 
-    return this.forceGraph.getGraphBbox();
+    return this.forceGraph.getGraphBbox(nodeFilterFn);
   },
   emitParticle: function () {
     if (!this.forceGraph) {
