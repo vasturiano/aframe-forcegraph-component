@@ -6,7 +6,7 @@
 A 3D Force-Directed Graph component for [A-Frame](https://aframe.io).
 
 <p align="center">
-  <a href="https://vasturiano.github.io/aframe-forcegraph-component/">
+  <a href="https://vasturiano.github.io/aframe-forcegraph-component/examples/">
    <img width="80%" src="https://vasturiano.github.io/aframe-forcegraph-component/examples/large-graph/preview.png">
   </a>
 </p>
@@ -88,37 +88,22 @@ There are also internal methods that can be invoked via the [components object](
 
 ### Installation
 
-#### Browser
-
-Install and use by directly including the [browser files](dist):
-
+```js
+import 'aframe';
+import 'aframe-forcegraph-component';
+```
+or using a *script* tag
 ```html
-<head>
-  <title>My A-Frame Scene</title>
-  <script src="https://unpkg.com/aframe"></script>
-  <script src="https://unpkg.com/aframe-forcegraph-component"></script>
-</head>
-
+<script src="//unpkg.com/aframe"></script>
+<script src="//unpkg.com/aframe-forcegraph-component"></script>
+```
+then
+```html
 <body>
   <a-scene>
     <a-entity forcegraph="json-url: myGraphData.json"></a-entity>
   </a-scene>
 </body>
-```
-
-#### npm
-
-Install via npm:
-
-```bash
-npm install aframe-forcegraph-component
-```
-
-Then require and use.
-
-```js
-require('aframe');
-require('aframe-forcegraph-component');
 ```
 
 ## Giving Back
