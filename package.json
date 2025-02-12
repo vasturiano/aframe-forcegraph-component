@@ -47,7 +47,6 @@
     "examples/**/*"
   ],
   "dependencies": {
-    "three": ">=0.118.3",
     "three-forcegraph": "1"
   },
   "peerDependencies": {

@@ -1361,9 +1361,9 @@ isexe@^2.0.0:
   integrity sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw==
 
 jackspeak@^4.0.1:
-  version "4.0.2"
-  resolved "https://registry.yarnpkg.com/jackspeak/-/jackspeak-4.0.2.tgz#11f9468a3730c6ff6f56823a820d7e3be9bef015"
-  integrity sha512-bZsjR/iRjl1Nk1UkjGpAzLNfQtzuijhn2g+pbZb98HQ1Gk8vM9hfbxeMBP+M2/UUdwj0RqGG3mlvk2MsAqwvEw==
+  version "4.0.3"
+  resolved "https://registry.yarnpkg.com/jackspeak/-/jackspeak-4.0.3.tgz#8a21082b8c019e7a0a8187ad8b736609bc85ab18"
+  integrity sha512-oSwM7q8PTHQWuZAlp995iPpPJ4Vkl7qT0ZRD+9duL9j2oBy6KcTfyxc8mEuHJYC+z/kbps80aJLkaNzTOrf/kw==
   dependencies:
     "@isaacs/cliui" "^8.0.2"
 
@@ -1723,11 +1723,6 @@ three-forcegraph@1:
     ngraph.forcelayout "3"
     ngraph.graph "20"
     tinycolor2 "1"
-
-three@>=0.118.3:
-  version "0.173.0"
-  resolved "https://registry.yarnpkg.com/three/-/three-0.173.0.tgz#e82989961cd2db05768540458c81b29f565be921"
-  integrity sha512-AUwVmViIEUgBwxJJ7stnF0NkPpZxx1aZ6WiAbQ/Qq61h6I9UR4grXtZDmO8mnlaNORhHnIBlXJ1uBxILEKuVyw==
 
 tinycolor2@1:
   version "1.6.0"
