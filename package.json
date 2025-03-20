@@ -4,6 +4,7 @@
   "description": "A 3D Force-Directed Graph component for A-Frame.",
   "type": "module",
   "unpkg": "dist/aframe-forcegraph-component.min.js",
+  "jsdelivr": "dist/aframe-forcegraph-component.min.js",
   "main": "dist/aframe-forcegraph-component.mjs",
   "module": "dist/aframe-forcegraph-component.mjs",
   "exports": {
@@ -53,14 +54,14 @@
     "aframe": "*"
   },
   "devDependencies": {
-    "@babel/core": "^7.26.8",
-    "@babel/preset-env": "^7.26.8",
+    "@babel/core": "^7.26.10",
+    "@babel/preset-env": "^7.26.9",
     "@rollup/plugin-babel": "^6.0.4",
-    "@rollup/plugin-commonjs": "^28.0.2",
-    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-commonjs": "^28.0.3",
+    "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-terser": "^0.4.4",
     "rimraf": "^6.0.1",
-    "rollup": "^4.34.6"
+    "rollup": "^4.36.0"
   },
   "engines": {
     "node": ">=12"
