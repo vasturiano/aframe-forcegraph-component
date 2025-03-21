@@ -94,8 +94,8 @@ import 'aframe-forcegraph-component';
 ```
 or using a *script* tag
 ```html
-<script src="//unpkg.com/aframe"></script>
-<script src="//unpkg.com/aframe-forcegraph-component"></script>
+<script src="//cdn.jsdelivr.net/npm/aframe"></script>
+<script src="//cdn.jsdelivr.net/npm/aframe-forcegraph-component"></script>
 ```
 then
 ```html
