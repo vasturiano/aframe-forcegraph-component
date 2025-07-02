@@ -75,9 +75,11 @@ if (!AFRAME.components.hasOwnProperty('forcegraph')) {
       linkDirectionalArrowResolution: {type: 'number', default: 8}, // how many slice segments in the arrow's conic circumference
       linkDirectionalParticles: {parse: parseAccessor, default: 0}, // animate photons travelling in the link direction
       linkDirectionalParticleSpeed: {parse: parseAccessor, default: 0.01}, // in link length ratio per frame
+      linkDirectionalParticleOffset: {parse: parseAccessor, default: 0},
       linkDirectionalParticleWidth: {parse: parseAccessor, default: 0.5},
       linkDirectionalParticleColor: {parse: parseAccessor, default: null},
       linkDirectionalParticleResolution: {type: 'number', default: 4}, // how many slice segments in the particle sphere's circumference
+      linkDirectionalParticleThreeObject: {parse: parseAccessor, default: null},
       onNodeHover: {
         parse: parseFn, default: () => {
         }
@@ -249,9 +251,11 @@ if (!AFRAME.components.hasOwnProperty('forcegraph')) {
         'linkDirectionalArrowResolution',
         'linkDirectionalParticles',
         'linkDirectionalParticleSpeed',
+        'linkDirectionalParticleOffset',
         'linkDirectionalParticleWidth',
         'linkDirectionalParticleColor',
         'linkDirectionalParticleResolution',
+        'linkDirectionalParticleThreeObject',
         'forceEngine',
         'd3AlphaMin',
         'd3AphaDecay',
